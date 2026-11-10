@@ -29,6 +29,7 @@ with sync_playwright() as p:
     pg.screenshot(path='/tmp/shots/stafford-3bc4.png')
     # stepping through the moves of one line, chess-viewer style
     pg.click('summary:has-text("Every line")'); pg.wait_for_timeout(400)
+    pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)      # the numbered list view
     pg.click('[data-act=goline][data-u="0"]'); pg.wait_for_timeout(500)
     mv = lambda t: t.split('\u00b7')[-1].strip()
     full = mv(pg.inner_text('#path'))
@@ -52,5 +53,20 @@ with sync_playwright() as p:
     pg.fill('#paste', '1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6')
     pg.click('[data-act=paste]'); pg.wait_for_timeout(900)
     check('pasted line is added and aligned', pg.inner_text('#path').endswith('c3 Nf6'), pg.inner_text('#path')[-40:])
+    # the repertoire tree (the details is already open — clicking its summary again would close it)
+    pg.click('[data-act=viewtree]'); pg.wait_for_timeout(500)
+    nodes0 = pg.locator('.tnode').count()
+    if nodes0:
+        check('tree shows a row per saved move', nodes0 > 10, str(nodes0))
+        check('tree numbers every line', pg.locator('.tnode .ln').count() > 0, str(pg.locator('.tnode .ln').count()))
+        check('tree marks the branches', pg.locator('.tnode .cnt').count() > 0, str(pg.locator('.tnode .cnt').count()))
+        pg.locator('[data-act=tnode]').nth(6).click(); pg.wait_for_timeout(500)
+        check('clicking a tree node jumps to that move', len(mv(pg.inner_text('#path'))) > 8, pg.inner_text('#path')[-40:])
+        pg.locator('[data-act=tfold]').nth(1).click(); pg.wait_for_timeout(400)
+        check('folding a branch hides its moves', pg.locator('.tnode').count() < nodes0, f'{nodes0} -> {pg.locator(".tnode").count()}')
+        pg.locator('[data-act=tfold]').nth(1).click(); pg.wait_for_timeout(400)
+        pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)
+        check('Lines view still lists them', pg.locator('.rowline').count() > 0, str(pg.locator('.rowline').count()))
+        pg.click('[data-act=viewtree]'); pg.wait_for_timeout(300)
     print('console/page errors:', errs or 'none'); b.close()
 print(sum(1 for r in results if r[1]), '/', len(results))

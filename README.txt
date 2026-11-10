@@ -123,6 +123,19 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+THE REPERTOIRE IS SHOWN AS A TREE (v12)
+- "Every line in this repertoire" was a flat list of 33 SAN strings that mostly repeated the same first six moves,
+  so you could not see where lines actually part company. It now opens on a tree: one row per saved move, indented
+  by ply, with a caret to fold a branch, the branch count and line count on every branch point, the line number on
+  every leaf, a dot for a note, the ⚠ for an engine warning, and the current path picked out in the accent colour.
+  Click a move to jump the board there; ↑ makes that branch the first one (which is what numbers the learned lines);
+  ✕ deletes the move and everything only it reached. Folding is remembered per node while the repertoire is open.
+- The numbered flat list is still one click away behind the Tree | Lines (N) toggle — the line numbers on the tree
+  leaves are the same numbers Walk says out loud ("Line 7 of 33"), so nothing about learning changes. Bulk select,
+  delete and copy-to-another-pack live in that Lines view.
+- Counts only appear where they carry information: a node with one child says nothing, a branch point says
+  "3 branches · 33 lines", a leaf says "line 12".
+
 THE PHONE BUILD HAS NO EDITOR TAB (v11)
 - Capacitor builds (`window.Capacitor.isNativePlatform()` or a `capacitor:` protocol) drop the Editor tab and open in
   Learn instead; a saved "editor" tab in storage is ignored there, and the New-repertoire button is hidden because an

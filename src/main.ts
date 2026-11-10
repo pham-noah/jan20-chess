@@ -14,6 +14,7 @@ import { parsePgn, startingPosition } from 'chessops/pgn';
 import { chessgroundDests } from 'chessops/compat';
 import { fsrs, createEmptyCard, Rating } from 'ts-fsrs';
 import { engine } from './engine';
+import { initFile, readFile, writeSoon, writeNow, fileState, linkFile, unlinkFile, filePicking, fileNative } from './localfile';
 import { toEngine, fenOf, fromFen } from './uci';
 import { PuzzleRun, parseCsvLine, humanTheme, sanLine, type Puzzle } from './puzzle';
 import { DrillRun, type DrillDef, type DrillEnd } from './drill';
@@ -78,7 +79,10 @@ let wLines: string[][] = [], wIdx = 0, wBack = 0;
 let aRun: ArenaRun | undefined, aBusy = false;
 
 let timer: any;
-const flush = () => { kvSet('reps', reps); kvSet('cur', cur?.id); kvSet('settings', S); kvSet('pcards', pcards); kvSet('pstats', pstats); kvSet('ecards', ecards); kvSet('egcustom', egCustom); };
+const flush = () => {
+  kvSet('reps', reps); kvSet('cur', cur?.id); kvSet('settings', S); kvSet('pcards', pcards); kvSet('pstats', pstats); kvSet('ecards', ecards); kvSet('egcustom', egCustom);
+  if (fileNative() || fileState().kind === 'browser') writeSoon(stateJson());
+};
 const save = () => { clearTimeout(timer); timer = setTimeout(flush, 120); };
 addEventListener('pagehide', flush);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
@@ -412,7 +416,8 @@ async function download(name: string, text: string, type = 'application/json') {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 const exportPgn = () => cur && download(`${cur.name}.pgn`, `[Event "${cur.name.replace(/"/g, '')}"]\n[Orientation "${cur.color}"]\n\n${pgnLine(START, 0, false, new Set())} *\n`, 'application/x-chess-pgn');
-const exportAll = () => download(`jan20-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ app: 'jan20', v: 3, exported: new Date().toISOString(), settings: S, reps, tactics: { cards: pcards, stats: pstats, imported }, endgames: { cards: ecards, custom: egCustom } }));
+const stateJson = () => JSON.stringify({ app: 'jan20', v: 3, exported: new Date().toISOString(), settings: S, reps, tactics: { cards: pcards, stats: pstats, imported }, endgames: { cards: ecards, custom: egCustom } });
+const exportAll = () => download(`jan20-backup-${new Date().toISOString().slice(0, 10)}.json`, stateJson());
 
 /* ---------- Build ---------- */
 const snapRep = () => ({ moves: structuredClone(cur!.moves), notes: structuredClone(cur!.notes ?? {}), bad: structuredClone(cur!.bad ?? {}) });
@@ -634,9 +639,12 @@ function renderBuild() {
   const others = reps.filter(r => r.id !== cur!.id);
   const rows = lines.map((l, i) =>
     `<div class="rowline ${i === 0 ? 'first' : ''}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lhtml[i]}</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
-  const lineList = `<div class="linehead"><h3>Lines (${lines.length})</h3><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
-    <div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
-    ${lines.length ? `<div class="row mini"><button data-act="selall">${picked.size ? 'Clear selection' : 'Select all'}</button><button data-act="delpick" class="danger" ${picked.size ? '' : 'disabled'}>Delete selected</button>${others.length ? `<select id="copytarget" aria-label="Copy the selected lines into another pack"><option value="">Copy to…</option>${others.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><button data-act="copypick" ${picked.size ? '' : 'disabled'}>Copy</button>` : ''}</div>` : ''}`;
+  const lineList = `<div class="linehead"><h3>Repertoire tree</h3><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
+    <div class="seg viewseg" role="tablist"><button data-act="viewtree" class="${treeView ? 'on' : ''}">Tree</button><button data-act="viewlines" class="${treeView ? '' : 'on'}">Lines (${lines.length})</button></div>
+    ${treeView
+      ? `<div class="tree">${treeMarkup()}</div><p class="dim">Click a move to jump there · ▾ folds a branch · ↑ makes it the first branch · ✕ cuts it and everything only it reached.</p>`
+      : `<div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
+    ${lines.length ? `<div class="row mini"><button data-act="selall">${picked.size ? 'Clear selection' : 'Select all'}</button><button data-act="delpick" class="danger" ${picked.size ? '' : 'disabled'}>Delete selected</button>${others.length ? `<select id="copytarget" aria-label="Copy the selected lines into another pack"><option value="">Copy to…</option>${others.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><button data-act="copypick" ${picked.size ? '' : 'disabled'}>Copy</button>` : ''}</div>` : ''}`}`;
   $('#act').innerHTML = `<div class="chips">${chips || '<span class="dim">No saved moves from this position yet.</span>'}</div>
     ${editor}
     <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
@@ -753,6 +761,87 @@ function buildStep(d: number) {
   const want = wLines[bIdx]?.[line.length];
   const next = want && here.includes(want) ? want : here[0];
   if (next) { line.push(next); renderBuild(); }
+}
+/** The repertoire as a tree: every saved move is an edge, every position a node. */
+type TNode = { k: string; pk?: string; u?: string; san?: string; ply: number; kids: TNode[]; leaves: number; plies: number };
+function repertoireTree(): TNode {
+  const mk = (k: string, ply: number, pk?: string, u?: string, san?: string): TNode => {
+    const node: TNode = { k, pk, u, san, ply, kids: [], leaves: 0, plies: 0 };
+    for (const [cu, cs] of Object.entries(cur?.moves[k] || {})) {
+      const p = fromKey(k); const m = parseUci(cu); if (!m) continue; p.play(m);
+      node.kids.push(mk(key(p), ply + 1, k, cu, cs));
+    }
+    node.leaves = node.kids.length ? node.kids.reduce((a, c) => a + c.leaves, 0) : 1;
+    node.plies = 1 + (node.kids.length ? Math.max(...node.kids.map(c => c.plies)) : 0);
+    return node;
+  };
+  return mk(START, 0);
+}
+let treeView = true;                     // tree is the default view of the repertoire
+const collapsed = new Set<string>();     // nodes folded away, by path
+/** Render the tree: indent per ply, counts per branch, line number on every leaf. */
+function treeMarkup(): string {
+  const root = repertoireTree();
+  if (!root.kids.length) return '<p class="dim">No moves yet. Play a move to start one.</p>';
+  let lineNo = 0;
+  const out: string[] = [];
+  const walk = (n: TNode, depth: number, path: string[]) => {
+    for (const c of n.kids) {
+      const here = [...path, c.u!], id = here.join(' ');
+      const leaf = !c.kids.length;
+      if (leaf) lineNo++;
+      const folded = collapsed.has(id);
+      const onPath = here.every((u, i) => line[i] === u);
+      const isNow = onPath && here.length === line.length;
+      const note = cur?.notes?.[c.pk! + '|' + c.u!];
+      const bad = cur?.bad?.[c.pk! + '|' + c.u!];
+      const caret = c.kids.length ? `<button class="caret" data-act="tfold" data-u="${id}" aria-label="${folded ? 'Expand' : 'Collapse'} ${esc(c.san!)}">${folded ? '▸' : '▾'}</button>` : '<span class="caret"></span>';
+      const num = c.ply % 2 === 1 ? `<span class="n">${Math.floor(c.ply / 2) + 1}.</span>` : '<span class="n">…</span>';
+      const cnt = leaf ? `<span class="ln">line ${lineNo}</span>`
+        : c.kids.length > 1 ? `<span class="cnt">${c.kids.length} branches · ${c.leaves} line${c.leaves === 1 ? '' : 's'}</span>`
+        : '';
+      out.push(`<div class="tnode ${onPath ? 'on' : ''} ${isNow ? 'now' : ''}" style="--d:${Math.min(depth, 12)}">
+        ${caret}<button class="tsan ${c.ply % 2 === 1 ? 'mine' : 'opp'}" data-act="tnode" data-u="${id}" title="Go to this move">${num}${esc(c.san!)}</button>
+        ${note ? '<b class="dot" title="Has a note">•</b>' : ''}${bad ? `<b class="warn" title="About ${(bad / 100).toFixed(1)} worse than the best move here">⚠</b>` : ''}
+        ${cnt}
+        <span class="tacts"><button data-act="tpromo" data-u="${id}" title="Make this the first branch here" aria-label="Make ${esc(c.san!)} the first branch here">↑</button><button data-act="tcut" data-u="${id}" title="Delete this move and everything only it reached" aria-label="Delete ${esc(c.san!)}">✕</button></span>
+      </div>`);
+      if (!folded && c.kids.length) walk(c, depth + 1, here);
+    }
+  };
+  walk(root, 0, []);
+  return out.join('');
+}
+/** Move the board to an arbitrary point in the tree. */
+function openNode(path: string[]) {
+  const lines = walkLines(); if (!lines.length) return;
+  line = [...path];
+  const hit = lines.findIndex(l => path.every((u, i) => l[i] === u));
+  if (hit >= 0) bIdx = hit;
+  renderBuild();
+}
+/** Delete one move anywhere in the tree, then prune what only it reached. */
+function cutAt(path: string[]) {
+  if (!cur || !path.length) return;
+  const parent = path.slice(0, -1), u = path[path.length - 1];
+  const p = Chess.default(); for (const x of parent) p.play(parseUci(x)!);
+  const k = key(p), san = cur.moves[k]?.[u]; if (!san) return;
+  const snap = snapRep();
+  delete cur.moves[k][u]; if (!Object.keys(cur.moves[k]).length) delete cur.moves[k];
+  const gone = pruneUnreachable();
+  line = parent; save(); renderBuild();
+  undoable(`Removed ${san}${gone ? ` and ${gone} position${gone === 1 ? '' : 's'} below it` : ''}`, snap);
+}
+/** Make one branch the first among its siblings (that ordering numbers the learned lines). */
+function promoteAt(path: string[]) {
+  if (!cur || !path.length) return;
+  const parent = path.slice(0, -1), u = path[path.length - 1];
+  const p = Chess.default(); for (const x of parent) p.play(parseUci(x)!);
+  const k = key(p), mv = cur.moves[k]; if (!mv || !mv[u] || Object.keys(mv)[0] === u) return;
+  const snap = snapRep();
+  const rest = Object.entries(mv).filter(([x]) => x !== u);
+  cur.moves[k] = { [u]: mv[u], ...Object.fromEntries(rest) };
+  save(); renderBuild(); undoable(`“${mv[u]}” is now the first branch here.`, snap);
 }
 const lineKey = (l: string[]) => l.join(' ');
 const seenLine = (l: string[]) => !!(cur?.seen ?? {})[lineKey(l)];
@@ -1210,6 +1299,20 @@ function updatePack(p: Pack) {
     toast(`Updated ${p.name}: ${lines} lines, ${Object.keys(fresh.moves).length} positions.`, { ms: 6000 });
   });
 }
+/** One line in Settings that says where the live file is and when it was last written. */
+function showFileState() {
+  const f = fileState(), el = $('#s-file'), link = $('#s-link'), un = $('#s-unlink');
+  if (!el) return;
+  const when = f.when ? ` · last write ${f.when}` : '';
+  el.textContent = f.kind === 'tauri'
+    ? `Every change is written straight to ${f.path}${when}.${f.note ? ' ' + f.note + '.' : ''}`
+    : f.kind === 'browser'
+      ? f.path ? `Writing to ${f.path}${when}.${f.note ? ' ' + f.note + '.' : ''}` : 'Pick a file once — after that every change is written into it, no export.'
+      : 'This browser cannot write files. Use the desktop app, or Export backup.';
+  if (link) link.hidden = !filePicking() || !!(f.kind === 'browser' && f.path);
+  if (un) un.hidden = !(f.kind === 'browser' && f.path);
+}
+
 function openSettings() {
   $('#s-new').value = S.newCap; $('#s-ret').value = String(S.retention); $('#s-theme').value = S.theme; $('#s-delay').value = String(S.learnDelay);
   $('#s-san').checked = S.san; $('#s-install').hidden = !deferredInstall; $('#s-expl').checked = S.explain; $('#s-app').value = S.appearance; $('#s-pieces').value = S.pieces; $('#s-sound').checked = S.sound;
@@ -1218,6 +1321,7 @@ function openSettings() {
   $('#s-pinfo').textContent = `${STARTER.length + TRAPS.length} built in (${TRAPS.length} repertoire traps) · ${imported.length} imported · rating ${Math.round(pstats.rating)}`;
   $('#s-build').textContent = `Build ${__BUILD__}`;
   $('#s-info').textContent = `${reps.length} repertoires · ${reps.reduce((a, r) => a + Object.keys(r.cards).length, 0)} cards scheduled. Data stays on this device.`;
+  showFileState();
   $('#set').showModal();
 }
 $('#set').addEventListener('change', () => {
@@ -1281,6 +1385,12 @@ document.addEventListener('click', e => {
   else if (a === 'goline') buildLine(+u);
   else if (a === 'bprev') buildLine(bIdx - 1);
   else if (a === 'bnext') buildLine(bIdx + 1);
+  else if (a === 'viewtree') { treeView = true; renderBuild(); }
+  else if (a === 'viewlines') { treeView = false; renderBuild(); }
+  else if (a === 'tnode') openNode(u.split(' ').filter(Boolean));
+  else if (a === 'tfold') { if (collapsed.has(u)) collapsed.delete(u); else collapsed.add(u); renderBuild(); }
+  else if (a === 'tcut') cutAt(u.split(' ').filter(Boolean));
+  else if (a === 'tpromo') promoteAt(u.split(' ').filter(Boolean));
   else if (a === 'mprev') buildStep(-1);
   else if (a === 'mnext') buildStep(1);
   else if (a === 'undo2') doUndo();
@@ -1319,6 +1429,9 @@ document.addEventListener('click', e => {
   else if (a === 'pgn') importPgn($('#pgn').value);
   else if (a === 'exportpgn') exportPgn();
   else if (a === 'exportall') exportAll();
+  else if (a === 'linkfile') void linkFile({ kvGet, kvSet }).then(() => { showFileState(); void writeNow(stateJson()); }).catch(() => toast('No file chosen.', { ms: 2000 }));
+  else if (a === 'unlinkfile') void unlinkFile({ kvGet, kvSet }).then(showFileState);
+  else if (a === 'savefile') void writeNow(stateJson()).then(ok => toast(ok ? 'Written to the file.' : 'There is no file to write to yet.', { ms: 2400 }));
   else if (a === 'import-merge') pickFile('merge');
   else if (a === 'import-replace') pickFile('replace');
   else if (a === 'import-pgn') { if (!cur) return toast('Create or select a repertoire first.', { kind: 'bad' }); pickFile('pgn'); }
@@ -1487,6 +1600,19 @@ async function init() {
   if (!reps.length) { try { const old = JSON.parse(localStorage.getItem('reps') || '[]'); if (old.length) reps = old; } catch { /* ignore */ } }
   reps.forEach(r => { r.notes ??= {}; r.cards ??= {}; });
   S = { ...DEF, ...((await kvGet('settings')) ?? {}) };
+  // the live file is the source of truth on the desktop
+  const fs = await initFile({ kvGet, kvSet });
+  if (fs.kind === 'tauri') {
+    const onDisk = await readFile();
+    if (onDisk?.reps?.length) {
+      reps = onDisk.reps; reps.forEach((r: Rep) => { r.notes ??= {}; r.cards ??= {}; });
+      if (onDisk.settings) S = { ...S, ...onDisk.settings };
+      if (onDisk.tactics) { pcards = onDisk.tactics.cards ?? {}; pstats = { ...pstats, ...(onDisk.tactics.stats ?? {}) }; imported = onDisk.tactics.imported ?? []; }
+      if (onDisk.endgames) { ecards = onDisk.endgames.cards ?? {}; egCustom = onDisk.endgames.custom ?? []; }
+      console.log('Loaded', reps.length, 'repertoires from', fs.path);
+    }
+    kvSet('reps', reps);
+  }
   imported = (await kvGet('puzzles')) ?? []; pcards = (await kvGet('pcards')) ?? {}; pstats = { ...pstats, ...((await kvGet('pstats')) ?? {}) };
   ecards = (await kvGet('ecards')) ?? {}; egCustom = (await kvGet('egcustom')) ?? [];
   const id = await kvGet('cur'); cur = reps.find(r => r.id === id) ?? reps[0];
@@ -1497,6 +1623,7 @@ async function init() {
   const ui = await kvGet('ui');
   const first: Mode = EDIT_TABS.includes(ui?.mode) ? ui.mode : NATIVE ? 'learn' : 'build';
   applySettings(); enter(first);
+  if (fs.kind === 'tauri') writeSoon(stateJson(), 150);     // touch the file at start-up so it always exists
   if (!S.welcomed) { S.welcomed = true; save(); if (!reps.length) $('#welcome').showModal(); }
 }
 init();
