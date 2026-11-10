@@ -26,7 +26,7 @@ with sync_playwright() as p:
     pg.click('#toast-a'); pg.wait_for_timeout(300)
     check('Undo restores the move', pg.locator('[data-act=go]').count() >= 1 and 'e4' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
     # custom confirm for deleting a repertoire
-    pg.click('summary'); pg.click('[data-act=delrep]'); pg.wait_for_timeout(300)
+    pg.click('summary:has-text("More")'); pg.click('[data-act=delrep]'); pg.wait_for_timeout(300)
     check('delete asks with a styled dialog', pg.locator('#ask[open]').count() == 1 and 'Delete' in pg.inner_text('#ask-ok'), pg.inner_text('#ask'))
     pg.screenshot(path='/tmp/shots/polish-ask.png')
     pg.click('#ask-no'); pg.wait_for_timeout(300)

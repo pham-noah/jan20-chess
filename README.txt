@@ -91,6 +91,15 @@ WALK IS A NUMBERED WALKTHROUGH (v9)
   Next line jumps forward, Start over returns to line 1. The line you were on is remembered per repertoire.
 - Drill and Time still pick random lines and random replies: that is their point.
 
+EDITING A REPERTOIRE (v9)
+- Build keeps the whole tree: play a move at any position (either colour) to add it, play a second reply there to
+  branch, so one opening can hold every line you know.
+- Deleting a move used to leave its whole continuation orphaned in storage; it now removes that branch and every
+  position only it reached. Both deletes are undoable and report what went ("Removed d5 and 7 positions below it").
+- "Every line in this repertoire" under Build lists the numbered lines with the variant move picked out, and each
+  row has a ✕ that removes just that line — it cuts the move where the line leaves the others.
+- To replace a move: delete it and play the new one. There is no in-place rename or re-ordering of lines.
+
 PRE-MOVES (v9)
 - While the opponent is thinking (Learn Walk/Drill/Time/Arena and Endgames) you can already play your next move:
   drag it or tap from/to, and the squares light up in amber. The moment your turn comes back it is played.

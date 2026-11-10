@@ -378,6 +378,47 @@ const exportPgn = () => cur && download(`${cur.name}.pgn`, `[Event "${cur.name.r
 const exportAll = () => download(`jan20-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ app: 'jan20', v: 3, exported: new Date().toISOString(), settings: S, reps, tactics: { cards: pcards, stats: pstats, imported }, endgames: { cards: ecards, custom: egCustom } }));
 
 /* ---------- Build ---------- */
+const snapRep = () => ({ moves: structuredClone(cur!.moves), notes: structuredClone(cur!.notes ?? {}) });
+type RepSnap = { moves: any; notes: any };
+function undoable(text: string, snap: RepSnap) {
+  toast(text, { action: 'Undo', onAction: () => { cur!.moves = snap.moves; cur!.notes = snap.notes; save(); if (mode === 'build') renderBuild(); } });
+}
+/** Drop every position that can no longer be reached from the start (deleting a move used to leave them behind). */
+function pruneUnreachable(): number {
+  if (!cur) return 0;
+  const seen = new Set([START]); const q = [START];
+  while (q.length) {
+    const k = q.shift()!;
+    for (const u of Object.keys(cur.moves[k] || {})) {
+      const p = fromKey(k); p.play(parseUci(u)!); const nk = key(p);
+      if (!seen.has(nk)) { seen.add(nk); q.push(nk); }
+    }
+  }
+  let gone = 0;
+  for (const k of Object.keys(cur.moves)) if (!seen.has(k)) { delete cur.moves[k]; gone++; }
+  for (const nk of Object.keys(cur.notes || {})) if (!seen.has(nk.split('|')[0])) delete cur.notes![nk];
+  return gone;
+}
+/** Remove a whole numbered line: cut the move where it leaves every other line, then prune. */
+function deleteLine(i: number): boolean {
+  const lines = walkLines(); const l = lines[i]; if (!cur || !l) return false;
+  let common = 0;
+  lines.forEach((o, j) => {
+    if (j === i) return; let k = 0;
+    while (k < l.length && k < o.length && l[k] === o[k]) k++;
+    if (k > common) common = k;
+  });
+  if (common >= l.length) return false;                 // a duplicate of another line: nothing unique to cut
+  const p = Chess.default(); for (const u of l.slice(0, common)) p.play(parseUci(u)!);
+  const k = key(p), u = l[common], san = cur.moves[k]?.[u]; if (!san) return false;
+  const snap = snapRep();
+  delete cur.moves[k][u]; if (!Object.keys(cur.moves[k]).length) delete cur.moves[k];
+  const gone = pruneUnreachable();
+  save(); renderBuild();
+  undoable(`Removed line ${i + 1} (${san})${gone ? ` and ${gone} position${gone === 1 ? '' : 's'} below it` : ''}`, snap);
+  return true;
+}
+
 function renderBuild() {
   pos = Chess.default(); last = undefined; lastKey = undefined; lastSan = '';
   for (const u of line) { const m = parseUci(u)!; lastKey = key(pos); lastSan = makeSan(pos, m); pos.play(m); last = u; }
@@ -389,10 +430,14 @@ function renderBuild() {
   const chips = Object.entries(mv).map(([u, s]) =>
     `<span class="chip"><button data-act="go" data-u="${u}">${esc(s)}</button><button data-act="del" data-u="${u}" aria-label="Delete ${esc(s)}">✕</button></span>`).join('');
   const editor = last ? `<label class="field">Note for ${esc(lastSan)}<textarea id="note-ed" maxlength="800" placeholder="Why this move? Plans, traps, what to remember.">${esc(noteOf(lastKey, last))}</textarea></label>` : '';
+  const lines = walkLines(); const lhtml = lines.map((l, i) => lineHtml(l, lines[i - 1]));
+  const lineList = `<h3>Lines (${lines.length})</h3><div class="list">${lines.length ? lines.map((l, i) =>
+    `<div class="rowline ${i === 0 ? 'first' : ''}"><span>${i + 1}.</span><span class="walk">${lhtml[i]}</span><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('') : '<p class="dim">No lines yet.</p>'}</div>`;
   $('#act').innerHTML = `<div class="chips">${chips || '<span class="dim">No saved moves from this position yet.</span>'}</div>
     ${editor}
     <div class="row"><button data-act="undo">Undo</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
-    <p class="stats">${keys.length} positions · ${keys.filter(k => k.split(' ')[1] === mine()).length} yours</p>
+    <p class="stats">${keys.length} positions · ${keys.filter(k => k.split(' ')[1] === mine()).length} yours · ${lines.length} line${lines.length === 1 ? '' : 's'}</p>
+    <details><summary>Every line in this repertoire</summary>${lineList}</details>
     <details><summary>More</summary>
       <textarea id="pgn" placeholder="Paste a PGN with variations and comments"></textarea>
       <div class="row"><button data-act="pgn">Import PGN</button><button data-act="exportpgn">Export PGN</button><button data-act="rename">Rename</button><button data-act="delrep" class="danger">Delete</button></div>
@@ -920,10 +965,14 @@ document.addEventListener('click', e => {
   else if (a === 'promocancel') { locked = false; $('#act').innerHTML = promo!.prev; promo = undefined; show(); msg('Your move.'); }
   else if (a === 'go') { line.push(u); renderBuild(); }
   else if (a === 'del') {
-    const k = key(pos), san = cur!.moves[k][u], note = cur!.notes?.[k + '|' + u];
-    delete cur!.moves[k][u]; if (cur!.notes) delete cur!.notes[k + '|' + u]; if (!Object.keys(cur!.moves[k]).length) delete cur!.moves[k]; save(); renderBuild();
-    toast(`Removed ${san}`, { action: 'Undo', onAction: () => { (cur!.moves[k] ??= {})[u] = san; if (note) (cur!.notes ??= {})[k + '|' + u] = note; save(); if (mode === 'build') renderBuild(); } });
+    const k = key(pos), san = cur!.moves[k][u];
+    const snap = snapRep();
+    delete cur!.moves[k][u]; if (cur!.notes) delete cur!.notes[k + '|' + u]; if (!Object.keys(cur!.moves[k]).length) delete cur!.moves[k];
+    const gone = pruneUnreachable();
+    save(); renderBuild();
+    undoable(`Removed ${san}${gone ? ` and ${gone} position${gone === 1 ? '' : 's'} below it` : ''}`, snap);
   }
+  else if (a === 'dline') deleteLine(+u);
   else if (a === 'undo') { line.pop(); renderBuild(); }
   else if (a === 'reset') { line = []; renderBuild(); }
   else if (a === 'flip') { flipped = !flipped; cg.set({ orientation: orient() }); }
