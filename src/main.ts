@@ -81,11 +81,14 @@ let aRun: ArenaRun | undefined, aBusy = false;
 let timer: any;
 const flush = () => {
   kvSet('reps', reps); kvSet('cur', cur?.id); kvSet('settings', S); kvSet('pcards', pcards); kvSet('pstats', pstats); kvSet('ecards', ecards); kvSet('egcustom', egCustom);
-  if (fileNative() || fileState().kind === 'browser') writeSoon(stateJson());
+  if (fileNative() || fileState().kind === 'browser') writeSoon(stateJson(), 150);
 };
+const live = () => fileNative() || fileState().kind === 'browser';
+/** Write the file straight away: a debounced write would be cancelled when the window closes. */
+const writeFileNow = () => { if (live()) void writeNow(stateJson()); };
 const save = () => { clearTimeout(timer); timer = setTimeout(flush, 120); };
-addEventListener('pagehide', flush);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+addEventListener('pagehide', () => { flush(); writeFileNow(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { flush(); writeFileNow(); } });
 
 /* ---------- Helpers ---------- */
 const key = (p: Chess) => makeFen(p.toSetup()).split(' ').slice(0, 4).join(' ');
