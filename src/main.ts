@@ -22,7 +22,7 @@ import { explain, fmtScore } from './explain';
 import { ArenaRun, type ArenaEnd } from './arena';
 import STARTER from './tactics/starter.json';
 
-type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number };
+type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number; seen?: Record<string, true> };
 type Mode = 'build' | 'learn' | 'review' | 'tactics' | 'endgames';
 type LMode = 'walk' | 'drill' | 'time' | 'arena';
 type Settings = { san: boolean; welcomed: boolean; lmode: LMode; explain: boolean; appearance: string; pieces: string; sound: boolean; newCap: number; retention: number; theme: string; coords: boolean; anim: boolean; haptics: boolean; learnDelay: number; engineMs: number; newPuzzles: number; window: number; importMin: number; importMax: number; importCount: number; ptheme: string };
@@ -500,13 +500,21 @@ function lineHtml(l: string[], prev?: string[]): string {
   return out;
 }
 let wHtml: string[] | undefined;
+const lineKey = (l: string[]) => l.join(' ');
+const seenLine = (l: string[]) => !!(cur?.seen ?? {})[lineKey(l)];
 function walkPanel() {
   wHtml ??= wLines.map((l, i) => lineHtml(l, wLines[i - 1]));
-  const rows = wLines.map((l, i) =>
-    `<button class="item ${i === wIdx ? 'on' : ''}" data-act="wline" data-u="${i}"><span>${i + 1}.</span><span class="walk">${wHtml![i]}</span></button>`).join('');
+  const seen = cur?.seen ?? {};
+  const done = wLines.filter(seenLine).length;
+  const bar = $('#bar'), bi = $('#bar i');
+  if (bar && bi) { bar.hidden = !wLines.length; bi.style.width = wLines.length ? `${(done / wLines.length) * 100}%` : '0'; }
+  const rows = wLines.map((l, i) => {
+    const ok = !!seen[lineKey(l)];
+    return `<button class="item ${i === wIdx ? 'on' : ''} ${ok ? 'done' : ''}" data-act="wline" data-u="${i}"><span>${i + 1}.${ok ? ' <b class="tick">✓</b>' : ''}</span><span class="walk">${wHtml![i]}</span></button>`;
+  }).join('');
   $('#act').innerHTML = `${lmodeBar()}
-    <div class="row"><button data-act="hint">Hint</button><button data-act="wnext" class="primary">Next line</button><button data-act="restart">Start over</button></div>
-    <h3>All lines (${wLines.length})</h3><div class="list">${rows || '<p class="dim">No lines yet. Add moves in Build.</p>'}</div>`;
+    <div class="row"><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="wnext" class="primary">Next line</button><button data-act="restart">Start over</button></div>
+    <h3>All lines (${wLines.length}) · ${done} discovered</h3><div class="list">${rows || '<p class="dim">No moves yet. Add lines in Build.</p>'}</div>`;
 }
 function startWalkLine(i: number) {
   if (!wLines.length) return;
@@ -518,6 +526,8 @@ function startWalkLine(i: number) {
 }
 function walkDone() {
   const last = wIdx >= wLines.length - 1;
+  const l = wLines[wIdx];
+  if (l) { (cur!.seen ??= {})[lineKey(l)] = true; save(); walkPanel(); }
   locked = true; sfx('ok'); flash('ok'); show([], false);
   msg(last ? `Line ${wIdx + 1} of ${wLines.length} done. All lines walked.` : `Line ${wIdx + 1} of ${wLines.length} done. Next line…`, 'ok');
   const tok = session;
@@ -554,7 +564,12 @@ function learnStep() {
     setTimeout(() => { if (tok === session) { play(u); learnStep(); } }, fast() ? Math.min(S.learnDelay, 250) : S.learnDelay);
     return;
   }
-  show(); msg(fast() && dActive ? 'Your move.' : 'Your move.');
+  show();
+  if (walk) {
+    const want = wLines[wIdx]?.[line.length];
+    const u = want && us.includes(want) ? want : us[0];
+    msg(`Play ${makeSan(pos, parseUci(u)!)}.`);
+  } else msg(fast() && dActive ? 'Your move.' : 'Your move.');
 }
 function learnAnswer(u: string, k: string) {
   const mv = cur!.moves[k];
@@ -991,6 +1006,15 @@ document.addEventListener('click', e => {
   }
   else if (a === 'restart') { if (S.lmode === 'walk' && mode === 'learn') startWalkLine(0); else learnInit(); }
   else if (a === 'wline') startWalkLine(+u);
+  else if (a === 'wsolve') {
+    if (S.lmode !== 'walk' || mode !== 'learn' || locked || !cur || pos.turn !== cur.color) return;
+    const us = Object.keys(cur.moves[key(pos)] || {});
+    const want = wLines[wIdx]?.[line.length];
+    const u = want && us.includes(want) ? want : us[0];
+    if (!u) return;
+    const p = parseUci(u)! as any;
+    commit(toMove(makeSquare(p.from), makeSquare(p.to)));
+  }
   else if (a === 'wnext') { wLines = walkLines(); wHtml = undefined; startWalkLine(wIdx + 1 >= wLines.length ? 0 : wIdx + 1); }
   else if (a === 'next') reviewNext();
   else if (a === 'lmode') { S.lmode = u as LMode; save(); learnInit(); }

@@ -81,6 +81,16 @@ APP POLISH (v8)
   haptics use the device motor. These native pieces are written but not run on a device.
 - Tests: tools/e2e-polish.py (25 checks) joins the other browser suites (72 checks in total).
 
+LEARN PARITY WITH CHESSREPS (v9)
+- Walk now names the move, as Chessreps' Learn does: the status line reads "Play Nf3." and the author's note for
+  the position still shows above it. Solve (next to Hint) plays that move for you, so you can skim a line.
+- Lines are tracked as discovered: the panel header reads "All lines (22) · 5 discovered", walked lines get a ✓,
+  and the progress bar under the header fills up. Stored per repertoire, so it survives a reload.
+- Everything else already matched or beat Chessreps' Learn: numbered line list with the divergent move picked out
+  (they have a plain list), Next line, and Jump to any line (they have < > and a # picker).
+- Deliberate differences: Chessreps answers your move instantly and tells you the move in words; Jan20 keeps the
+  opponent reply delay (Settings) so you can pre-move, and Drill/Time still hide the move and pick at random.
+
 WALK IS A NUMBERED WALKTHROUGH (v9)
 - Walk lists every line in the repertoire, numbered, main line first. The panel shows "All lines (N)" with the
   current one highlighted, and the move where each line leaves the one above it is picked out in amber, so the

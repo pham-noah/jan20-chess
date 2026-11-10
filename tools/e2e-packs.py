@@ -11,7 +11,8 @@ with sync_playwright() as p:
     pg.click('[data-u=stafford]'); pg.wait_for_timeout(600)
     check('stafford added as a Black repertoire', 'black' in pg.eval_on_selector('#rep','e=>e.selectedOptions[0].textContent'))
     pg.click('[data-m=learn]'); pg.wait_for_timeout(1800)
-    check('stafford learn: White plays first, then it is my move', '1. e4' in pg.inner_text('#path') and msg(pg)=='Your move.', pg.inner_text('#path')+' | '+msg(pg))
+    # Walk now names the move to play ("Play e5.") instead of "Your move."
+    check('stafford learn: White plays first, then it is my move', '1. e4' in pg.inner_text('#path') and (msg(pg)=='Your move.' or msg(pg).startswith('Play ')), pg.inner_text('#path')+' | '+msg(pg))
     for u in ['e7e5','g8f6','b8c6']:
         drag(pg,u); pg.wait_for_timeout(1800)
     check('stafford learn: plays 1...e5 2...Nf6 3...Nc6 vs a random White line', 'Nc6' in pg.inner_text('#path') or 'Nxc6' in pg.inner_text('#path') or msg(pg).startswith('Not'), pg.inner_text('#path')+' | '+msg(pg))
