@@ -454,15 +454,16 @@ function renderBuild() {
   const mv = cur!.moves[key(pos)] || {};
   msg(pos.turn === cur!.color ? 'Your move. Play it on the board to save it.' : 'Opponent’s move. Play a reply you want to prepare for.');
   $('#path').textContent = pathText(line);
-  const chips = Object.entries(mv).map(([u, s]) =>
-    `<span class="chip"><button data-act="go" data-u="${u}">${esc(s)}</button><button data-act="del" data-u="${u}" aria-label="Delete ${esc(s)}">✕</button></span>`).join('');
+  const order = Object.keys(mv);
+  const chips = Object.entries(mv).map(([u, s], i) =>
+    `<span class="chip"><button data-act="go" data-u="${u}">${esc(s)}</button>${i ? `<button data-act="main" data-u="${u}" aria-label="Make ${esc(s)} the first move here" title="Make ${esc(s)} the first move here">↑</button>` : ''}<button data-act="del" data-u="${u}" aria-label="Delete ${esc(s)}">✕</button></span>`).join('');
   const editor = last ? `<label class="field">Note for ${esc(lastSan)}<textarea id="note-ed" maxlength="800" placeholder="Why this move? Plans, traps, what to remember.">${esc(noteOf(lastKey, last))}</textarea></label>` : '';
   const lines = walkLines(); const lhtml = lines.map((l, i) => lineHtml(l, lines[i - 1]));
   const lineList = `<h3>Lines (${lines.length})</h3><div class="list">${lines.length ? lines.map((l, i) =>
-    `<div class="rowline ${i === 0 ? 'first' : ''}"><span>${i + 1}.</span><span class="walk">${lhtml[i]}</span><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('') : '<p class="dim">No lines yet.</p>'}</div>`;
+    `<div class="rowline ${i === 0 ? 'first' : ''}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lhtml[i]}</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('') : '<p class="dim">No lines yet.</p>'}</div>`;
   $('#act').innerHTML = `<div class="chips">${chips || '<span class="dim">No saved moves from this position yet.</span>'}</div>
     ${editor}
-    <div class="row"><button data-act="undo">Undo</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
+    <div class="row"><button data-act="bprev" aria-label="Previous line" title="Previous line (←)">‹ Line</button><button data-act="bnext" aria-label="Next line" title="Next line (→)">Line ›</button><button data-act="undo">Undo move</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
     <p class="stats">${keys.length} positions · ${keys.filter(k => k.split(' ')[1] === mine()).length} yours · ${lines.length} line${lines.length === 1 ? '' : 's'}</p>
     <details><summary>Every line in this repertoire</summary>${lineList}</details>
     <details><summary>More</summary>
@@ -530,6 +531,20 @@ function lineHtml(l: string[], prev?: string[]): string {
   return out;
 }
 let wHtml: string[] | undefined;
+let bIdx = 0;                                   // which numbered line Build is showing
+/** Load a numbered line into Build so it can be read and edited. */
+function buildLine(i: number) {
+  const lines = walkLines(); if (!lines.length) return;
+  bIdx = (i + lines.length) % lines.length;
+  line = [...lines[bIdx]];
+  renderBuild();
+  msg(`Line ${bIdx + 1} of ${lines.length}. Play a move to extend it, or ✕ to cut it.`);
+}
+/** Step to the previous/next line, in Build or in Walk. */
+function stepLine(d: number) {
+  if (mode === 'build') return buildLine(bIdx + d);
+  if (mode === 'learn' && S.lmode === 'walk') { if (!wLines.length) wLines = walkLines(); return startWalkLine(wIdx + d); }
+}
 const lineKey = (l: string[]) => l.join(' ');
 const seenLine = (l: string[]) => !!(cur?.seen ?? {})[lineKey(l)];
 function walkPanel() {
@@ -543,12 +558,12 @@ function walkPanel() {
     return `<button class="item ${i === wIdx ? 'on' : ''} ${ok ? 'done' : ''}" data-act="wline" data-u="${i}"><span>${i + 1}.${ok ? ' <b class="tick">✓</b>' : ''}</span><span class="walk">${wHtml![i]}</span></button>`;
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
-    <div class="row"><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="wnext" class="primary">Next line</button><button data-act="restart">Start over</button></div>
+    <div class="row"><button data-act="lprev" aria-label="Previous line" title="Previous line (←)">‹ Prev</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="wnext" class="primary" title="Next line (→)">Next line ›</button><button data-act="restart">Start over</button></div>
     <h3>All lines (${wLines.length}) · ${done} discovered</h3><div class="list">${rows || '<p class="dim">No moves yet. Add lines in Build.</p>'}</div>`;
 }
 function startWalkLine(i: number) {
   if (!wLines.length) return;
-  wIdx = Math.max(0, Math.min(wLines.length - 1, i));
+  wIdx = ((i % wLines.length) + wLines.length) % wLines.length;
   cur!.walk = wIdx; save();
   session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); locked = false;
   walkPanel();
@@ -1052,6 +1067,19 @@ document.addEventListener('click', e => {
     undoable(`Removed ${san}${gone ? ` and ${gone} position${gone === 1 ? '' : 's'} below it` : ''}`, snap);
   }
   else if (a === 'dline') deleteLine(+u);
+  else if (a === 'goline') buildLine(+u);
+  else if (a === 'bprev') buildLine(bIdx - 1);
+  else if (a === 'bnext') buildLine(bIdx + 1);
+  else if (a === 'lprev') stepLine(-1);
+  else if (a === 'lnext') stepLine(1);
+  else if (a === 'main') {
+    const k = key(pos), mv2 = cur!.moves[k] ?? {};
+    if (!mv2[u] || Object.keys(mv2)[0] === u) return;
+    const rest = Object.entries(mv2).filter(([x]) => x !== u);
+    cur!.moves[k] = { [u]: mv2[u], ...Object.fromEntries(rest) };
+    save(); renderBuild();
+    toast(`“${mv2[u]}” is now the first move here.`, { ms: 3200 });
+  }
   else if (a === 'undo') { line.pop(); renderBuild(); }
   else if (a === 'reset') { line = []; renderBuild(); }
   else if (a === 'flip') { flipped = !flipped; cg.set({ orientation: orient() }); }
@@ -1079,7 +1107,7 @@ document.addEventListener('click', e => {
     const p = parseUci(u)! as any;
     commit(toMove(makeSquare(p.from), makeSquare(p.to)));
   }
-  else if (a === 'wnext') { wLines = walkLines(); wHtml = undefined; startWalkLine(wIdx + 1 >= wLines.length ? 0 : wIdx + 1); }
+  else if (a === 'wnext') { wLines = walkLines(); wHtml = undefined; startWalkLine(wIdx + 1); }
   else if (a === 'next') reviewNext();
   else if (a === 'lmode') { S.lmode = u as LMode; save(); learnInit(); }
   else if (a === 'dstart') drillStart();
@@ -1117,7 +1145,10 @@ document.addEventListener('keydown', e => {
   if (e.key === '?') return void $('#keys').showModal();
   if (!cur && opening(mode)) return;
   if (e.key === 'Escape') { cg.cancelPremove(); return; }
-  if (e.key === 'ArrowLeft' && mode === 'build') { line.pop(); renderBuild(); }
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && (mode === 'build' || (mode === 'learn' && S.lmode === 'walk'))) {
+    e.preventDefault(); stepLine(e.key === 'ArrowRight' ? 1 : -1);
+  }
+  else if (e.key === 'Backspace' && mode === 'build' && line.length) { e.preventDefault(); line.pop(); renderBuild(); }
   else if (e.key === 'h' && mode !== 'build') $('[data-act=hint]')?.click();
   else if ((e.key === 'Enter' || e.key === ' ') && $('[data-act=next]')) { e.preventDefault(); reviewNext(); }
 });

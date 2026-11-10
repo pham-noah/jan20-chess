@@ -123,6 +123,14 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+EDITING A LINE THAT ALREADY EXISTS (v10)
+- "Every line in this repertoire" under Build is now a list you can work from: tap a line and it loads into Build
+  — the board jumps to its final position, the path shows its moves, and you can extend it, branch it, or cut it
+  with the chip ✕. Before this, the only way in was replaying the moves chip by chip from the start.
+- Each saved move at a position has an ↑ button: it makes that move the first one there, which is what orders the
+  numbered Walk lines and the chip order. So "3...Bc5 before 3...Nf6" is now a click instead of a rewrite.
+- Deleting still prunes everything only that move reached, and both edits are undoable/toast-confirmed.
+
 PACK UPDATES REACH COPIES YOU ALREADY ADDED (v10)
 - Adding a pack copies its tree into your repertoire, so a later rewrite of the bundled pack never reached it: the
   Italian Game stayed at its old 22 lines while the shipped pack had 33.
