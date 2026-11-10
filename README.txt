@@ -123,6 +123,18 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+EVERY CHANGE IS WRITTEN STRAIGHT TO A FILE (v12)
+- No export step any more. In the desktop app each save writes the whole state to `jan20-repertoire.json` in the app
+  config folder (`%APPDATA%\app.jan20.trainer` on Windows), and that file is read back at start-up — it is the copy
+  that survives a reinstall, and you can back it up, diff it or put it in git. Settings > Data > Live file shows the
+  path and the time of the last write; "Write now" forces one.
+- In a browser the same thing is available through the File System Access API: Settings > Data > Live file > "Link a
+  file…" picks a file once, and from then on every change is written into it. (Chrome/Edge only; Firefox and Safari
+  get the old Export backup button.)
+- The service worker is now registered only over http(s). Inside the desktop webview it was caching the whole
+  frontend, so the desktop app kept showing a 2023-era build while the exe underneath was current, and none of the
+  newer code (including this file writing) ever ran there. If you have an old install, clear its cache once.
+
 THE REPERTOIRE IS SHOWN AS A TREE (v12)
 - "Every line in this repertoire" was a flat list of 33 SAN strings that mostly repeated the same first six moves,
   so you could not see where lines actually part company. It now opens on a tree: one row per saved move, indented

@@ -1591,8 +1591,14 @@ $('#sanform').addEventListener('submit', e => {
 });
 async function init() {
   console.log('Jan20 build', __BUILD__);
-  // a new service worker taking control means this page is stale: reload once
-  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+  // A service worker belongs to the installed web app only. Inside the Tauri webview it would cache the whole
+  // frontend and keep serving an old build while the exe underneath is current — that is exactly what happened.
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+    navigator.serviceWorker.register(new URL('sw.js', document.baseURI)).catch(() => {});
+  } else if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+  }
   nativeInit();
   $('#brand').innerHTML = `${mark}<span>Jan20</span>`;
   navigator.storage?.persist?.();

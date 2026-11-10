@@ -14,6 +14,7 @@ export default defineConfig({
   define: { __BUILD__: JSON.stringify(stamp) },
   plugins: [VitePWA({
     registerType: 'autoUpdate',
+    injectRegister: null,          // registered by hand in main.ts, and only over http(s)
     manifest: {
       name: 'Jan20', short_name: 'Jan20', display: 'standalone',
       background_color: '#101820', theme_color: '#101820', start_url: './',
