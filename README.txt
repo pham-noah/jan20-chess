@@ -80,3 +80,12 @@ APP POLISH (v8)
 - Native shell (Android/iOS via Capacitor): back button closes dialogs, then returns to Build, then minimises; status bar follows the theme;
   haptics use the device motor. These native pieces are written but not run on a device.
 - Tests: tools/e2e-polish.py (25 checks) joins the other browser suites (72 checks in total).
+
+PRE-MOVES (v9)
+- While the opponent is thinking (Learn Walk/Drill/Time/Arena and Endgames) you can already play your next move:
+  drag it or tap from/to, and the squares light up in amber. The moment your turn comes back it is played.
+- Any square the piece could reach on an empty board is allowed, as on chess.com, so you can pre-move a piece that
+  is still blocked. If the opponent's reply makes the move illegal, it is dropped silently instead of being punished.
+- Tap the piece again, or press Escape, to cancel. Premoves cannot be used in Build or Review (nobody answers there).
+- A premove that promotes queens automatically.
+- Move animation is 200 ms and follows the "Animate moves" setting.

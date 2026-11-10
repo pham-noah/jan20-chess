@@ -70,6 +70,8 @@ main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .cg-wrap square.move-dest{background:radial-gradient(rgba(var(--dot),.42) 20%,transparent 22%)}
 .cg-wrap square.oc.move-dest{background:radial-gradient(transparent 0,transparent 78%,rgba(var(--dot),.34) 80%)}
 .cg-wrap square.move-dest:hover{background:rgba(227,182,83,.5)}
+.cg-wrap square.premove-dest{background:radial-gradient(rgba(227,182,83,.30) 22%,transparent 24%)}
+.cg-wrap square.current-premove{background-color:rgba(227,182,83,.28);box-shadow:inset 0 0 0 3px rgba(227,182,83,.6)}
 .cg-wrap coords{font:700 11px/1 var(--sans);opacity:.95;text-transform:none}
 .cg-wrap coords.ranks{left:3px;top:0;height:100%;width:auto}
 .cg-wrap coords.ranks coord{transform:none;display:flex;align-items:flex-start;padding-top:3px}

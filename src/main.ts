@@ -6,6 +6,7 @@ import './style.css';
 import mark from './mark.svg?raw';
 import type { Pack } from './library';
 import { Chess } from 'chessops/chess';
+import type { Color } from 'chessops/types';
 import { parseFen, makeFen } from 'chessops/fen';
 import { parseSquare, makeUci, parseUci, makeSquare } from 'chessops/util';
 import { makeSan, parseSan } from 'chessops/san';
@@ -148,8 +149,8 @@ function sfx(kind: 'move' | 'ok' | 'bad' | 'done') {
 const flash = (k: 'ok' | 'bad') => { const b = $('#board'); b.classList.remove('flash-ok', 'flash-bad'); void b.offsetWidth; b.classList.add('flash-' + k); };
 
 const cg: any = Chessground($('#board'), {
-  animation: { duration: 160 },
-  premovable: { enabled: false },
+  animation: { duration: 200 },
+  premovable: { enabled: false, showDests: true, castle: true },
   draggable: { distance: 4 },
   drawable: { brushes: { green: { key: 'g', color: '#15781B', opacity: 1, lineWidth: 10 }, red: { key: 'r', color: '#882020', opacity: 1, lineWidth: 10 }, blue: { key: 'b', color: '#003088', opacity: 1, lineWidth: 10 }, yellow: { key: 'y', color: '#e68f00', opacity: 1, lineWidth: 10 }, hint: { key: 'h', color: '#e3b653', opacity: 0.92, lineWidth: 11 } } } as any,
   movable: { free: false, events: { after: (o: string, d: string) => onMove(o, d) } },
@@ -183,16 +184,51 @@ function applySettings() {
   $('#themecolor')?.setAttribute('content', light ? '#f3efe6' : '#0e161c');
   if (S.pieces !== 'cburnett' && !piecesLoaded) { piecesLoaded = true; import('./pieces.css'); }
   nativeStyle(light);
-  cg.set({ coordinates: S.coords, animation: { enabled: S.anim } });
+  cg.set({ coordinates: S.coords, animation: { enabled: S.anim, duration: 200 } });
+}
+
+/* ---------- Premove ----------
+   Chess.com-style: while the opponent is thinking you may drag or tap out your next move.
+   chessground holds the pending move (it allows any square the piece could reach on an empty
+   board), and `consumePremove` plays it the moment your turn comes back — or drops it if the
+   opponent's move made it illegal. */
+function premoveColor(): Color | undefined {
+  if (mode === 'tactics') return tColor;
+  if (mode === 'endgames') return eColor;
+  if (mode === 'learn') return cur?.color;
+  return undefined;                       // Build, Review: no opponent to pre-move against
+}
+function premoveAllowed(): boolean {
+  const me = premoveColor();
+  if (!me || pos.turn === me || locked || promo) return false;
+  if (mode === 'endgames') return !!eRun && !eEnded;
+  if (mode === 'tactics') return !!tRun && !tGraded;
+  return S.lmode === 'arena' ? !!aRun && !aRun.ended : !!cur;
+}
+function takePremove(): any | undefined {
+  const at: [string, string] | undefined = cg.state.premovable.current;
+  if (!at) return undefined;
+  cg.cancelPremove();
+  if (!pos.board.get(parseSquare(at[0]) ?? 64)) return undefined;
+  return toMove(at[0], at[1]);            // same normalisation as a real move (castling, promotion)
+}
+function consumePremove(): boolean {
+  const m = takePremove(); if (!m) return false;
+  if (!pos.isLegal(m)) return false;      // the opponent's move blocked it: drop it silently
+  commit(m);
+  return true;
 }
 
 function show(shapes: any[] = [], can = true) {
   canNow = can;
+  const pm = !can && premoveAllowed();
+  if (!pm && cg.state.premovable.current) cg.cancelPremove();
   cg.set({
     fen: makeFen(pos.toSetup()), orientation: orient(), turnColor: pos.turn,
     check: pos.isCheck() ? pos.turn : false,
     lastMove: last ? lastPair(last) : undefined,
-    movable: { color: can ? pos.turn : undefined, dests: can ? chessgroundDests(pos) : new Map() },
+    premovable: { enabled: pm },
+    movable: { color: can ? pos.turn : pm ? premoveColor() : undefined, dests: can ? chessgroundDests(pos) : new Map() },
   });
   cg.setAutoShapes(shapes);
 }
@@ -396,6 +432,7 @@ function learnInit() {
 }
 function learnStep() {
   locked = false; const tok = session;
+  if (pos.turn === cur?.color && consumePremove()) return;
   const us = Object.keys(cur!.moves[key(pos)] || {});
   $('#path').textContent = fast() && dActive ? runLine() : pathText(line);
   showNote(noteOf(lastKey, last));
@@ -501,11 +538,14 @@ function arenaStatus() { msg(aRun!.inBook ? 'Your move. You are in your book.' :
 async function arenaAnswer(m: any) {
   const run = aRun; if (!run || aBusy || run.ended) return show();
   aBusy = true; const tok = session; msg('Thinking…');
+  try { const q = pos.clone(); q.play(m); pos = q; last = makeUci(m); show([], false); } catch { /* keep the old board */ }
   let r; try { r = await run.userMove(m); } catch { aBusy = false; show(); msg('The engine had a problem.', 'bad'); return; }
   if (tok !== session) return;
-  pos = run.pos; last = r.reply?.uci ?? r.userUci; sfx('move'); show([], !r.ended);
-  if (r.ended) return arenaFinish(r.ended);
-  aBusy = false; arenaStatus();
+  pos = run.pos; last = r.reply?.uci ?? r.userUci; sfx('move');
+  if (r.ended) { show([], false); return arenaFinish(r.ended); }
+  aBusy = false;
+  if (consumePremove()) return;
+  show(); arenaStatus();
 }
 function arenaFinish(end: ArenaEnd) {
   aBusy = false; const a = (cur!.arena ??= { rating: 950, games: 0 });
@@ -612,7 +652,9 @@ function tacticsAnswer(m: any) {
   sfx('move'); locked = true; msg('Correct. Keep going…', 'ok'); const tok = session;
   setTimeout(() => {
     if (tok !== session || mode !== 'tactics') return;
-    const ru = run.reply(); pos = run.pos; if (ru) last = ru; show(); locked = false; msg('Find the next move.');
+    const ru = run.reply(); pos = run.pos; if (ru) last = ru; locked = false;
+    if (consumePremove()) return;
+    show(); msg('Find the next move.');
   }, 450);
 }
 function finishPuzzle() {
@@ -668,6 +710,8 @@ async function startDrill(def: DrillDef) {
 async function endgameAnswer(m: any) {
   const run = eRun; if (!run || eBusy || eEnded) return show();
   eBusy = true; const tok = session; msg('Checking…');
+  // render our move straight away so the reply is the only thing we wait for (and a premove can be set)
+  try { const q = pos.clone(); q.play(m); pos = q; last = makeUci(m); show([], false); } catch { /* keep the old board */ }
   let r; try { r = await run.userMove(m); } catch { eBusy = false; show(); msg('The engine had a problem. Try again.', 'bad'); return; }
   if (tok !== session) return;
   pos = run.pos;
@@ -675,10 +719,12 @@ async function endgameAnswer(m: any) {
     buzz(); sfx('bad'); flash('bad'); eBusy = false; pos = run.pos; show(r.hint ? [arrow(r.hint)] : []);
     msg(`${r.text} ${r.hint ? `Best was ${r.hintSan}.` : 'Try again.'}`, 'bad'); return;
   }
-  last = r.reply?.uci ?? r.userUci; show([], false);
+  last = r.reply?.uci ?? r.userUci;
   if (run.def.goal === 'hold') $('#bar i').style.width = `${Math.min(100, (run.moves / run.holdMoves) * 100)}%`;
-  if (r.ended) return finishDrill(r.ended);
-  sfx('move'); eBusy = false; show(); msg(`${r.userSan}, ${r.reply!.san}. Your move.`);
+  if (r.ended) { show([], false); return finishDrill(r.ended); }
+  sfx('move'); eBusy = false;
+  if (consumePremove()) return;
+  show(); msg(`${r.userSan}, ${r.reply!.san}. Your move.`);
 }
 function finishDrill(end: DrillEnd) {
   const run = eRun!; eEnded = true; eBusy = false; show([], false);
@@ -767,6 +813,7 @@ function enter(m: Mode) {
   mode = m; session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); flipped = false; promo = undefined; total = 0;
   clearInterval(ttTimer); dActive = false; aRun = undefined; aBusy = false;
   locked = false; eBusy = false; tColor = undefined; eColor = undefined; tRun = undefined; eRun = undefined;
+  cg.cancelPremove();
   $('#bar').hidden = true; showNote('');
   document.querySelectorAll('[data-m]').forEach((b: any) => { b.classList.toggle('on', b.dataset.m === m); b.setAttribute('aria-current', b.dataset.m === m ? 'page' : 'false'); });
   $('#sanform').hidden = !S.san; kvSet('ui', { mode: m });
@@ -857,6 +904,7 @@ document.addEventListener('keydown', e => {
   if ((e.target as HTMLElement).matches('input,textarea,select') || document.querySelector('dialog[open]')) return;
   if (e.key === '?') return void $('#keys').showModal();
   if (!cur && opening(mode)) return;
+  if (e.key === 'Escape') { cg.cancelPremove(); return; }
   if (e.key === 'ArrowLeft' && mode === 'build') { line.pop(); renderBuild(); }
   else if (e.key === 'h' && mode !== 'build') $('[data-act=hint]')?.click();
   else if ((e.key === 'Enter' || e.key === ' ') && $('[data-act=next]')) { e.preventDefault(); reviewNext(); }
