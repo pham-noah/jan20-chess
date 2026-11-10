@@ -87,7 +87,13 @@ ITALIAN PACK REBUILT ON THE CHESSREPS COURSE (v9)
   8.Bxd5), then the Giuoco Piano with 5.d4 (8.d5, the ...Bb4+ lines, ...Nxd2/...Bxd2+/...Ne7 and the 8...Qe7+ 10.Kf1
   sidestep), ending with opposite-side castling.
 - The quiet 5.d3 Pianissimo and the 4.d3 Two Knights lines are gone, along with the engine sidelines that hung off
-  them. 3...Be7 is now met by 4.d4 instead of 4.d3. 15 lines, 117 positions, 64 White moves.
+  them. 3...Be7 is now met by 4.d4 instead of 4.d3.
+- The gaps the hand-made lines leave are filled from the engine, as with the other packs: tools/gaps.mjs listed 69
+  plausible replies the 15-line pack did not answer, and tools/extend.mjs wrote 14 checked continuations into
+  italian.ext.pgn (2...Nf6, 2...d5, 3...d6 with ...f5/...h6, 3...Be7 with 4...Na5/4...d6, 5...Nd4 and friends).
+  33 lines, 189 positions, 100 White moves. Every move legal; audited at depth 13 (63 + 58 moves, 0 flagged).
+- Those gaps are ranked by the engine, not by how often humans play them: Chessreps' "any reply played in 1% of
+  Lichess games" rule needs Lichess data, and the explorer API now answers 401 without a token here.
 - The rest of the course (97 more lines) is paywalled, so it is not included. To bring it in, export the PGNs from
   Chessreps and paste them into Build > More > Import PGN.
 - Moves only: the notes are ours. Every move was re-checked for legality and audited with Stockfish (63 White moves
