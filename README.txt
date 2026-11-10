@@ -123,6 +123,28 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+THE BUILD TAB IS NOW THE EDITOR (v11)
+- Renamed to Editor, and it does the things you asked of an opening editor:
+- Undo / redo for every edit (adding a move, deleting a move or a whole line, promoting a variation,
+  reordering, pasting, editing a note): Ctrl+Z, Ctrl+Shift+Z (or Ctrl+Y), and the two arrow buttons under the board.
+  Up to 80 steps, per repertoire session.
+- Paste a line: drop "1. e4 e5 2. Nf3 Nc6 3. Bc4" (or bare "e4 e5 Nf3 Nc6") into the box and it is added from the
+  position you stand on — a full line pasted while standing at its end is aligned, not rejected. Comments,
+  variations and result tokens are ignored; the first move that does not follow stops the paste with a reason.
+  "Copy this line" puts the current line back on the clipboard as PGN.
+- Engine guard: a move of yours that the engine rates 1.5 pawns worse than the best move is saved but flagged with
+  a red warning mark on its chip (hover for the number) and a toast naming the better move. Opponent mistakes are
+  never flagged — those are traps you want. "Check this line" runs the guard over every move of yours in the line.
+- Gaps: "Find gaps here" asks the engine for the moves worth preparing for at the position you are on and lists the
+  ones you have no answer for; tap one to jump to it and add your reply. (This is the editor version of
+  tools/gaps.mjs, without needing to run a script.)
+- Bulk lines: tick lines in the list, then delete them together or copy them into another pack. One undo undoes the
+  whole batch.
+- Position context under the board: how many positions and lines the pack holds, and for the square you are on —
+  saved moves, how many lines pass through it, and how many line-endings sit below it (what a delete would cut).
+- Chips show whose move each one is (yours carry an accent underline, the opponent's are dimmed), a dot when the
+  move has a note, and can be dragged to reorder; the ↑ button still sends a move to the front.
+
 EDITING A LINE THAT ALREADY EXISTS (v10)
 - Arrows and the ‹ Move / Move › buttons step through the moves of the line you are looking at, like a chess
   viewer: back and forward through the whole variation. Walk has the same pair (‹ ›) to look back through the moves

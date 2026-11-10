@@ -39,5 +39,18 @@ with sync_playwright() as p:
     check('arrow forward walks back to the same ply', mv(pg.inner_text('#path')) == full, mv(pg.inner_text('#path'))[-40:])
     pg.keyboard.press('ArrowLeft'); pg.wait_for_timeout(220)
     check('arrow back steps one move', len(mv(pg.inner_text('#path'))) < len(full))
+    # undo/redo and paste
+    pg.click('[data-act=reset]'); pg.wait_for_timeout(300)
+    play(pg, ['d2d4']); pg.wait_for_timeout(400)          # 1.d4 is not in this pack, so the count must move
+    after_add = pg.inner_text('p.stats')
+    pg.keyboard.press('Control+z'); pg.wait_for_timeout(500)
+    check('Ctrl+Z undoes a saved move', pg.inner_text('p.stats') != after_add, pg.inner_text('p.stats')[:40])
+    pg.keyboard.press('Control+Shift+z'); pg.wait_for_timeout(500)
+    check('Ctrl+Shift+Z redoes it', pg.inner_text('p.stats') == after_add)
+    pg.click('[data-act=reset]'); pg.wait_for_timeout(300)
+    pg.click('summary:has-text("Paste or copy a line")'); pg.wait_for_timeout(300)
+    pg.fill('#paste', '1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6')
+    pg.click('[data-act=paste]'); pg.wait_for_timeout(900)
+    check('pasted line is added and aligned', pg.inner_text('#path').endswith('c3 Nf6'), pg.inner_text('#path')[-40:])
     print('console/page errors:', errs or 'none'); b.close()
 print(sum(1 for r in results if r[1]), '/', len(results))

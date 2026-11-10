@@ -19,7 +19,7 @@
     <button data-act="settings" class="icon" aria-label="Settings">⚙</button>
   </header>
   <nav id="tabs" aria-label="Sections">
-    <button data-m="build"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14.5 7.5l3 3"/></svg><span>Build</span></button>
+    <button data-m="build"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14.5 7.5l3 3"/></svg><span>Editor</span></button>
     <button data-m="learn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg><span>Learn</span></button>
     <button data-m="review"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg><span>Review <b id="due"></b></span></button>
     <button data-m="tactics"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L3 14h8l-1 8 10-12h-8z"/></svg><span>Tactics <b id="tdue"></b></span></button>
@@ -58,7 +58,7 @@
   <h2 id="w-t">Welcome to Jan20</h2>
   <p class="dim">Train your openings, tactics and endgames. Everything stays on this device. No account, no sync.</p>
   <ul class="tour">
-    <li><b>Build, Learn, Review</b> Add lines, walk them, then review them on a spaced-repetition schedule. Drill, Time and Arena modes are in Learn.</li>
+    <li><b>Editor, Learn, Review</b> Add lines, walk them, then review them on a spaced-repetition schedule. Drill, Time and Arena modes are in Learn.</li>
     <li><b>Tactics</b> Rated puzzles that adapt to you. Import the full Lichess set later in Settings.</li>
     <li><b>Endgames</b> Practise against Stockfish. Mistakes are taken back so you can try again.</li>
   </ul>
@@ -66,7 +66,7 @@
 </dialog>
 <dialog id="keys" aria-labelledby="k-t">
   <h2 id="k-t">Keyboard shortcuts</h2>
-  <dl class="keys"><dt>H</dt><dd>Show a hint (Learn, Review, Tactics, Endgames)</dd><dt>← / →</dt><dd>Step through the moves of the line (Build, and Learn → Walk to look back)</dd><dt>Backspace</dt><dd>Take back the last move (Build)</dd><dt>Enter / Space</dt><dd>Next card or puzzle</dd><dt>?</dt><dd>This list</dd><dt>Esc</dt><dd>Close a dialog</dd></dl>
+  <dl class="keys"><dt>H</dt><dd>Show a hint (Learn, Review, Tactics, Endgames)</dd><dt>← / →</dt><dd>Step through the moves of the line (Editor, and Learn → Walk to look back)</dd><dt>Backspace</dt><dd>Take back the last move (Editor)</dd><dt>Enter / Space</dt><dd>Next card or puzzle</dd><dt>?</dt><dd>This list</dd><dt>Esc</dt><dd>Close a dialog</dd></dl>
   <p class="dim">Turn on "Type moves with the keyboard" in Settings to play moves by typing them, like Nf3.</p>
   <div class="row"><button class="primary" data-act="closedlg">Close</button></div>
 </dialog>

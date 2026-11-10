@@ -23,7 +23,7 @@ import { ArenaRun, type ArenaEnd } from './arena';
 import STARTER from './tactics/starter.json';
 import TRAPS from './tactics/traps.json';
 
-type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number; seen?: Record<string, true> };
+type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; bad?: Record<string, number>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number; seen?: Record<string, true> };
 type Mode = 'build' | 'learn' | 'review' | 'tactics' | 'endgames';
 type LMode = 'walk' | 'drill' | 'time' | 'arena';
 type Settings = { san: boolean; welcomed: boolean; lmode: LMode; explain: boolean; appearance: string; pieces: string; sound: boolean; newCap: number; retention: number; theme: string; coords: boolean; anim: boolean; haptics: boolean; learnDelay: number; engineMs: number; newPuzzles: number; window: number; importMin: number; importMax: number; importCount: number; ptheme: string };
@@ -331,7 +331,13 @@ function commit(m: any) {
   if (mode === 'endgames') return void endgameAnswer(m);
   if (mode === 'learn' && S.lmode === 'arena') return void arenaAnswer(m);
   const u = makeUci(m), s = makeSan(pos, m), k = key(pos);
-  if (mode === 'build') { markMove(s, true, u); (cur!.moves[k] ??= {})[u] = s; save(); line.push(u); sfx('move'); renderBuild(); }
+  if (mode === 'build') {
+    const snap = snapRep();
+    markMove(s, true, u); (cur!.moves[k] ??= {})[u] = s;
+    save(); line.push(u); sfx('move'); renderBuild();
+    undoable(`Saved ${s}.`, snap);
+    void checkBlunder(k, u);
+  }
   else if (mode === 'learn') learnAnswer(u, k);
   else reviewAnswer(u, k);
 }
@@ -405,10 +411,149 @@ const exportPgn = () => cur && download(`${cur.name}.pgn`, `[Event "${cur.name.r
 const exportAll = () => download(`jan20-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ app: 'jan20', v: 3, exported: new Date().toISOString(), settings: S, reps, tactics: { cards: pcards, stats: pstats, imported }, endgames: { cards: ecards, custom: egCustom } }));
 
 /* ---------- Build ---------- */
-const snapRep = () => ({ moves: structuredClone(cur!.moves), notes: structuredClone(cur!.notes ?? {}) });
-type RepSnap = { moves: any; notes: any };
-function undoable(text: string, snap: RepSnap) {
-  toast(text, { action: 'Undo', onAction: () => { cur!.moves = snap.moves; cur!.notes = snap.notes; save(); if (mode === 'build') renderBuild(); } });
+const snapRep = () => ({ moves: structuredClone(cur!.moves), notes: structuredClone(cur!.notes ?? {}), bad: structuredClone(cur!.bad ?? {}) });
+type RepSnap = { moves: any; notes: any; bad: any };
+const uStack: RepSnap[] = [], rStack: RepSnap[] = [];
+function snapNow(): RepSnap { const s = snapRep(); uStack.push(s); if (uStack.length > 80) uStack.shift(); rStack.length = 0; return s; }
+function applySnap(s: RepSnap) {
+  if (!cur) return;
+  cur.moves = s.moves; cur.notes = s.notes; cur.bad = s.bad;
+  save();
+  if (mode === 'build') { line = line.filter(Boolean); if (line.length) { const p = Chess.default(); for (const u of line) { const m = parseUci(u); if (!m) break; p.play(m); } } renderBuild(); }
+}
+/** Keep an edit reversible: snapshot first, tell the user afterwards. */
+function undoable(text: string, snap?: RepSnap) {
+  if (snap && uStack[uStack.length - 1] !== snap) { uStack.push(snap); if (uStack.length > 80) uStack.shift(); rStack.length = 0; }
+  toast(uStack.length ? `${text} — Ctrl+Z to undo` : text, { ms: 3000 });
+}
+function doUndo() {
+  if (!uStack.length) return void toast('Nothing left to undo.', { ms: 1400 });
+  rStack.push(snapRep()); applySnap(uStack.pop()!); toast('Undone. Ctrl+Shift+Z to redo.', { ms: 1800 });
+}
+function doRedo() {
+  if (!rStack.length) return void toast('Nothing to redo.', { ms: 1400 });
+  uStack.push(snapRep()); applySnap(rStack.pop()!); toast('Redone.', { ms: 1500 });
+}
+/** How many line-ends sit below this position: the size of the branch you would cut. */
+function leavesUnder(k: string): number {
+  const us = Object.keys(cur?.moves[k] || {});
+  if (!us.length) return 1;
+  let n = 0;
+  for (const u of us) { const p = fromKey(k); const m = parseUci(u); if (!m) continue; p.play(m); n += leavesUnder(key(p)); }
+  return n;
+}
+const sanOfUci = (k: string, u: string): string => { const p = fromKey(k); const m = parseUci(u); return m ? makeSan(p, m) : u; };
+async function copyText(t: string) {
+  try { await navigator.clipboard.writeText(t); toast('Copied to the clipboard.', { ms: 1600 }); }
+  catch { toast('Could not reach the clipboard.', { ms: 2000 }); }
+}
+/** One line as PGN, so it can be copied out or moved into another pack. */
+function pgnOfLine(l: string[]): string {
+  const p = Chess.default(); let out = '';
+  l.forEach((u, i) => { const m = parseUci(u)!; out += (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + makeSan(p, m) + ' '; p.play(m); });
+  return out + '*';
+}
+/** Append a pasted SAN/PGN line to the position you are standing on. */
+function pasteLine(text: string): number {
+  if (!cur) return 0;
+  const clean = text
+    .replace(/\{[^}]*\}/g, ' ').replace(/\([^)]*\)/g, ' ')
+    .replace(/\d+\s*\.(\s*\.\.)?/g, ' ').replace(/\b(1-0|0-1|1\/2-1\/2)\b/g, ' ').replace(/\*/g, ' ').trim();
+  const toks = clean.split(/\s+/).filter(Boolean);
+  if (!toks.length) return 0;
+  // read the paste from the start position, so a whole line can be pasted while standing at its end
+  const scratch = Chess.default(); const seq: { u: string; san: string }[] = [];
+  for (const t of toks) {
+    const m = parseSan(scratch, t);
+    if (!m) break;
+    seq.push({ u: makeUci(m), san: makeSan(scratch, m) }); scratch.play(m);
+  }
+  if (!seq.length) { toast('No legal moves in that text.', { ms: 3000 }); return 0; }
+  const skip = line.length && seq.length >= line.length && line.every((u, i) => seq[i].u === u) ? line.length : 0;
+  const rest = seq.slice(skip);
+  if (!rest.length) { toast('That line is already saved here.', { ms: 2600 }); return 0; }
+  const p = Chess.default(); for (const u of line) p.play(parseUci(u)!);
+  const snap = snapRep(); const played: string[] = [];
+  for (const mv of rest) {
+    const m = parseSan(p, mv.san);
+    if (!m || makeUci(m) !== mv.u) { toast(`Stopped at ${mv.san} — it does not follow from this position.`, { ms: 4200 }); break; }
+    const k = key(p);
+    (cur.moves[k] ??= {})[mv.u] = mv.san;
+    p.play(m); played.push(mv.u);
+  }
+  if (!played.length) return 0;
+  line.push(...played); save(); renderBuild();
+  undoable(`Added ${played.length} move${played.length === 1 ? '' : 's'} from the pasted line.`, snap);
+  return played.length;
+}
+
+/** Engine guard: flag a move of yours that is a mistake you would not want to memorise. */
+async function checkBlunder(k: string, u: string, quiet = false) {
+  if (!cur || !S.explain) return;
+  if (fromKey(k).turn !== cur.color) return;      // a mistake by the opponent is a trap you want, not a warning
+  try {
+    const fen = fenOf(fromKey(k));
+    const ms = Math.min(700, Math.max(300, S.engineMs));
+    const r = await engine.search(fen, { ms, multipv: 4 });
+    let mine = r.lines.find(l => l.pv[0] === u);
+    if (!mine) { const s = await engine.search(fen, { ms: 350, searchmoves: [u] }); mine = { score: s.score, mate: s.mate, pv: [u] }; }
+    const delta = r.score - (mine.score ?? 0), nk = k + '|' + u;
+    if (delta >= 150) {
+      (cur.bad ??= {})[nk] = delta; save(); if (mode === 'build') renderBuild();
+      if (!quiet) toast(`⚠ ${sanOfUci(k, u)} is about ${(delta / 100).toFixed(1)} worse than ${sanOfUci(k, r.best)} here. Saved anyway — Ctrl+Z to drop it.`, { ms: 6000 });
+    } else if (cur.bad?.[nk]) { delete cur.bad[nk]; save(); if (mode === 'build') renderBuild(); }
+  } catch { /* no engine available: stay quiet */ }
+}
+/** Check every move of yours in the line you are looking at. */
+async function checkLine() {
+  if (!cur || !line.length) return void toast('Open a line first.', { ms: 1800 });
+  msg('Checking this line with the engine…');
+  const p = Chess.default(); let flagged = 0;
+  for (const u of line) {
+    const k = key(p), m = parseUci(u)!;
+    if (p.turn === cur.color) { await checkBlunder(k, u, true); if (cur.bad?.[k + '|' + u]) flagged++; }
+    p.play(m);
+  }
+  if (mode === 'build') renderBuild();
+  msg(flagged ? `${flagged} move${flagged === 1 ? '' : 's'} of yours in this line look${flagged === 1 ? 's' : ''} wrong (marked ⚠).` : 'The engine likes every move of yours in this line.', flagged ? 'bad' : 'ok');
+}
+/** Opponent moves the engine rates that you have no reply prepared for. */
+async function findGaps() {
+  if (!cur) return;
+  const k = key(pos);
+  if (pos.turn === cur.color) return void toast('Gaps are opponent moves with no answer prepared — stand on a position where the opponent is to move.', { ms: 4600 });
+  const out = $('#gapout'); if (out) out.innerHTML = '<p class="dim">Asking the engine which moves are worth preparing for…</p>';
+  msg('Looking for opponent moves you have no answer for…');
+  try {
+    const r = await engine.search(fenOf(pos), { ms: Math.max(600, S.engineMs), multipv: 6 });
+    const seen = new Set<string>(); const rows: { u: string; san: string; open: boolean }[] = [];
+    for (const l of r.lines) {
+      const u = l.pv[0]; if (seen.has(u)) continue; seen.add(u);
+      const p = fromKey(k), m = parseUci(u); if (!m) continue;
+      const san = makeSan(p, m); p.play(m);
+      rows.push({ u, san, open: !Object.keys(cur!.moves[key(p)] || {}).length });
+    }
+    const gaps = rows.filter(x => x.open);
+    if (out) out.innerHTML = gaps.length
+      ? `<p class="dim">No answer prepared for ${gaps.length} of the ${rows.length} moves the engine likes here. Tap one to work on it:</p>
+         <div class="row mini">${gaps.map(x => `<button data-act="gapadd" data-u="${x.u}">${esc(x.san)}</button>`).join('')}</div>`
+      : '<p class="dim">Every move the engine likes here already has an answer prepared.</p>';
+    msg(gaps.length ? `${gaps.length} gap${gaps.length === 1 ? '' : 's'} here.` : 'No gaps here.');
+  } catch { msg('The engine did not answer.', 'bad'); }
+}
+/** Delete several lines at once, by the numbers they had when you picked them. */
+function deleteMany(idxs: number[]) {
+  if (!cur || !idxs.length) return;
+  const snap = snapRep();
+  const wanted = new Set(idxs.map(i => lineKey(walkLines()[i] || [])).filter(Boolean));
+  let guard = 0, removed = 0;
+  while (wanted.size && guard++ < 400) {
+    const lines = walkLines(); const hit = lines.findIndex(l => wanted.has(lineKey(l)));
+    if (hit < 0) break;
+    if (!deleteLine(hit, true)) wanted.delete(lineKey(lines[hit])); else removed++;
+  }
+  save(); renderBuild();
+  undoable(`Removed ${removed} line${removed === 1 ? '' : 's'}.`, snap);
 }
 /** Drop every position that can no longer be reached from the start (deleting a move used to leave them behind). */
 function pruneUnreachable(): number {
@@ -427,7 +572,7 @@ function pruneUnreachable(): number {
   return gone;
 }
 /** Remove a whole numbered line: cut the move where it leaves every other line, then prune. */
-function deleteLine(i: number): boolean {
+function deleteLine(i: number, quiet = false): boolean {
   const lines = walkLines(); const l = lines[i]; if (!cur || !l) return false;
   let common = 0;
   lines.forEach((o, j) => {
@@ -441,12 +586,14 @@ function deleteLine(i: number): boolean {
   const snap = snapRep();
   delete cur.moves[k][u]; if (!Object.keys(cur.moves[k]).length) delete cur.moves[k];
   const gone = pruneUnreachable();
+  if (quiet) return true;
   save(); renderBuild();
   undoable(`Removed line ${i + 1} (${san})${gone ? ` and ${gone} position${gone === 1 ? '' : 's'} below it` : ''}`, snap);
   return true;
 }
 
 function renderBuild() {
+  const wasOpen = [...document.querySelectorAll('#act details')].map(d => (d as HTMLDetailsElement).open);
   pos = Chess.default(); last = undefined; lastKey = undefined; lastSan = '';
   for (const u of line) { const m = parseUci(u)!; lastKey = key(pos); lastSan = makeSan(pos, m); pos.play(m); last = u; }
   show(); showNote('');
@@ -454,22 +601,42 @@ function renderBuild() {
   const mv = cur!.moves[key(pos)] || {};
   msg(pos.turn === cur!.color ? 'Your move. Play it on the board to save it.' : 'Opponent’s move. Play a reply you want to prepare for.');
   $('#path').textContent = pathText(line);
-  const order = Object.keys(mv);
-  const chips = Object.entries(mv).map(([u, s], i) =>
-    `<span class="chip"><button data-act="go" data-u="${u}">${esc(s)}</button>${i ? `<button data-act="main" data-u="${u}" aria-label="Make ${esc(s)} the first move here" title="Make ${esc(s)} the first move here">↑</button>` : ''}<button data-act="del" data-u="${u}" aria-label="Delete ${esc(s)}">✕</button></span>`).join('');
+  const here = key(pos), isMine = pos.turn === cur!.color;
+  const chips = Object.entries(mv).map(([u, s], i) => {
+    const dot = noteOf(here, u) ? '<b class="dot" title="This move has a note">•</b>' : '';
+    const bad = cur!.bad?.[here + '|' + u];
+    const warn = bad ? `<b class="warn" title="About ${(bad / 100).toFixed(1)} worse than the best move here">⚠</b>` : '';
+    const main = i ? `<button data-act="main" data-u="${u}" aria-label="Make ${esc(s)} the first move here" title="Make ${esc(s)} the first move here">↑</button>` : '';
+    return `<span class="chip ${isMine ? 'mine' : 'opp'}" draggable="true" data-chip="${u}"><button data-act="go" data-u="${u}">${esc(s)}</button>${dot}${warn}${main}<button data-act="del" data-u="${u}" aria-label="Delete ${esc(s)}">✕</button></span>`;
+  }).join('');
   const editor = last ? `<label class="field">Note for ${esc(lastSan)}<textarea id="note-ed" maxlength="800" placeholder="Why this move? Plans, traps, what to remember.">${esc(noteOf(lastKey, last))}</textarea></label>` : '';
   const lines = walkLines(); const lhtml = lines.map((l, i) => lineHtml(l, lines[i - 1]));
-  const lineList = `<h3>Lines (${lines.length})</h3><div class="list">${lines.length ? lines.map((l, i) =>
-    `<div class="rowline ${i === 0 ? 'first' : ''}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lhtml[i]}</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('') : '<p class="dim">No lines yet.</p>'}</div>`;
+  const through = lines.filter(l => line.every((u, i) => l[i] === u)).length;
+  const below = leavesUnder(here);
+  const others = reps.filter(r => r.id !== cur!.id);
+  const rows = lines.map((l, i) =>
+    `<div class="rowline ${i === 0 ? 'first' : ''}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lhtml[i]}</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
+  const lineList = `<div class="linehead"><h3>Lines (${lines.length})</h3><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
+    <div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
+    ${lines.length ? `<div class="row mini"><button data-act="selall">${picked.size ? 'Clear selection' : 'Select all'}</button><button data-act="delpick" class="danger" ${picked.size ? '' : 'disabled'}>Delete selected</button>${others.length ? `<select id="copytarget" aria-label="Copy the selected lines into another pack"><option value="">Copy to…</option>${others.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><button data-act="copypick" ${picked.size ? '' : 'disabled'}>Copy</button>` : ''}</div>` : ''}`;
   $('#act').innerHTML = `<div class="chips">${chips || '<span class="dim">No saved moves from this position yet.</span>'}</div>
     ${editor}
-    <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="bprev" aria-label="Previous line" title="Previous line">‹ Line</button><button data-act="bnext" aria-label="Next line" title="Next line">Line ›</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
-    <p class="stats">${keys.length} positions · ${keys.filter(k => k.split(' ')[1] === mine()).length} yours · ${lines.length} line${lines.length === 1 ? '' : 's'}</p>
+    <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
+    <p class="stats">${keys.length} positions · ${keys.filter(k => k.split(' ')[1] === mine()).length} yours · ${lines.length} line${lines.length === 1 ? '' : 's'}<br>here: ${Object.keys(mv).length} saved move${Object.keys(mv).length === 1 ? '' : 's'} · ${through} line${through === 1 ? '' : 's'} through · ${below} line-end${below === 1 ? '' : 's'} below</p>
     <details><summary>Every line in this repertoire</summary>${lineList}</details>
+    <details><summary>Paste or copy a line</summary>
+      <textarea id="paste" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 — pasted from anywhere, variations and comments ignored"></textarea>
+      <div class="row mini"><button data-act="paste" class="primary">Add from here</button><button data-act="copyline">Copy this line</button></div>
+    </details>
+    <details><summary>Gaps and engine</summary>
+      <div id="gapout"><p class="dim">Find opponent moves here that you have no answer prepared for.</p></div>
+      <div class="row mini"><button data-act="gaps">Find gaps here</button><button data-act="checkline">Check this line</button></div>
+    </details>
     <details><summary>More</summary>
       <textarea id="pgn" placeholder="Paste a PGN with variations and comments"></textarea>
       <div class="row"><button data-act="pgn">Import PGN</button><button data-act="exportpgn">Export PGN</button><button data-act="rename">Rename</button><button data-act="delrep" class="danger">Delete</button></div>
     </details>`;
+  [...document.querySelectorAll('#act details')].forEach((d, i) => { if (wasOpen[i] !== undefined) (d as HTMLDetailsElement).open = wasOpen[i]; });
   updateDue();
 }
 
@@ -532,6 +699,7 @@ function lineHtml(l: string[], prev?: string[]): string {
 }
 let wHtml: string[] | undefined;
 let bIdx = 0;                                   // which numbered line Build is showing
+const picked = new Set<number>();               // lines ticked for bulk delete / copy
 /** In Walk, look back through the moves of the line you are learning (-1 back, +1 forward). */
 function walkStep(d: number) {
   if (!line.length && d < 0) return;
@@ -582,7 +750,7 @@ function walkPanel() {
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
     <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" class="primary" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
-    <h3>All lines (${wLines.length}) · ${done} discovered</h3><div class="list">${rows || '<p class="dim">No moves yet. Add lines in Build.</p>'}</div>`;
+    <h3>All lines (${wLines.length}) · ${done} discovered</h3><div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div>`;
 }
 function startWalkLine(i: number) {
   if (!wLines.length) return;
@@ -623,7 +791,7 @@ function learnStep() {
   if (!us.length) {
     if (fast() && dActive) return lineDone();
     if (walk && line.length) return walkDone();
-    show([], false); msg(line.length ? 'Line complete.' : 'Nothing to learn yet. Add moves in Build.', 'ok'); return;
+    show([], false); msg(line.length ? 'Line complete.' : 'Nothing to learn yet. Add moves in the Editor.', 'ok'); return;
   }
   if (pos.turn !== cur!.color) {
     show([], false); msg('Opponent plays…');
@@ -664,7 +832,7 @@ function drillInit() {
   $('#act').innerHTML = `${lmodeBar()}<div class="row"><button data-act="dstart" class="primary">Start</button></div>`;
 }
 function drillNextLine() {
-  const ks = ownKeys(); if (!ks.length) { dActive = false; msg('Nothing to drill yet. Add moves in Build.'); return; }
+  const ks = ownKeys(); if (!ks.length) { dActive = false; msg('Nothing to drill yet. Add moves in the Editor.'); return; }
   buildIndex(); const k = pick(ks); const e = parent.get(k);
   pos = fromKey(k); line = pathTo(k); last = e?.uci; lastKey = e?.from; learnStep();
 }
@@ -1096,6 +1264,23 @@ document.addEventListener('click', e => {
   else if (a === 'bnext') buildLine(bIdx + 1);
   else if (a === 'mprev') buildStep(-1);
   else if (a === 'mnext') buildStep(1);
+  else if (a === 'undo2') doUndo();
+  else if (a === 'redo2') doRedo();
+  else if (a === 'selall') { if (picked.size) picked.clear(); else walkLines().forEach((_, i) => picked.add(i)); renderBuild(); }
+  else if (a === 'delpick') { if (picked.size) { const idx = [...picked]; picked.clear(); deleteMany(idx); } }
+  else if (a === 'copypick') {
+    const sel = $('#copytarget') as HTMLSelectElement | null, target = reps.find(r => r.id === sel?.value);
+    if (!target || !picked.size) return void toast('Tick some lines and pick a pack first.', { ms: 2400 });
+    const lines = walkLines(); let n = 0;
+    for (const i of [...picked].sort((x, y) => x - y)) { const l = lines[i]; if (l) n += importInto(target, pgnOfLine(l) + '\n'); }
+    save(); picked.clear(); renderBuild();
+    toast(`Copied ${n} move${n === 1 ? '' : 's'} into ${target.name}.`, { ms: 3200 });
+  }
+  else if (a === 'paste') { const t = ($('#paste') as HTMLTextAreaElement | null)?.value ?? ''; if (!pasteLine(t)) toast('Nothing legal to add there.', { ms: 2400 }); }
+  else if (a === 'copyline') copyText(line.length ? pgnOfLine(line) : 'Nothing played yet.');
+  else if (a === 'gaps') void findGaps();
+  else if (a === 'checkline') void checkLine();
+  else if (a === 'gapadd') { line.push(u); renderBuild(); msg(`Now play the answer you want to ${sanOfUci(key(pos), u)}.`); }
   else if (a === 'wback') walkStep(-1);
   else if (a === 'wfwd') walkStep(1);
   else if (a === 'lprev') { if (!wLines.length) wLines = walkLines(); startWalkLine(wIdx - 1); }
@@ -1103,10 +1288,11 @@ document.addEventListener('click', e => {
   else if (a === 'main') {
     const k = key(pos), mv2 = cur!.moves[k] ?? {};
     if (!mv2[u] || Object.keys(mv2)[0] === u) return;
+    const snap = snapRep();
     const rest = Object.entries(mv2).filter(([x]) => x !== u);
     cur!.moves[k] = { [u]: mv2[u], ...Object.fromEntries(rest) };
     save(); renderBuild();
-    toast(`“${mv2[u]}” is now the first move here.`, { ms: 3200 });
+    undoable(`“${mv2[u]}” is now the first move here.`, snap);
   }
   else if (a === 'undo') { line.pop(); renderBuild(); }
   else if (a === 'reset') { line = []; renderBuild(); }
@@ -1158,18 +1344,62 @@ document.addEventListener('click', e => {
   else if (a === 'clear-puz') { ask({ title: 'Remove imported puzzles?', text: 'The built-in puzzles and your progress stay.', ok: 'Remove', danger: true }).then(yes => { if (yes) { imported = []; pmapCache = undefined; kvSet('puzzles', imported); openSettings(); toast('Imported puzzles removed.'); } }); }
 });
 document.addEventListener('change', e => {
-  const el = e.target as HTMLSelectElement;
+  const el = e.target as HTMLSelectElement & HTMLInputElement;
   if (el.id === 't-theme') { S.ptheme = el.value; save(); tacticsInit(); }
+  if (el.classList.contains('pick')) {
+    const i = +el.dataset.u!;
+    if (el.checked) picked.add(i); else picked.delete(i);
+    renderBuild();
+  }
 });
+/* Chips are draggable: dropping one before another re-orders the moves at this position. */
+let dragChip: string | undefined;
+document.addEventListener('dragstart', e => {
+  const c = (e.target as HTMLElement).closest?.('.chip') as HTMLElement | null;
+  if (!c) return;
+  dragChip = c.dataset.chip; c.classList.add('dragging');
+  e.dataTransfer?.setData('text/plain', dragChip ?? '');
+});
+document.addEventListener('dragend', e => {
+  (e.target as HTMLElement).closest?.('.chip')?.classList.remove('dragging');
+  document.querySelectorAll('.chip.over').forEach(x => x.classList.remove('over'));
+  dragChip = undefined;
+});
+document.addEventListener('dragover', e => {
+  const c = (e.target as HTMLElement).closest?.('.chip') as HTMLElement | null;
+  if (!c || !dragChip || c.dataset.chip === dragChip) return;
+  e.preventDefault(); c.classList.add('over');
+});
+document.addEventListener('dragleave', e => (e.target as HTMLElement).closest?.('.chip')?.classList.remove('over'));
+document.addEventListener('drop', e => {
+  const c = (e.target as HTMLElement).closest?.('.chip') as HTMLElement | null;
+  if (!c || !dragChip || !cur) return;
+  e.preventDefault(); c.classList.remove('over');
+  const target = c.dataset.chip!, from = dragChip; dragChip = undefined;
+  if (!target || target === from || !line.length === false) { /* still reorder */ }
+  const k = key(pos), mv = cur.moves[k]; if (!mv || !mv[from]) return;
+  const snap = snapRep();
+  const rest = Object.entries(mv).filter(([x]) => x !== from);
+  const at = rest.findIndex(([x]) => x === target);
+  rest.splice(at < 0 ? rest.length : at, 0, [from, mv[from]]);
+  cur.moves[k] = Object.fromEntries(rest);
+  save(); renderBuild(); undoable('Reordered the moves here.', snap);
+});
+let noteSnapKey = '';
 document.addEventListener('input', e => {
   const el = e.target as HTMLTextAreaElement;
   if (el.id !== 'note-ed' || !cur || !last || !lastKey) return;
   cur.notes ??= {}; const nk = lastKey + '|' + last;
+  if (noteSnapKey !== nk) { noteSnapKey = nk; snapNow(); }
   if (el.value.trim()) cur.notes[nk] = el.value.trim(); else delete cur.notes[nk];
   save();
 });
 document.addEventListener('keydown', e => {
-  if ((e.target as HTMLElement).matches('input,textarea,select') || document.querySelector('dialog[open]')) return;
+  if (document.querySelector('dialog[open]')) return;
+  const typing = (e.target as HTMLElement).matches('input,textarea,select');
+  if ((e.ctrlKey || e.metaKey) && !typing && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); return void (e.shiftKey ? doRedo() : doUndo()); }
+  if ((e.ctrlKey || e.metaKey) && !typing && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); return void doRedo(); }
+  if (typing) return;
   if (e.key === '?') return void $('#keys').showModal();
   if (!cur && opening(mode)) return;
   if (e.key === 'Escape') { cg.cancelPremove(); return; }

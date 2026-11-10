@@ -139,6 +139,23 @@ textarea{width:100%;min-height:96px;resize:vertical}
 .rowline .walk{font-size:.85rem;line-height:1.35;color:var(--dim)}
 .rowline .walk b.diff{color:var(--accent);font-weight:700}
 .rowline button{min-height:28px;padding:0 8px;line-height:1;font-size:.8rem;color:var(--dim)}
+/* Editor: chips, notes, warnings, reordering */
+.chip{align-items:center}
+.chip.mine button:first-child{box-shadow:inset 0 -2px 0 var(--accent)}
+.chip.opp button:first-child{color:var(--dim);font-weight:550}
+.chip .dot{color:var(--accent);font-size:1.1rem;line-height:1;margin-left:2px;align-self:center}
+.chip .warn{color:#c0392b;font-size:.95rem;line-height:1;margin-left:4px;align-self:center}
+.chip.dragging{opacity:.45}
+.chip.over{outline:2px dashed var(--accent);outline-offset:2px;border-radius:12px}
+.chip button[data-act=main],.chip button[data-act=del]{padding:8px 9px}
+.linehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 0}
+.linehead .mini{display:inline-flex;gap:6px}
+.row.mini{gap:6px;margin-top:6px}
+.row.mini button,.row.mini select{min-height:30px;font-size:.82rem;padding:0 10px}
+.rowline .pick{width:15px;height:15px;margin:5px 0 0;accent-color:var(--accent)}
+.rowline{grid-template-columns:auto 2.2em 1fr auto}
+#gapout p{margin:6px 0}
+#paste{min-height:72px}
 .pill{font-size:.72rem;font-weight:650;letter-spacing:.05em;text-transform:uppercase;padding:2px 9px;border-radius:99px;border:1px solid var(--line2);color:var(--dim)}
 .pill.win{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
 .pill.hold{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 55%,transparent)}
