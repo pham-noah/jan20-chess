@@ -1,14 +1,7 @@
 [Event "Italian Game"]
 [Orientation "white"]
 
-1. e4 e5 2. Nf3 Nc6 3. Bc4 {Italian Game. The bishop eyes f7. White plans c3, d3 and a slow, Spanish-style squeeze.} 3... Bc5 {Giuoco Piano, the main reply.}
-(3... Nf6 {Two Knights Defence.} 4. d3 {Calm and flexible. Skips the heavy theory of 4.Ng5.}
- (4. Ng5 {The sharp alternative.} 4... d5 5. exd5 Na5 6. Bb5+ c6 7. dxc6 bxc6 8. Be2 h6 9. Nf3 e4 10. Ne5 Bd6 11. d4 exd3 12. Nxd3 {Black gave a pawn for activity. White should consolidate with Nd2 and castle.})
- 4... Bc5 (4... Be7 5. O-O O-O 6. Re1 d6 7. c3 {Same set-up.}) 5. c3 d6 6. O-O O-O 7. Re1 a6 8. Bb3 Ba7 9. h3 h6 10. Nbd2 {Transposes to the main Pianissimo structure.})
-(3... Be7 {Hungarian Defence, passive.} 4. d3 Nf6 5. O-O O-O 6. Re1 d6 7. c3 {Same set-up.})
-4. c3 {Prepares d4. If Black ignores it White takes the whole centre.} 4... Nf6
-(4... d6 5. d3 Nf6 6. O-O O-O 7. Re1 {Same structure.})
-5. d3 {Giuoco Pianissimo: the quiet plan. Keep the centre closed and manoeuvre.} 5... d6
-(5... O-O 6. O-O d6 7. Re1 a6 8. Bb3 Ba7 9. h3 {Transposes.})
-(5... d5 6. exd5 Nxd5 7. O-O Nb6 8. Bb3 O-O 9. Re1 {Black freed the position. Follow with Nbd2 and Nf1.})
-6. O-O O-O 7. Re1 {Supports e4 and eyes the e-file.} 7... a6 8. Bb3 {Keep the bishop safe from ...b5 and ...Na5 ideas.} 8... Ba7 9. h3 {Stops ...Bg4 and gives the king air.} 9... h6 10. Nbd2 Re8 11. Nf1 {The knight heads for g3 and f5.} 11... Be6 12. Bxe6 Rxe6 13. Ng3 {Typical set-up. Aim for d4, or Nf5 and Qd2. Both sides have play.}
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 {Two Knights Defence, the sharpest test of the Italian.} (3... Bc5 {Giuoco Piano, the main reply.} 4. c3 Nf6 (4... d6 5. d4 exd4 6. cxd4 Bb6 {Or 6...Bb4+, the lines below.} 7. O-O {A free game with the centre.}) (4... Qf6 {An offbeat queen sortie.} 5. b4 Bb6 6. O-O d6 7. a4 a6 8. d3 {White keeps the extra space.}) (4... Bb6 {The bishop steps aside.} 5. d4 d6 6. dxe5 Qe7 7. exd6 Qxe4+ 8. Be2 Qg6 {Black wins a pawn back but falls behind in development.}) 5. d4 {Take the centre at once.} exd4 6. cxd4 Bb4+ 7. Nbd2 Nxe4 8. d5 {The point of the set-up: the pawn wedge takes squares away from Black's pieces.} Nxd2 (8... Bxd2+ 9. Bxd2 Nxd2 10. Qxd2 Ne7 11. h4 O-O 12. h5 h6 13. g4 d6 14. Rg1 {Pawns in front of the king; Rg1 and g5 next.}) (8... Ne7 9. O-O Nxd2 10. Nxd2 O-O 11. a3 Bc5 12. Ne4 d6 (12... Bb6 13. d6 {The pawn breaks through.}) 13. Nxc5 dxc5 14. b4 cxb4 15. axb4 {A better endgame: the bishop pair against Black's holes.}) 9. Bxd2 Bxd2+ (9... Qe7+ 10. Kf1 {The king sidesteps and the d5 pawn stays a monster.}) 10. Qxd2 Ne7 11. h4 d6 12. h5 Bg4 13. O-O-O {Opposite wings: White storms the kingside, Black the queenside.})
+(3... Be7 {Hungarian Defence, passive.} 4. d4 {Punish the passive bishop at once.} exd4 5. Nxd4 Nf6 6. Nxc6 bxc6 7. O-O O-O 8. Re1 {The e-file and the better structure are White's trumps.})
+(3... d6 {A passive Philidor-style set-up.} 4. c3 Be7 5. Qb3 Nh6 6. d4 O-O 7. Bxh6 gxh6 {Black's kingside is wrecked for the bishop pair.})
+4. Ng5 d5 5. exd5 Nxd5 (5... Na5 {The safe retreat; White keeps the pawn.} 6. Bb5+ c6 7. dxc6 bxc6 8. Be2 h6 9. Nf3 e4 10. Ne5 Bd6 11. d4 exd3 12. Nxd3 {Black gave a pawn for activity. White should consolidate with Nd2 and castle.}) (5... b5 {An engine-suggested sideline: b5 keeps the pawn on the board.} 6. Bf1 Nd4 7. c3 Nxd5 8. Nxf7 Kxf7 9. cxd4 exd4 {White is a piece up for two pawns.}) 6. Nxf7 {Fried Liver: the knight goes for the king.} Kxf7 7. Qf3+ Ke8 8. Bxd5 {The point: White regains the piece with a winning position.}

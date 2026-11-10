@@ -81,6 +81,18 @@ APP POLISH (v8)
   haptics use the device motor. These native pieces are written but not run on a device.
 - Tests: tools/e2e-polish.py (25 checks) joins the other browser suites (72 checks in total).
 
+ITALIAN PACK REBUILT ON THE CHESSREPS COURSE (v9)
+- The Italian repertoire now follows the line order of the Chessreps course (GM Wei Yi) as far as it is visible
+  without an account: line 1 is the Two Knights with the Fried Liver (4.Ng5 d5 5.exd5 Nxd5 6.Nxf7 Kxf7 7.Qf3+ Ke8
+  8.Bxd5), then the Giuoco Piano with 5.d4 (8.d5, the ...Bb4+ lines, ...Nxd2/...Bxd2+/...Ne7 and the 8...Qe7+ 10.Kf1
+  sidestep), ending with opposite-side castling.
+- The quiet 5.d3 Pianissimo and the 4.d3 Two Knights lines are gone, along with the engine sidelines that hung off
+  them. 3...Be7 is now met by 4.d4 instead of 4.d3. 15 lines, 117 positions, 64 White moves.
+- The rest of the course (97 more lines) is paywalled, so it is not included. To bring it in, export the PGNs from
+  Chessreps and paste them into Build > More > Import PGN.
+- Moves only: the notes are ours. Every move was re-checked for legality and audited with Stockfish (63 White moves
+  at depth 13, 0 flagged, including the 6.Nxf7 sacrifice).
+
 LEARN PARITY WITH CHESSREPS (v9)
 - Walk now names the move, as Chessreps' Learn does: the status line reads "Play Nf3." and the author's note for
   the position still shows above it. Solve (next to Hint) plays that move for you, so you can skim a line.
