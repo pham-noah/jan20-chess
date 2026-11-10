@@ -428,7 +428,8 @@ function applySnap(s: RepSnap) {
 /** Keep an edit reversible: snapshot first, tell the user afterwards. */
 function undoable(text: string, snap?: RepSnap) {
   if (snap && uStack[uStack.length - 1] !== snap) { uStack.push(snap); if (uStack.length > 80) uStack.shift(); rStack.length = 0; }
-  toast(uStack.length ? `${text} — Ctrl+Z to undo` : text, { ms: 3000 });
+  if (uStack.length) toast(text, { ms: 4200, action: 'Undo', onAction: doUndo });   // the button does what Ctrl+Z does
+  else toast(text, { ms: 3000 });
 }
 function doUndo() {
   if (!uStack.length) return void toast('Nothing left to undo.', { ms: 1400 });
