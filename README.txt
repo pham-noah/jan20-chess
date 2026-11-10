@@ -81,6 +81,16 @@ APP POLISH (v8)
   haptics use the device motor. These native pieces are written but not run on a device.
 - Tests: tools/e2e-polish.py (25 checks) joins the other browser suites (72 checks in total).
 
+WALK IS A NUMBERED WALKTHROUGH (v9)
+- Walk lists every line in the repertoire, numbered, main line first. The panel shows "All lines (N)" with the
+  current one highlighted, and the move where each line leaves the one above it is picked out in amber, so the
+  variants are recognisable at a glance. Tap any line to jump to it.
+- While walking, the opponent follows the numbered line instead of replying at random. A line that hits a prepared
+  move you did not plan to play re-syncs to the line you actually entered.
+- When a line ends it counts itself off ("Line 3 of 22 done") and moves to the next one; after the last it starts again.
+  Next line jumps forward, Start over returns to line 1. The line you were on is remembered per repertoire.
+- Drill and Time still pick random lines and random replies: that is their point.
+
 PRE-MOVES (v9)
 - While the opponent is thinking (Learn Walk/Drill/Time/Arena and Endgames) you can already play your next move:
   drag it or tap from/to, and the squares light up in amber. The moment your turn comes back it is played.

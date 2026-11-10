@@ -22,7 +22,7 @@ import { explain, fmtScore } from './explain';
 import { ArenaRun, type ArenaEnd } from './arena';
 import STARTER from './tactics/starter.json';
 
-type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number } };
+type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number };
 type Mode = 'build' | 'learn' | 'review' | 'tactics' | 'endgames';
 type LMode = 'walk' | 'drill' | 'time' | 'arena';
 type Settings = { san: boolean; welcomed: boolean; lmode: LMode; explain: boolean; appearance: string; pieces: string; sound: boolean; newCap: number; retention: number; theme: string; coords: boolean; anim: boolean; haptics: boolean; learnDelay: number; engineMs: number; newPuzzles: number; window: number; importMin: number; importMax: number; importCount: number; ptheme: string };
@@ -69,6 +69,7 @@ let eRun: DrillRun | undefined, eColor: 'white' | 'black' | undefined, eBusy = f
 let promo: { m: any; prev: string } | undefined;
 const parent = new Map<string, { from: string; uci: string }>();
 let dScore = 0, dLines = 0, dActive = false, ttEnd = 0, ttTimer: any;
+let wLines: string[][] = [], wIdx = 0;
 let aRun: ArenaRun | undefined, aBusy = false;
 
 let timer: any;
@@ -421,32 +422,100 @@ async function explainWrong(k: string, u: string, base = '') {
   catch { if (tok === session) showNote(base); }
 }
 
+/* Walk: a numbered walkthrough of every line in the repertoire, one after another. */
+function walkLines(): string[][] {
+  const out: string[][] = [];
+  if (!cur) return out;
+  const walk = (k: string, path: string[]) => {
+    if (out.length >= 400) return;
+    const us = Object.keys(cur!.moves[k] || {});
+    if (!us.length) { if (path.length) out.push(path); return; }
+    for (const u of us) {
+      const p = fromKey(k); p.play(parseUci(u)!);
+      walk(key(p), [...path, u]);
+    }
+  };
+  walk(START, []);
+  return out;
+}
+/** Which numbered line does this played prefix belong to? (falls back to the current one) */
+function lineOf(prefix: string[]) {
+  const hit = wLines.findIndex(l => prefix.every((u, i) => l[i] === u));
+  return hit < 0 ? wIdx : hit;
+}
+/** SAN text of one line, with the first move that differs from the previous line emphasised. */
+function lineHtml(l: string[], prev?: string[]): string {
+  let diff = 0;
+  if (prev) { diff = l.findIndex((u, i) => prev[i] !== u); if (diff < 0) diff = l.length - 1; }
+  const p = Chess.default(); let out = '';
+  l.forEach((u, i) => {
+    const m = parseUci(u)!; const san = makeSan(p, m); p.play(m);
+    out += (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + (i === diff ? `<b class="diff">${esc(san)}</b>` : esc(san)) + (i < l.length - 1 ? ' ' : '');
+  });
+  return out;
+}
+let wHtml: string[] | undefined;
+function walkPanel() {
+  wHtml ??= wLines.map((l, i) => lineHtml(l, wLines[i - 1]));
+  const rows = wLines.map((l, i) =>
+    `<button class="item ${i === wIdx ? 'on' : ''}" data-act="wline" data-u="${i}"><span>${i + 1}.</span><span class="walk">${wHtml![i]}</span></button>`).join('');
+  $('#act').innerHTML = `${lmodeBar()}
+    <div class="row"><button data-act="hint">Hint</button><button data-act="wnext" class="primary">Next line</button><button data-act="restart">Start over</button></div>
+    <h3>All lines (${wLines.length})</h3><div class="list">${rows || '<p class="dim">No lines yet. Add moves in Build.</p>'}</div>`;
+}
+function startWalkLine(i: number) {
+  if (!wLines.length) return;
+  wIdx = Math.max(0, Math.min(wLines.length - 1, i));
+  cur!.walk = wIdx; save();
+  session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); locked = false;
+  walkPanel();
+  learnStep();
+}
+function walkDone() {
+  const last = wIdx >= wLines.length - 1;
+  locked = true; sfx('ok'); flash('ok'); show([], false);
+  msg(last ? `Line ${wIdx + 1} of ${wLines.length} done. All lines walked.` : `Line ${wIdx + 1} of ${wLines.length} done. Next line…`, 'ok');
+  const tok = session;
+  setTimeout(() => { if (tok === session && S.lmode === 'walk' && mode === 'learn') startWalkLine(last ? 0 : wIdx + 1); }, last ? 1600 : 1100);
+}
+
 function learnInit() {
   clearInterval(ttTimer); dActive = false; aRun = undefined; aBusy = false; locked = false;
   line = []; last = undefined; lastKey = undefined; pos = Chess.default(); $('#bar').hidden = true;
   if (S.lmode === 'drill') return drillInit();
   if (S.lmode === 'time') return timeInit();
   if (S.lmode === 'arena') return arenaInit();
-  $('#act').innerHTML = `${lmodeBar()}<div class="row"><button data-act="hint">Hint</button><button data-act="restart">Restart line</button></div>`;
-  learnStep();
+  wLines = walkLines(); wHtml = undefined;
+  startWalkLine(cur!.walk ?? 0);
 }
 function learnStep() {
   locked = false; const tok = session;
   if (pos.turn === cur?.color && consumePremove()) return;
   const us = Object.keys(cur!.moves[key(pos)] || {});
-  $('#path').textContent = fast() && dActive ? runLine() : pathText(line);
+  const walk = S.lmode === 'walk';
+  $('#path').textContent = fast() && dActive ? runLine()
+    : walk ? `Line ${wIdx + 1} of ${wLines.length}${line.length ? ' · ' + pathText(line) : ''}` : pathText(line);
   showNote(noteOf(lastKey, last));
   if (!us.length) {
     if (fast() && dActive) return lineDone();
+    if (walk && line.length) return walkDone();
     show([], false); msg(line.length ? 'Line complete.' : 'Nothing to learn yet. Add moves in Build.', 'ok'); return;
   }
-  if (pos.turn !== cur!.color) { show([], false); msg('Opponent plays…'); setTimeout(() => { if (tok === session) { play(pick(us)); learnStep(); } }, fast() ? Math.min(S.learnDelay, 250) : S.learnDelay); return; }
+  if (pos.turn !== cur!.color) {
+    show([], false); msg('Opponent plays…');
+    // Walk follows the numbered line; Drill and Time stay random.
+    const want = walk ? wLines[wIdx]?.[line.length] : undefined;
+    const u = want && us.includes(want) ? want : walk ? us[0] : pick(us);
+    setTimeout(() => { if (tok === session) { play(u); learnStep(); } }, fast() ? Math.min(S.learnDelay, 250) : S.learnDelay);
+    return;
+  }
   show(); msg(fast() && dActive ? 'Your move.' : 'Your move.');
 }
 function learnAnswer(u: string, k: string) {
   const mv = cur!.moves[k];
   if (mv[u]) {
     play(u); sfx('move');
+    if (S.lmode === 'walk') { const j = lineOf(line); if (j !== wIdx) { wIdx = j; cur!.walk = j; save(); walkPanel(); } }
     if (fast() && dActive) { dScore++; }
     return learnStep();
   }
@@ -866,8 +935,14 @@ document.addEventListener('click', e => {
   else if (a === 'import-pgn') { if (!cur) return toast('Create or select a repertoire first.', { kind: 'bad' }); pickFile('pgn'); }
   else if (a === 'rename') openDlg('rename');
   else if (a === 'delrep') { ask({ title: 'Delete this repertoire?', text: `“${cur!.name}” and its review progress will be removed. Export a backup first if unsure.`, ok: 'Delete', danger: true }).then(yes => { if (yes) { reps = reps.filter(r => r !== cur); cur = reps[0]; save(); enter('build'); toast('Repertoire deleted.'); } }); }
-  else if (a === 'hint') { const mv = Object.keys(cur!.moves[key(pos)] || {}); if (mv.length && !locked) { hinted = true; show([arrow(mv[0])]); } }
-  else if (a === 'restart') learnInit();
+  else if (a === 'hint') {
+    const mv = Object.keys(cur!.moves[key(pos)] || {});
+    const want = S.lmode === 'walk' && mode === 'learn' ? wLines[wIdx]?.[line.length] : undefined;
+    if (mv.length && !locked) { hinted = true; show([arrow(want && mv.includes(want) ? want : mv[0])]); }
+  }
+  else if (a === 'restart') { if (S.lmode === 'walk' && mode === 'learn') startWalkLine(0); else learnInit(); }
+  else if (a === 'wline') startWalkLine(+u);
+  else if (a === 'wnext') { wLines = walkLines(); wHtml = undefined; startWalkLine(wIdx + 1 >= wLines.length ? 0 : wIdx + 1); }
   else if (a === 'next') reviewNext();
   else if (a === 'lmode') { S.lmode = u as LMode; save(); learnInit(); }
   else if (a === 'dstart') drillStart();
