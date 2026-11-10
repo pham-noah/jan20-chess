@@ -11,6 +11,9 @@ await (async () => {
   let p = posAfter('e4 e5 Qh5 Nc6'); let m = parseSan(p, 'Qxe5');
   const h1 = hangs(p, m); ok('queen takes a defended pawn: hanging queen reported', /queen on e5 hanging/.test(h1 || ''), h1);
   p = posAfter('e4 e5 Nf3 Nc6'); m = parseSan(p, 'Bc4'); ok('a developing move is not flagged', hangs(p, m) === undefined, hangs(p, m));
+  // Two Knights: f6 vacates, so Qd8 already eyes the g5 knight. Playing a normal move must not be blamed for it.
+  p = posAfter('e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 b5 Bf1 Nd4 c3 Nxd5'); m = parseSan(p, 'cxd4');
+  ok('a piece that was already en prise is not blamed on this move', hangs(p, m) === undefined, hangs(p, m));
   p = posAfter('e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5'); m = parseSan(p, 'Nxd5'); ok('a normal recapture is not flagged', hangs(p, m) === undefined, hangs(p, m));
   const sf = createSF(); await sf.init();
   const eng = { async search(fen, o = {}) { const r = await sf.search(fen, { movetime: o.ms, depth: o.depth, multipv: o.multipv, searchmoves: o.searchmoves }); const lines = r.pvs.map(q => ({ score: score(q), mate: q.kind === 'mate' ? q.val : undefined, pv: q.pv })); const top = lines[0] || { score: 0, pv: [] }; return { best: r.bestmove, score: top.score, mate: top.mate, pv: top.pv, lines, history: r.history }; } };

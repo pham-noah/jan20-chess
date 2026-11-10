@@ -149,6 +149,32 @@ function sfx(kind: 'move' | 'ok' | 'bad' | 'done') {
   } catch { /* audio unavailable */ }
 }
 const flash = (k: 'ok' | 'bad') => { const b = $('#board'); b.classList.remove('flash-ok', 'flash-bad'); void b.offsetWidth; b.classList.add('flash-' + k); };
+/** The move you just played, marked on its squares: green tick for a book move, red cross for a wrong one.
+ *  Replaces the board shake. `uci` gives the from/to squares; without it nothing is drawn. */
+let tileTimer: any;
+const clearMark = () => { const l = $('#mmarks'); if (l) l.textContent = ''; };
+const markMove = (san: string, ok: boolean, uci?: string) => {
+  const layer = $('#mmarks'); if (!layer) return;
+  clearMark();
+  const m = (uci ? parseUci(uci) : undefined) as any;
+  if (!m) return;
+  const black = orient() === 'black';
+  const cell = (sq: number, cls: string) => {
+    const f = sq & 7, r = sq >> 3;
+    const d = document.createElement('div');
+    d.className = 'mm ' + cls;
+    d.style.left = `${(black ? 7 - f : f) * 12.5}%`;
+    d.style.top = `${(black ? r : 7 - r) * 12.5}%`;
+    return d;
+  };
+  layer.appendChild(cell(m.from, ok ? 'ok' : 'bad'));
+  const dest = cell(m.to, (ok ? 'ok' : 'bad') + ' dest');
+  dest.innerHTML = `<span class="g" aria-hidden="true">${ok ? '✓' : '✕'}</span>`;
+  dest.title = san;
+  layer.appendChild(dest);
+  clearTimeout(tileTimer); tileTimer = setTimeout(clearMark, ok ? 1100 : 2400);
+};
+const sanAt = (k: string, u: string) => { try { return makeSan(fromKey(k), parseUci(u)!); } catch { return u; } };
 
 const cg: any = Chessground($('#board'), {
   animation: { duration: 200 },
@@ -305,7 +331,7 @@ function commit(m: any) {
   if (mode === 'endgames') return void endgameAnswer(m);
   if (mode === 'learn' && S.lmode === 'arena') return void arenaAnswer(m);
   const u = makeUci(m), s = makeSan(pos, m), k = key(pos);
-  if (mode === 'build') { (cur!.moves[k] ??= {})[u] = s; save(); line.push(u); sfx('move'); renderBuild(); }
+  if (mode === 'build') { markMove(s, true, u); (cur!.moves[k] ??= {})[u] = s; save(); line.push(u); sfx('move'); renderBuild(); }
   else if (mode === 'learn') learnAnswer(u, k);
   else reviewAnswer(u, k);
 }
@@ -578,12 +604,13 @@ function learnStep() {
 function learnAnswer(u: string, k: string) {
   const mv = cur!.moves[k];
   if (mv[u]) {
+    markMove(mv[u], true, u);
     play(u); sfx('move');
     if (S.lmode === 'walk') { const j = lineOf(line); if (j !== wIdx) { wIdx = j; cur!.walk = j; save(); walkPanel(); } }
     if (fast() && dActive) { dScore++; }
     return learnStep();
   }
-  buzz(); sfx('bad'); flash('bad');
+  buzz(); sfx('bad'); markMove(sanAt(k, u), false, u);
   if (S.lmode === 'drill' && dActive) return drillOver(k, u);
   if (S.lmode === 'time' && dActive) return timeMiss(k);
   msg(`Not in your repertoire. You prepared ${Object.values(mv).join(' or ')}.`, 'bad'); show();
@@ -713,11 +740,11 @@ function reviewAnswer(u: string, k: string) {
   const r = f.next(card, new Date(), ok ? (hinted ? Rating.Hard : Rating.Good) : Rating.Again).card;
   cur!.cards[k] = r; save();
   if (ok) {
-    play(u); sfx('ok'); flash('ok'); show([], false); showNote(noteOf(k, u)); msg(`Correct. Next review ${rel(r.due)}.`, 'ok'); queue.shift();
+    markMove(mv[u], true, u); play(u); sfx('ok'); flash('ok'); show([], false); showNote(noteOf(k, u)); msg(`Correct. Next review ${rel(r.due)}.`, 'ok'); queue.shift();
     const wait = noteOf(k, u) ? 2600 : 900;
     const tok = session; setTimeout(() => { if (mode === 'review' && tok === session) reviewNext(); }, wait);
   } else {
-    buzz(); sfx('bad'); flash('bad'); queue.push(queue.shift()!); show(Object.keys(mv).map(arrow), false);
+    buzz(); sfx('bad'); markMove(sanAt(k, u), false, u); queue.push(queue.shift()!); show(Object.keys(mv).map(arrow), false);
     const base = Object.keys(mv).map(x => noteOf(k, x)).filter(Boolean).join('\n'); showNote(base); explainWrong(k, u, base);
     msg(`Not quite. You prepared ${Object.values(mv).join(' or ')}.`, 'bad');
     $('#act').innerHTML = `<div class="row"><button data-act="next" class="primary">Next card</button></div>`;
@@ -778,8 +805,10 @@ function gradePuzzle(kind: 'fail' | 'solve' | 'hint') {
 }
 function tacticsAnswer(m: any) {
   const run = tRun; if (!run) return;
+  const san = (() => { try { return makeSan(run.pos, m); } catch { return '?'; } })();
   const u = toEngine(run.pos, m), r = run.try(u, m);
-  if (r === 'wrong') { buzz(); sfx('bad'); flash('bad'); gradePuzzle('fail'); msg('Not that one. Try again.', 'bad'); show(); return; }
+  if (r === 'wrong') { buzz(); sfx('bad'); markMove(san, false, makeUci(m)); gradePuzzle('fail'); msg('Not that one. Try again.', 'bad'); show(); return; }
+  markMove(san, true, makeUci(m));
   pos = run.pos; last = u; show([], false);
   if (r === 'solved') { sfx('done'); flash('ok'); return finishPuzzle(); }
   sfx('move'); locked = true; msg('Correct. Keep going…', 'ok'); const tok = session;
@@ -849,13 +878,13 @@ async function endgameAnswer(m: any) {
   if (tok !== session) return;
   pos = run.pos;
   if (r.kind === 'bad') {
-    buzz(); sfx('bad'); flash('bad'); eBusy = false; pos = run.pos; show(r.hint ? [arrow(r.hint)] : []);
+    buzz(); sfx('bad'); markMove(r.userSan ?? '?', false, r.userUci); eBusy = false; pos = run.pos; show(r.hint ? [arrow(r.hint)] : []);
     msg(`${r.text} ${r.hint ? `Best was ${r.hintSan}.` : 'Try again.'}`, 'bad'); return;
   }
   last = r.reply?.uci ?? r.userUci;
   if (run.def.goal === 'hold') $('#bar i').style.width = `${Math.min(100, (run.moves / run.holdMoves) * 100)}%`;
   if (r.ended) { show([], false); return finishDrill(r.ended); }
-  sfx('move'); eBusy = false;
+  markMove(r.userSan, true, r.userUci); sfx('move'); eBusy = false;
   if (consumePremove()) return;
   show(); msg(`${r.userSan}, ${r.reply!.san}. Your move.`);
 }
@@ -976,7 +1005,7 @@ function enter(m: Mode) {
   mode = m; session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); flipped = false; promo = undefined; total = 0;
   clearInterval(ttTimer); dActive = false; aRun = undefined; aBusy = false;
   locked = false; eBusy = false; tColor = undefined; eColor = undefined; tRun = undefined; eRun = undefined;
-  cg.cancelPremove();
+  cg.cancelPremove(); clearMark();
   $('#bar').hidden = true; showNote('');
   document.querySelectorAll('[data-m]').forEach((b: any) => { b.classList.toggle('on', b.dataset.m === m); b.setAttribute('aria-current', b.dataset.m === m ? 'page' : 'false'); });
   $('#sanform').hidden = !S.san; kvSet('ui', { mode: m });

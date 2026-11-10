@@ -9,19 +9,34 @@ const VAL: Record<string, number> = { pawn: 1, knight: 3, bishop: 3, rook: 5, qu
 const NAME: Record<string, string> = { pawn: 'pawn', knight: 'knight', bishop: 'bishop', rook: 'rook', queen: 'queen' };
 const SQ = (s: number) => 'abcdefgh'[s & 7] + ((s >> 3) + 1);
 
-/** Does this move leave one of the mover's pieces capturable for free (or for a gain)? Static check, no engine. */
-export function hangs(pos: Chess, m: { from: number; to: number; promotion?: any }): string | undefined {
-  const me = pos.turn; const q = pos.clone(); q.play(m as any); const opp = q.turn;
-  let worst: { sq: number; role: string; gain: number; by: number } | undefined;
-  for (const [sq, pc] of q.board) {
+type Victim = { sq: number; role: string; gain: number; by: number };
+/** Pieces of `me` that `me` cannot hold if the opponent takes them: free, or for a profit. */
+function victims(pos: Chess, me: 'white' | 'black'): Victim[] {
+  const opp = me === 'white' ? 'black' : 'white';
+  const out: Victim[] = [];
+  for (const [sq, pc] of pos.board) {
     if (pc.color !== me || pc.role === 'king') continue;
-    const attackers = q.kingAttackers(sq, opp, q.board.occupied);
+    const attackers = pos.kingAttackers(sq, opp, pos.board.occupied);
     if (attackers.isEmpty()) continue;
     let cheapest = 99, from = -1;
-    for (const a of attackers) { const r = VAL[q.board.get(a)!.role]; if (r < cheapest) { cheapest = r; from = a; } }
-    const defended = !q.kingAttackers(sq, me, q.board.occupied).isEmpty();
+    for (const a of attackers) { const r = VAL[pos.board.get(a)!.role]; if (r < cheapest) { cheapest = r; from = a; } }
+    const defended = !pos.kingAttackers(sq, me, pos.board.occupied).isEmpty();
     const gain = defended ? VAL[pc.role] - cheapest : VAL[pc.role];
-    if (gain > 0 && (!worst || gain > worst.gain)) worst = { sq, role: pc.role, gain, by: from };
+    if (gain > 0) out.push({ sq, role: pc.role, gain, by: from });
+  }
+  return out;
+}
+
+/** Does this move *leave* one of the mover's pieces hanging — i.e. newly, not already? Static check, no engine.
+ *  Only victims that were not en prise before the move are reported: a piece that was already attacked was not
+ *  put there by this move, and saying so reads as if the move were the mistake. */
+export function hangs(pos: Chess, m: { from: number; to: number; promotion?: any }): string | undefined {
+  const me = pos.turn; const q = pos.clone(); q.play(m as any);
+  const already = new Set(victims(pos, me).map(v => v.sq));
+  let worst: Victim | undefined;
+  for (const v of victims(q, me)) {
+    if (already.has(v.sq)) continue;
+    if (!worst || v.gain > worst.gain) worst = v;
   }
   if (!worst || worst.gain < 2) return undefined;
   let cap = '';

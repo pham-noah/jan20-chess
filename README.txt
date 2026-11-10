@@ -108,6 +108,13 @@ KNOWING WHICH BUILD YOU HAVE (v10)
   older than it is: workbox precaches index.html and the bundle, so the first load after a rebuild still comes from
   the old cache. When testing locally, reload once more, or use npm run dev which never caches.
 
+MOVE FEEDBACK ON THE BOARD (v10)
+- Wrong moves no longer shake the board. Instead the move is marked where it happened: the from- and to-squares are
+  tinted red and a red badge with a white cross sits on the destination (right moves get the same in green with a
+  tick). It reads on top of the pieces, works in Build, Learn (all four modes), Review, Tactics and Endgames, fades
+  after a moment (1.1 s right, 2.4 s wrong) and clears when you change tab.
+- The green board glow on a correct move stays; only the shake is gone.
+
 WALK STAYS ON THE LINE YOU CHOSE (v10)
 - Fixes a bug where every line after the first played like line 1: the walk re-homed to the "first line whose prefix
   matches what you have played", and since almost every line starts 1.e4, the second line's first move snapped the

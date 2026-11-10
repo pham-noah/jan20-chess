@@ -61,7 +61,7 @@ header{display:flex;gap:8px;align-items:center;min-width:0}
 
 /* ---------- Board ---------- */
 main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
-.board-wrap{width:100%;max-width:min(640px,max(300px,calc(100dvh - 340px)));margin:0 auto}
+.board-wrap{width:100%;max-width:min(640px,max(300px,calc(100dvh - 340px)));margin:0 auto;position:relative}
 #board{width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;box-shadow:var(--shadow),0 0 0 6px var(--panel),0 0 0 7px var(--line);position:relative}
 #board cg-board{background-color:var(--sq-l);background-image:conic-gradient(var(--sq-d) 0 25%,var(--sq-l) 0 50%,var(--sq-d) 0 75%,var(--sq-l) 0);background-size:25% 25%}
 #board piece{filter:drop-shadow(0 1.5px 1.5px rgba(0,0,0,.28));will-change:transform}
@@ -77,6 +77,14 @@ main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .cg-wrap coords.ranks coord{transform:none;display:flex;align-items:flex-start;padding-top:3px}
 .cg-wrap coords.files{bottom:0;left:0;width:100%;height:auto;text-transform:lowercase}
 .cg-wrap coords.files coord{display:flex;align-items:flex-end;justify-content:flex-end;padding:0 3px 3px 0}
+#mmarks{position:absolute;inset:0;pointer-events:none;border-radius:10px;overflow:hidden;z-index:3}
+#mmarks .mm{position:absolute;width:12.5%;height:12.5%;box-sizing:border-box;animation:mmark .16s ease-out}
+#mmarks .mm.ok{background:rgba(46,125,85,.34);box-shadow:inset 0 0 0 3px rgba(46,125,85,.95)}
+#mmarks .mm.bad{background:rgba(192,64,60,.34);box-shadow:inset 0 0 0 3px rgba(192,64,60,.95)}
+#mmarks .mm .g{display:flex;align-items:center;justify-content:center;width:56%;height:56%;margin:22%;border-radius:50%;color:#fff;font:800 min(4vw,20px)/1 var(--sans);box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 3px 9px rgba(0,0,0,.45)}
+#mmarks .mm.ok .g{background:#1f7a4d}
+#mmarks .mm.bad .g{background:#c0392b}
+@keyframes mmark{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
 #board.flash-ok{animation:flashok .7s ease-out}
 #board.flash-bad{animation:flashbad .45s ease-out}
 @keyframes flashok{0%{box-shadow:var(--shadow),0 0 0 6px var(--ok),0 0 0 14px rgba(143,207,168,.25)}100%{box-shadow:var(--shadow),0 0 0 6px var(--panel),0 0 0 7px var(--line)}}
