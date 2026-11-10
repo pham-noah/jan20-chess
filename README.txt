@@ -124,6 +124,11 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   genuinely deviate into another one.
 
 EDITING A LINE THAT ALREADY EXISTS (v10)
+- Arrows and the ‹ Move / Move › buttons step through the moves of the line you are looking at, like a chess
+  viewer: back and forward through the whole variation. Walk has the same pair (‹ ›) to look back through the moves
+  you have played; the board shows the earlier position and training pauses until you step forward again.
+- Line switching has its own controls (‹ Line / Line › in Build, ‹ Line / Next line in Walk) so the arrows stay
+  free for stepping moves.
 - "Every line in this repertoire" under Build is now a list you can work from: tap a line and it loads into Build
   — the board jumps to its final position, the path shows its moves, and you can extend it, branch it, or cut it
   with the chip ✕. Before this, the only way in was replaying the moves chip by chip from the start.
