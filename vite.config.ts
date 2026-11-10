@@ -1,7 +1,17 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+let sha = 'nogit';
+try { sha = execSync('git rev-parse --short HEAD').toString().trim(); } catch { /* not a repo */ }
+const version = JSON.parse(readFileSync('package.json', 'utf8')).version as string;
+const localISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16).replace('T', ' ');
+const stamp = `${version}+${sha} (${localISO()})`;
+
 export default defineConfig({
   base: './',
+  define: { __BUILD__: JSON.stringify(stamp) },
   plugins: [VitePWA({
     registerType: 'autoUpdate',
     manifest: {

@@ -930,6 +930,7 @@ function openSettings() {
   $('#s-coords').checked = S.coords; $('#s-anim').checked = S.anim; $('#s-hap').checked = S.haptics;
   $('#s-ems').value = String(S.engineMs); $('#s-newp').value = S.newPuzzles; $('#s-win').value = String(S.window); $('#s-imin').value = S.importMin; $('#s-imax').value = S.importMax; $('#s-icnt').value = S.importCount;
   $('#s-pinfo').textContent = `${STARTER.length + TRAPS.length} built in (${TRAPS.length} repertoire traps) · ${imported.length} imported · rating ${Math.round(pstats.rating)}`;
+  $('#s-build').textContent = `Build ${__BUILD__}`;
   $('#s-info').textContent = `${reps.length} repertoires · ${reps.reduce((a, r) => a + Object.keys(r.cards).length, 0)} cards scheduled. Data stays on this device.`;
   $('#set').showModal();
 }
@@ -1103,6 +1104,9 @@ $('#sanform').addEventListener('submit', e => {
   inp.value = ''; commit(m);
 });
 async function init() {
+  console.log('Jan20 build', __BUILD__);
+  // a new service worker taking control means this page is stale: reload once
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
   nativeInit();
   $('#brand').innerHTML = `${mark}<span>Jan20</span>`;
   navigator.storage?.persist?.();

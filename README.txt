@@ -99,6 +99,15 @@ ITALIAN PACK REBUILT ON THE CHESSREPS COURSE (v9)
 - Moves only: the notes are ours. Every move was re-checked for legality and audited with Stockfish (63 White moves
   at depth 13, 0 flagged, including the 6.Nxf7 sacrifice).
 
+KNOWING WHICH BUILD YOU HAVE (v10)
+- Version is now 1.1.0 everywhere (package.json, tauri.conf.json, Android versionCode 2 / versionName 1.1.0), so the
+  installers are named Jan20_1.1.0_x64-setup.exe / .msi instead of every build being "1.0.0".
+- Every build is stamped with version + git sha + local build time, shown in Settings ("Build 1.1.0+3df0b07
+  (2026-11-10 19:58)") and logged to the console, so a stale copy is obvious.
+- The PWA reloads itself as soon as a new service worker takes control. Without that a freshly served dist looks
+  older than it is: workbox precaches index.html and the bundle, so the first load after a rebuild still comes from
+  the old cache. When testing locally, reload once more, or use npm run dev which never caches.
+
 TRAPS: PUNISHING OPPONENT MISTAKES (v9)
 - tools/traps.mjs walks every position in a pack where the opponent moves and asks Stockfish which legal replies
   they could blunder; a reply that is at least 100 cp worse than their best, and not already in the pack, is a
