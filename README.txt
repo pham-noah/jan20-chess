@@ -123,6 +123,13 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+THE PHONE BUILD HAS NO EDITOR TAB (v11)
+- Capacitor builds (`window.Capacitor.isNativePlatform()` or a `capacitor:` protocol) drop the Editor tab and open in
+  Learn instead; a saved "editor" tab in storage is ignored there, and the New-repertoire button is hidden because an
+  empty pack would be a dead end without the editor. Add packs from Browse starter lines / Settings instead.
+- The empty-state hints say "Add lines in the desktop version of Jan20." rather than pointing at a tab that is not
+  there. The web build and the desktop app keep all five tabs — the Editor is a PC tool.
+
 THE BUILD TAB IS NOW THE EDITOR (v11)
 - Renamed to Editor, and it does the things you asked of an opening editor:
 - Undo / redo for every edit (adding a move, deleting a move or a whole line, promoting a variation,

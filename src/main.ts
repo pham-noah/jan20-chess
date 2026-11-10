@@ -54,7 +54,11 @@ let reps: Rep[] = [];
 let cur: Rep | undefined;
 let S: Settings = { ...DEF };
 let f = fsrs({ request_retention: S.retention });
-let mode: Mode = 'build';
+const NATIVE = (window as any).Capacitor?.isNativePlatform?.() === true || location.protocol === 'capacitor:';
+const EDIT_TABS: Mode[] = NATIVE ? ['learn', 'review', 'tactics', 'endgames'] : ['build', 'learn', 'review', 'tactics', 'endgames'];
+/** Where the app can be edited: the phone build trains, it does not edit. */
+const addHint = () => NATIVE ? 'Add lines in the desktop version of Jan20.' : 'Add moves in the Editor.';
+let mode: Mode = NATIVE ? 'learn' : 'build';
 let pos = Chess.default();
 let line: string[] = [];
 let last: string | undefined, lastKey: string | undefined, lastSan = '';
@@ -750,7 +754,7 @@ function walkPanel() {
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
     <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" class="primary" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
-    <h3>All lines (${wLines.length}) · ${done} discovered</h3><div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div>`;
+    <h3>All lines (${wLines.length}) · ${done} discovered</h3><div class="list">${rows || '<p class="dim">No moves yet. ' + addHint() + '</p>'}</div>`;
 }
 function startWalkLine(i: number) {
   if (!wLines.length) return;
@@ -791,7 +795,7 @@ function learnStep() {
   if (!us.length) {
     if (fast() && dActive) return lineDone();
     if (walk && line.length) return walkDone();
-    show([], false); msg(line.length ? 'Line complete.' : 'Nothing to learn yet. Add moves in the Editor.', 'ok'); return;
+    msg(line.length ? 'Line complete.' : 'Nothing to learn yet. ' + addHint())
   }
   if (pos.turn !== cur!.color) {
     show([], false); msg('Opponent plays…');
@@ -832,7 +836,7 @@ function drillInit() {
   $('#act').innerHTML = `${lmodeBar()}<div class="row"><button data-act="dstart" class="primary">Start</button></div>`;
 }
 function drillNextLine() {
-  const ks = ownKeys(); if (!ks.length) { dActive = false; msg('Nothing to drill yet. Add moves in the Editor.'); return; }
+  const ks = ownKeys(); if (!ks.length) { dActive = false; msg('Nothing to drill yet. ' + addHint()); return; }
   buildIndex(); const k = pick(ks); const e = parent.get(k);
   pos = fromKey(k); line = pathTo(k); last = e?.uci; lastKey = e?.from; learnStep();
 }
@@ -1208,7 +1212,8 @@ $('#set').addEventListener('change', () => {
 });
 
 /* ---------- Shell ---------- */
-function enter(m: Mode) {
+function enter(m0: Mode) {
+  const m: Mode = EDIT_TABS.includes(m0) ? m0 : NATIVE ? 'learn' : 'build';
   mode = m; session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); flipped = false; promo = undefined; total = 0;
   clearInterval(ttTimer); dActive = false; aRun = undefined; aBusy = false;
   locked = false; eBusy = false; tColor = undefined; eColor = undefined; tRun = undefined; eRun = undefined;
@@ -1219,7 +1224,7 @@ function enter(m: Mode) {
   const panel = $('#panel'); panel.classList.remove('fade'); void panel.offsetWidth; panel.classList.add('fade');
   const op = opening(m);
   $('#rep').innerHTML = reps.map(r => `<option value="${r.id}" ${r === cur ? 'selected' : ''}>${esc(r.name)} · ${r.color}</option>`).join('');
-  $('#rep').hidden = !reps.length || !op; $('header [data-act=new]').hidden = !op;
+  $('#rep').hidden = !reps.length || !op; $('header [data-act=new]').hidden = !op || NATIVE;   // no editor on the phone, so no empty packs there
   if (m === 'tactics') { tacticsInit(); updateDue(); return; }
   if (m === 'endgames') { endgamesInit(); return; }
   if (!cur) {
@@ -1471,7 +1476,12 @@ async function init() {
   imported = (await kvGet('puzzles')) ?? []; pcards = (await kvGet('pcards')) ?? {}; pstats = { ...pstats, ...((await kvGet('pstats')) ?? {}) };
   ecards = (await kvGet('ecards')) ?? {}; egCustom = (await kvGet('egcustom')) ?? [];
   const id = await kvGet('cur'); cur = reps.find(r => r.id === id) ?? reps[0];
-  const ui = await kvGet('ui'); const first: Mode = (['build', 'learn', 'review', 'tactics', 'endgames'] as Mode[]).includes(ui?.mode) ? ui.mode : 'build';
+  if (NATIVE) {
+    document.querySelector('[data-m=build]')?.remove();
+    const w = $('#w-modes'); if (w) w.innerHTML = '<b>Learn, Review, Tactics, Endgames</b> Walk and drill your lines, then review them on a spaced-repetition schedule. This build trains; edit the repertoire on the desktop version.';
+  }
+  const ui = await kvGet('ui');
+  const first: Mode = EDIT_TABS.includes(ui?.mode) ? ui.mode : NATIVE ? 'learn' : 'build';
   applySettings(); enter(first);
   if (!S.welcomed) { S.welcomed = true; save(); if (!reps.length) $('#welcome').showModal(); }
 }
