@@ -21,6 +21,7 @@ import { DRILLS } from './endgames';
 import { explain, fmtScore } from './explain';
 import { ArenaRun, type ArenaEnd } from './arena';
 import STARTER from './tactics/starter.json';
+import TRAPS from './tactics/traps.json';
 
 type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number; seen?: Record<string, true> };
 type Mode = 'build' | 'learn' | 'review' | 'tactics' | 'endgames';
@@ -721,7 +722,7 @@ function reviewAnswer(u: string, k: string) {
 }
 
 /* ---------- Tactics ---------- */
-const allPuzzles = () => (STARTER as Puzzle[]).concat(imported);
+const allPuzzles = () => (STARTER as Puzzle[]).concat(TRAPS as Puzzle[], imported);
 let pmapCache: Map<string, Puzzle> | undefined;
 const pmap = () => (pmapCache ??= new Map(allPuzzles().map(p => [p.id, p])));
 const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
@@ -928,7 +929,7 @@ function openSettings() {
   $('#s-san').checked = S.san; $('#s-install').hidden = !deferredInstall; $('#s-expl').checked = S.explain; $('#s-app').value = S.appearance; $('#s-pieces').value = S.pieces; $('#s-sound').checked = S.sound;
   $('#s-coords').checked = S.coords; $('#s-anim').checked = S.anim; $('#s-hap').checked = S.haptics;
   $('#s-ems').value = String(S.engineMs); $('#s-newp').value = S.newPuzzles; $('#s-win').value = String(S.window); $('#s-imin').value = S.importMin; $('#s-imax').value = S.importMax; $('#s-icnt').value = S.importCount;
-  $('#s-pinfo').textContent = `${STARTER.length} built in · ${imported.length} imported · rating ${Math.round(pstats.rating)}`;
+  $('#s-pinfo').textContent = `${STARTER.length + TRAPS.length} built in (${TRAPS.length} repertoire traps) · ${imported.length} imported · rating ${Math.round(pstats.rating)}`;
   $('#s-info').textContent = `${reps.length} repertoires · ${reps.reduce((a, r) => a + Object.keys(r.cards).length, 0)} cards scheduled. Data stays on this device.`;
   $('#set').showModal();
 }

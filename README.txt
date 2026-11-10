@@ -99,6 +99,19 @@ ITALIAN PACK REBUILT ON THE CHESSREPS COURSE (v9)
 - Moves only: the notes are ours. Every move was re-checked for legality and audited with Stockfish (63 White moves
   at depth 13, 0 flagged, including the 6.Nxf7 sacrifice).
 
+TRAPS: PUNISHING OPPONENT MISTAKES (v9)
+- tools/traps.mjs walks every position in a pack where the opponent moves and asks Stockfish which legal replies
+  they could blunder; a reply that is at least 100 cp worse than their best, and not already in the pack, is a
+  punishable mistake, with the refutation searched so you can see what you win. Usage:
+    node tools/traps.mjs src/library/italian.pgn white 12 100 2 out.json
+- The Italian pack holds 52 such mistakes in its book positions (60 including the engine extensions): e.g. after
+  3...d6 4.c3 Be7 5.Qb3 Na5 6.Bxf7+ Kd7?? is mate in 2 (Nxe5+ dxe5 Qe6#), and 6...b5 after 4.d4 exd4 5.Nxd4 Nf6
+  6.Nxc6 drops a rook (Bxf7+ Kxf7 Nxd8+).
+- The 40 sharpest became puzzles: tools/traps-to-puzzles.mjs writes src/tactics/traps.json, which the Tactics tab
+  serves as the "Trap" theme (207 puzzles built in now). They are the same positions you meet in the repertoire,
+  so Drill/Learn and Tactics reinforce each other. Note the earlier Fried Liver branch is the one trap the lines
+  themselves already carried.
+
 LEARN PARITY WITH CHESSREPS (v9)
 - Walk now names the move, as Chessreps' Learn does: the status line reads "Play Nf3." and the author's note for
   the position still shows above it. Solve (next to Hint) plays that move for you, so you can skim a line.
