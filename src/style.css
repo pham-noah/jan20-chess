@@ -156,21 +156,27 @@ textarea{width:100%;min-height:96px;resize:vertical}
 .rowline{grid-template-columns:auto 2.2em 1fr auto}
 /* Editor: repertoire tree */
 .tree{border-top:1px solid var(--line);padding:4px 0 2px}
-.tnode{display:flex;align-items:center;gap:5px;padding:1px 0 1px calc(var(--d, 0) * 12px);border-radius:7px;flex-wrap:nowrap}
-.tnode:hover{background:color-mix(in srgb, var(--foreground) 6%, transparent)}
-.tnode.on .tsan{color:var(--accent)}
-.tnode.now{background:color-mix(in srgb, var(--accent) 15%, transparent)}
-.tnode .caret{width:18px;min-height:18px;padding:0;border:0;background:none;color:var(--dim);font-size:.72rem;flex:0 0 18px;box-shadow:none}
-.tnode .caret:empty{visibility:hidden}
-.tnode .tsan{background:none;border:0;padding:1px 4px;min-height:22px;font-size:.86rem;font-weight:650;color:var(--ink);box-shadow:none;white-space:nowrap}
-.tnode .tsan.opp{font-weight:500;color:var(--dim)}
-.tnode .tsan .n{color:var(--dim);font-weight:400;margin-right:3px;font-variant-numeric:tabular-nums;font-size:.8rem}
-.tnode .cnt{color:var(--dim);font-size:.76rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tnode .ln{color:var(--accent);font-size:.74rem;font-variant-numeric:tabular-nums;white-space:nowrap}
-.tnode .tacts{margin-left:auto;display:inline-flex;gap:2px;opacity:0}
-.tnode:hover .tacts,.tnode.now .tacts{opacity:1}
-.tnode .tacts button{min-height:20px;padding:0 5px;font-size:.7rem;color:var(--dim);background:none;border:0;box-shadow:none}
-.tnode .tacts button:hover{color:var(--ink)}
+.tseg{display:flex;align-items:center;gap:6px;padding:1px 0 1px calc(var(--d, 0) * 14px);border-radius:7px;min-height:26px}
+.tseg:hover{background:color-mix(in srgb, var(--foreground) 6%, transparent)}
+.tseg.now{background:color-mix(in srgb, var(--accent) 15%, transparent)}
+.tseg .run{display:flex;flex-wrap:wrap;align-items:center;gap:1px;min-width:0}
+.tseg .mvwrap{display:inline-flex;align-items:center}
+.tseg .caret{width:18px;min-height:18px;padding:0;border:0;background:none;color:var(--dim);font-size:.72rem;flex:0 0 18px;box-shadow:none}
+.tseg .caret:empty{visibility:hidden}
+.tseg .tsan{background:none;border:0;padding:1px 3px;min-height:22px;font-size:.86rem;font-weight:650;color:var(--ink);box-shadow:none;white-space:nowrap}
+.tseg.on .tsan{color:var(--accent)}
+.tseg .tsan.opp{font-weight:500;color:var(--dim)}
+.tseg.on .tsan.opp{color:color-mix(in srgb, var(--accent) 70%, var(--dim))}
+.tseg .tsan .n{color:var(--dim);font-weight:400;margin-right:2px;font-variant-numeric:tabular-nums;font-size:.8rem}
+.tseg .x{display:none;background:none;border:0;box-shadow:none;padding:0 2px;min-height:18px;font-size:.66rem;color:var(--dim)}
+.tseg:hover .x{display:inline-block}
+.tseg .x:hover{color:#c0392b}
+.tseg .cnt{color:var(--dim);font-size:.76rem;white-space:nowrap;margin-left:auto;overflow:hidden;text-overflow:ellipsis}
+.tseg .ln{color:var(--accent);font-size:.74rem;font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:auto}
+.tseg .tacts{display:inline-flex;gap:2px;opacity:0}
+.tseg:hover .tacts{opacity:1}
+.tseg .tacts button{min-height:20px;padding:0 5px;font-size:.7rem;color:var(--dim);background:none;border:0;box-shadow:none}
+.tseg .tacts button:hover{color:var(--ink)}
 .viewseg{margin:6px 0 8px}
 #gapout p{margin:6px 0}
 #paste{min-height:72px}

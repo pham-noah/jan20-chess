@@ -782,37 +782,66 @@ function repertoireTree(): TNode {
 }
 let treeView = true;                     // tree is the default view of the repertoire
 const collapsed = new Set<string>();     // nodes folded away, by path
-/** Render the tree: indent per ply, counts per branch, line number on every leaf. */
-function treeMarkup(): string {
-  const root = repertoireTree();
-  if (!root.kids.length) return '<p class="dim">No moves yet. Play a move to start one.</p>';
+/** A run of moves with no branch in it, rendered as one row. Indentation happens only where the repertoire
+ *  actually splits — a 20-move line should not look like a 20-level staircase. */
+type TSeg = { id: string; path: string[]; moves: { u: string; san: string; pk: string; ply: number }[]; kids: TSeg[]; leaf?: number; leaves: number };
+function segmentTree(): TSeg {
   let lineNo = 0;
-  const out: string[] = [];
-  const walk = (n: TNode, depth: number, path: string[]) => {
-    for (const c of n.kids) {
-      const here = [...path, c.u!], id = here.join(' ');
-      const leaf = !c.kids.length;
-      if (leaf) lineNo++;
-      const folded = collapsed.has(id);
-      const onPath = here.every((u, i) => line[i] === u);
-      const isNow = onPath && here.length === line.length;
-      const note = cur?.notes?.[c.pk! + '|' + c.u!];
-      const bad = cur?.bad?.[c.pk! + '|' + c.u!];
-      const caret = c.kids.length ? `<button class="caret" data-act="tfold" data-u="${id}" aria-label="${folded ? 'Expand' : 'Collapse'} ${esc(c.san!)}">${folded ? '▸' : '▾'}</button>` : '<span class="caret"></span>';
-      const num = c.ply % 2 === 1 ? `<span class="n">${Math.floor(c.ply / 2) + 1}.</span>` : '<span class="n">…</span>';
-      const cnt = leaf ? `<span class="ln">line ${lineNo}</span>`
-        : c.kids.length > 1 ? `<span class="cnt">${c.kids.length} branches · ${c.leaves} line${c.leaves === 1 ? '' : 's'}</span>`
-        : '';
-      out.push(`<div class="tnode ${onPath ? 'on' : ''} ${isNow ? 'now' : ''}" style="--d:${Math.min(depth, 12)}">
-        ${caret}<button class="tsan ${c.ply % 2 === 1 ? 'mine' : 'opp'}" data-act="tnode" data-u="${id}" title="Go to this move">${num}${esc(c.san!)}</button>
-        ${note ? '<b class="dot" title="Has a note">•</b>' : ''}${bad ? `<b class="warn" title="About ${(bad / 100).toFixed(1)} worse than the best move here">⚠</b>` : ''}
-        ${cnt}
-        <span class="tacts"><button data-act="tpromo" data-u="${id}" title="Make this the first branch here" aria-label="Make ${esc(c.san!)} the first branch here">↑</button><button data-act="tcut" data-u="${id}" title="Delete this move and everything only it reached" aria-label="Delete ${esc(c.san!)}">✕</button></span>
-      </div>`);
-      if (!folded && c.kids.length) walk(c, depth + 1, here);
+  const build = (k: string, ply: number, path: string[], edge?: { u: string; san: string; pk: string }): TSeg => {
+    const seg: TSeg = { id: path.join(' '), path: [...path], moves: [], kids: [], leaves: 0 };
+    if (edge) seg.moves.push({ ...edge, ply });          // the move that opened this branch belongs to this row
+    let nodeKey = k, nodePly = ply;
+    for (;;) {
+      const kids = Object.entries(cur?.moves[nodeKey] || {});
+      if (kids.length > 1) break;                                  // a real branch: stop and recurse below
+      if (!kids.length) { if (seg.moves.length) seg.leaf = ++lineNo; break; }
+      const [u, san] = kids[0];
+      const p = fromKey(nodeKey), m = parseUci(u); if (!m) break;
+      p.play(m);
+      seg.moves.push({ u, san, pk: nodeKey, ply: nodePly + 1 });
+      nodeKey = key(p); nodePly++;
     }
+    const branch = Object.entries(cur?.moves[nodeKey] || {});
+    if (branch.length > 1) {
+      for (const [u, san] of branch) {
+        const p = fromKey(nodeKey), m = parseUci(u); if (!m) continue;
+        p.play(m);
+        seg.kids.push(build(key(p), nodePly + 1, [...seg.path, ...seg.moves.map(x => x.u), u], { u, san, pk: nodeKey }));
+      }
+    }
+    seg.leaves = seg.kids.length ? seg.kids.reduce((a, c) => a + c.leaves, 0) : seg.leaf ? 1 : 0;
+    return seg;
   };
-  walk(root, 0, []);
+  return build(START, 0, []);
+}
+/** Render the tree: one row per unbroken run, indented only at branch points. */
+function treeMarkup(): string {
+  const root = segmentTree();
+  if (!root.moves.length && !root.kids.length) return '<p class="dim">No moves yet. Play a move to start one.</p>';
+  const out: string[] = [];
+  const draw = (seg: TSeg, depth: number) => {
+    const folded = collapsed.has(seg.id);
+    const onPath = seg.path.length > 0 && seg.moves.length > 0 && seg.path.every((u, i) => line[i] === u);
+    const isNow = onPath && seg.moves.length > 0 && (seg.moves[seg.moves.length - 1].ply === line.length);
+    const run = seg.moves.map((m, i) => {
+      const num = m.ply % 2 === 1 ? `<span class="n">${Math.floor(m.ply / 2) + 1}.</span>` : '';
+      const here = [...seg.path, ...seg.moves.slice(0, i + 1).map(x => x.u)];
+      const note = cur?.notes?.[m.pk + '|' + m.u] ? '<b class="dot" title="Has a note">•</b>' : '';
+      const bad = cur?.bad?.[m.pk + '|' + m.u];
+      const warn = bad ? `<b class="warn" title="About ${(bad / 100).toFixed(1)} worse than the best move here">⚠</b>` : '';
+      return `<span class="mvwrap"><button class="tsan ${m.ply % 2 === 1 ? 'mine' : 'opp'}" data-act="tnode" data-u="${here.join(' ')}" title="Go to ${esc(m.san)}">${num}${esc(m.san)}</button>${note}${warn}<button class="x" data-act="tcutm" data-u="${here.join(' ')}" title="Delete ${esc(m.san)} and everything only it reached" aria-label="Delete ${esc(m.san)}">✕</button></span>`;
+    }).join(' ');
+    const caret = seg.kids.length ? `<button class="caret" data-act="tfold" data-u="${seg.id}" aria-label="${folded ? 'Expand' : 'Collapse'} this branch">${folded ? '▸' : '▾'}</button>` : '<span class="caret"></span>';
+    const cnt = seg.kids.length
+      ? `<span class="cnt">${seg.kids.length} branches${seg.leaves === seg.kids.length ? '' : ` · ${seg.leaves} lines`}</span>`
+      : `<span class="ln">line ${seg.leaf}</span>`;
+    const promo = seg.kids.length ? `<button data-act="tpromo" data-u="${[...seg.path, seg.moves[0]?.u].filter(Boolean).join(' ')}" title="Make this the first branch here" aria-label="Make this the first branch here">↑</button>` : '';
+    out.push(`<div class="tseg ${onPath ? 'on' : ''} ${isNow ? 'now' : ''}" style="--d:${Math.min(depth, 10)}">
+      ${caret}<span class="run">${run}</span>${cnt}
+      <span class="tacts">${promo}</span></div>`);
+    if (!folded) for (const kid of seg.kids) draw(kid, depth + 1);
+  };
+  draw(root, 0);
   return out.join('');
 }
 /** Move the board to an arbitrary point in the tree. */
@@ -1392,7 +1421,7 @@ document.addEventListener('click', e => {
   else if (a === 'viewlines') { treeView = false; renderBuild(); }
   else if (a === 'tnode') openNode(u.split(' ').filter(Boolean));
   else if (a === 'tfold') { if (collapsed.has(u)) collapsed.delete(u); else collapsed.add(u); renderBuild(); }
-  else if (a === 'tcut') cutAt(u.split(' ').filter(Boolean));
+  else if (a === 'tcut' || a === 'tcutm') cutAt(u.split(' ').filter(Boolean));
   else if (a === 'tpromo') promoteAt(u.split(' ').filter(Boolean));
   else if (a === 'mprev') buildStep(-1);
   else if (a === 'mnext') buildStep(1);

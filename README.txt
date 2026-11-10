@@ -137,9 +137,12 @@ EVERY CHANGE IS WRITTEN STRAIGHT TO A FILE (v12)
 
 THE REPERTOIRE IS SHOWN AS A TREE (v12)
 - "Every line in this repertoire" was a flat list of 33 SAN strings that mostly repeated the same first six moves,
-  so you could not see where lines actually part company. It now opens on a tree: one row per saved move, indented
-  by ply, with a caret to fold a branch, the branch count and line count on every branch point, the line number on
-  every leaf, a dot for a note, the ⚠ for an engine warning, and the current path picked out in the accent colour.
+  so you could not see where lines actually part company. It now opens on a tree of **move runs**, the way a chess
+  game is written: an unbroken stretch of moves stays on one row (`1. e4 e5 2. Nf3`) and a new row is indented only
+  where the repertoire really splits. Per-ply indentation was tried first and was wrong — with 7 branch points in
+  142 positions it made the tree fan out from move 1 and pushed every real branch off the right edge. A caret folds
+  a branch, branch points carry the branch count, leaves carry the line number, notes show a dot, engine warnings a
+  ⚠, and the current path is picked out in the accent colour.
   Click a move to jump the board there; ↑ makes that branch the first one (which is what numbers the learned lines);
   ✕ deletes the move and everything only it reached. Folding is remembered per node while the repertoire is open.
 - The numbered flat list is still one click away behind the Tree | Lines (N) toggle — the line numbers on the tree
