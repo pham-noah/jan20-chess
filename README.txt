@@ -108,6 +108,12 @@ KNOWING WHICH BUILD YOU HAVE (v10)
   older than it is: workbox precaches index.html and the bundle, so the first load after a rebuild still comes from
   the old cache. When testing locally, reload once more, or use npm run dev which never caches.
 
+WALK STAYS ON THE LINE YOU CHOSE (v10)
+- Fixes a bug where every line after the first played like line 1: the walk re-homed to the "first line whose prefix
+  matches what you have played", and since almost every line starts 1.e4, the second line's first move snapped the
+  walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
+  genuinely deviate into another one.
+
 PACK UPDATES REACH COPIES YOU ALREADY ADDED (v10)
 - Adding a pack copies its tree into your repertoire, so a later rewrite of the bundled pack never reached it: the
   Italian Game stayed at its old 22 lines while the shipped pack had 33.

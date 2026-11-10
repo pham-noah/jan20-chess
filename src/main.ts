@@ -484,8 +484,11 @@ function walkLines(rep: Rep | undefined = cur): string[][] {
   walk(START, []);
   return out;
 }
-/** Which numbered line does this played prefix belong to? (falls back to the current one) */
+/** Which numbered line does this played prefix belong to? Stays on the current line while it still matches,
+ *  and only re-homes when the player deviates. Without that check every line starting 1.e4 snapped back to line 1. */
 function lineOf(prefix: string[]) {
+  const here = wLines[wIdx];
+  if (here && prefix.every((u, i) => here[i] === u)) return wIdx;
   const hit = wLines.findIndex(l => prefix.every((u, i) => l[i] === u));
   return hit < 0 ? wIdx : hit;
 }

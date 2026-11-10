@@ -16,6 +16,16 @@ with sync_playwright() as p:
     for u in ['e7e5','g8f6','b8c6']:
         drag(pg,u); pg.wait_for_timeout(1800)
     check('stafford learn: plays 1...e5 2...Nf6 3...Nc6 vs a random White line', 'Nc6' in pg.inner_text('#path') or 'Nxc6' in pg.inner_text('#path') or msg(pg).startswith('Not'), pg.inner_text('#path')+' | '+msg(pg))
+    # Walk must stay on the line you moved to: every line used to replay line 1, because the re-homing check
+    # matched the first line whose prefix fitted what you had played.
+    label = lambda: pg.inner_text('#path').split(' · ')[0].strip()
+    first = label()
+    pg.click('[data-act=wnext]'); pg.wait_for_timeout(900)
+    second = label()
+    pg.wait_for_timeout(900)                      # opponent's reply lands
+    pg.click('[data-act=wsolve]'); pg.wait_for_timeout(1300)
+    third = label()
+    check('walk: next line stays on the line you moved to', second != first and third == second, f'{first} -> {second} -> {third}')
     pg.screenshot(path='/tmp/shots/stafford-learn.png')
     pg.click('header [data-act=settings]'); pg.click('#set [data-act=openlib]'); pg.wait_for_timeout(300); pg.click('[data-u=alien]'); pg.wait_for_timeout(600)
     check('alien added as a White repertoire', 'white' in pg.eval_on_selector('#rep','e=>e.selectedOptions[0].textContent'))
