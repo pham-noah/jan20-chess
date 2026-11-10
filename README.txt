@@ -108,6 +108,13 @@ KNOWING WHICH BUILD YOU HAVE (v10)
   older than it is: workbox precaches index.html and the bundle, so the first load after a rebuild still comes from
   the old cache. When testing locally, reload once more, or use npm run dev which never caches.
 
+PACK UPDATES REACH COPIES YOU ALREADY ADDED (v10)
+- Adding a pack copies its tree into your repertoire, so a later rewrite of the bundled pack never reached it: the
+  Italian Game stayed at its old 22 lines while the shipped pack had 33.
+- The library now offers "Update my copy" next to "Add another copy". It swaps in the bundled tree and keeps your
+  review cards and notes wherever the position still exists, pruning the ones that no longer do. The pack card also
+  says how many lines the bundled version has.
+
 TRAPS: PUNISHING OPPONENT MISTAKES (v9)
 - tools/traps.mjs walks every position in a pack where the opponent moves and asks Stockfish which legal replies
   they could blunder; a reply that is at least 100 cp worse than their best, and not already in the pack, is a

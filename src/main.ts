@@ -469,12 +469,12 @@ async function explainWrong(k: string, u: string, base = '') {
 }
 
 /* Walk: a numbered walkthrough of every line in the repertoire, one after another. */
-function walkLines(): string[][] {
+function walkLines(rep: Rep | undefined = cur): string[][] {
   const out: string[][] = [];
-  if (!cur) return out;
+  if (!rep) return out;
   const walk = (k: string, path: string[]) => {
     if (out.length >= 400) return;
-    const us = Object.keys(cur!.moves[k] || {});
+    const us = Object.keys(rep!.moves[k] || {});
     if (!us.length) { if (path.length) out.push(path); return; }
     for (const u of us) {
       const p = fromKey(k); p.play(parseUci(u)!);
@@ -914,7 +914,7 @@ async function openLib() {
     const t: Rep = { id: '', name: '', color: p.color, moves: {}, cards: {}, notes: {} }; importInto(t, p.pgn);
     const own = Object.keys(t.moves).filter(k => k.split(' ')[1] === (p.color === 'white' ? 'w' : 'b')).length;
     const have = reps.some(r => r.src === p.id);
-    return `<div class="pack"><div class="packhead"><b>${esc(p.name)}</b><span class="pill">${p.color}</span></div><p class="dim">${esc(p.blurb)}</p><p class="stats">${own} positions to learn · ${Object.keys(t.notes!).length} notes</p><button data-act="addpack" data-u="${p.id}" class="${have ? '' : 'primary'}">${have ? 'Add another copy' : 'Add to my repertoires'}</button></div>`;
+    return `<div class="pack"><div class="packhead"><b>${esc(p.name)}</b><span class="pill">${p.color}</span></div><p class="dim">${esc(p.blurb)}</p><p class="stats">${own} positions to learn · ${Object.keys(t.notes!).length} notes · ${(() => { const n = walkLines(t).length; return have ? `${n} in the bundled pack` : `${n} lines`; })()}</p><div class="row"><button data-act="addpack" data-u="${p.id}" class="${have ? '' : 'primary'}">${have ? 'Add another copy' : 'Add to my repertoires'}</button>${have ? `<button data-act="updpack" data-u="${p.id}" class="primary">Update my copy</button>` : ''}</div></div>`;
   }).join('');
   $('#lib').showModal();
 }
@@ -923,6 +923,35 @@ function addPack(p: Pack) {
   const n = importInto(rep, p.pgn); reps.push(rep); cur = rep; save();
   document.querySelectorAll('dialog[open]').forEach((d: any) => d.close('cancel'));
   enter('build'); msg(`Added ${p.name}: ${n} moves. Try Learn next.`, 'ok');
+}
+/** Refresh a stored copy of a bundled pack: new lines in, review progress and your notes kept. */
+function updatePack(p: Pack) {
+  const mine_ = reps.filter(r => r.src === p.id);
+  if (!mine_.length) return addPack(p);
+  const fresh: Rep = { id: '', name: p.name, color: p.color, moves: {}, cards: {}, notes: {} };
+  importInto(fresh, p.pgn);
+  const lines = walkLines(fresh).length;
+  ask({
+    title: `Update “${p.name}”?`,
+    text: `Your copy gets the bundled ${lines} lines (${Object.keys(fresh.moves).length} positions) instead of the ones it was added with. Review progress and your own notes are kept wherever the position still exists.`,
+    ok: 'Update',
+  }).then(yes => {
+    if (!yes) return;
+    for (const r of mine_) {
+      const keepNote = (k: string) => {
+        const [pos_ = '', uci = ''] = k.split('|');
+        return !!fresh.moves[pos_]?.[uci];
+      };
+      r.moves = fresh.moves;
+      r.color = p.color;
+      r.notes = { ...fresh.notes, ...Object.fromEntries(Object.entries(r.notes ?? {}).filter(([k]) => keepNote(k))) };
+      r.cards = Object.fromEntries(Object.entries(r.cards ?? {}).filter(([k]) => !!fresh.moves[k]));
+    }
+    save();
+    document.querySelectorAll('dialog[open]').forEach((d: any) => d.close('cancel'));
+    enter(mode);
+    toast(`Updated ${p.name}: ${lines} lines, ${Object.keys(fresh.moves).length} positions.`, { ms: 6000 });
+  });
 }
 function openSettings() {
   $('#s-new').value = S.newCap; $('#s-ret').value = String(S.retention); $('#s-theme').value = S.theme; $('#s-delay').value = String(S.learnDelay);
@@ -973,6 +1002,7 @@ document.addEventListener('click', e => {
   else if (a === 'settings') openSettings();
   else if (a === 'openlib') { document.querySelectorAll('dialog[open]').forEach((d: any) => d.close('cancel')); openLib(); }
   else if (a === 'addpack') loadPacks().then(P => addPack(P.find(p => p.id === u)!));
+  else if (a === 'updpack') loadPacks().then(P => updatePack(P.find(p => p.id === u)!));
   else if (a === 'askno') $('#ask').close('cancel');
   else if (a === 'keys') { document.querySelectorAll('dialog[open]').forEach((d: any) => d.close('cancel')); $('#keys').showModal(); }
   else if (a === 'install') { deferredInstall?.prompt(); }
