@@ -1,0 +1,26 @@
+[Event "Martian Gambit"]
+[Orientation "white"]
+
+1. e4 c6 {Caro-Kann.} 2. d4 d5 3. Nc3 {The Martian Gambit is the Alien Gambit's sibling. It appears when Black recaptures on e4 and develops the bishop.}
+(3. Nd2 dxe4 4. Nxe4 Bf5 5. Ng5 {Same position by transposition.})
+3... dxe4 4. Nxe4 Bf5 {The Classical Variation. Black develops the bishop before ...e6.}
+5. Ng5 {The knight attacks the bishop on f5 and eyes e6 and f7.}
+5... Bg6 {The most natural reply.}
+(5... e6 6. N5f3 Nf6 7. Bd3 Bxd3 8. Qxd3 {Develop calmly. White is comfortable.})
+(5... h6 6. N5f3 e6 7. Bd3 Bxd3 8. Qxd3 {Same plan.})
+(5... Nf6 6. Bd3 Bxd3 7. Qxd3 h6 8. N5f3 {Trade the light-squared bishop and keep the extra space.})
+(5... Qd5 6. c4 Qd7 7. Bd3 f6 8. N5f3 {Gain time against the queen.})
+6. N1f3 {Developing, and keeping the knight on g5 for the sacrifice on e6.}
+6... h6 {The most common reply. Black kicks the knight.}
+(6... e6 7. Bd3 Nd7 8. Bxg6 hxg6 {Trade bishops and develop.})
+(6... Nd7 7. Bd3 e6 8. Bxg6 hxg6)
+(6... Nf6 7. Ne5 Nbd7 8. Nxg6 hxg6 {Solid. White has a small plus.})
+7. Ne6 {The Martian Gambit proper. White sacrifices a knight to wreck Black's king position. Objectively unsound, practically tricky.}
+(7. Nh3 Bxe4 8. c3 {The safe line if you do not want to sacrifice.})
+7... fxe6 {Black's best reply. Black wins a piece but the king is exposed.}
+(7... Qd6 8. Nxf8 Kxf8 9. Be2 Nf6 {Black has the better of it, but is uncoordinated.})
+(7... Qd7 8. Nxf8 Kxf8 9. Ne5 Qd6 10. Qg4 {White wins material.})
+(7... Qc8 8. Nxf8 Kxf8 9. Bd3 Bxd3 10. Qxd3 {White regains the piece with a lead in development.})
+8. Bd3 {The engine move. Trade the bishop and open the queen.}
+(8. Ne5 Bf5 9. g4 Bh7 10. Bc4 {The attacking try. Play g4 to chase the bishop and bring the bishop to c4.})
+8... Bxd3 9. Qxd3 Qa5+ 10. Bd2 {White has compensation: Black's structure is damaged and the king is in the middle.}

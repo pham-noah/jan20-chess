@@ -1,0 +1,11 @@
+[Event "Halloween Gambit"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 {Halloween Gambit: a knight for two pawns and a huge centre. Objectively dubious, practically dangerous. Play it fast and know the tricks.} 4... Nxe5 5. d4 {Kick the knight and grab the centre.} 5... Ng6 {The best practical reply.}
+(5... Nc6 6. d5 {Chase the knight again.} 6... Ne5 (6... Bb4 {The critical reply.} 7. dxc6 Nxe4 8. Qd4 Qe7 9. Qxg7 {Very sharp. Calculate every move.}) 7. f4 Ng6 8. e5 Ng8 9. d6 cxd6 10. exd6 Qf6 11. Nb5 Kd8 12. Be3 {The usual Halloween position. Black is a piece up but undeveloped with a shaky king. Threats on c7 and the e-file.})
+(5... Neg4 6. e5 Qe7 7. Qe2 {Regains the piece with a better position.})
+6. e5 {Chase the other knight.} 6... Ng8 7. Bc4 {Develop with threats. Castle long soon, then Qf3 and h4-h5.}
+7... d5 {Euwe's main try.}
+(7... c6 8. Qf3 f6 9. O-O d5 10. exd6 Bxd6 11. Ne4 N8e7)
+(7... Bb4 8. Qf3 f6 9. O-O Bxc3 10. bxc3 d5 11. exd6 cxd6 12. Ba3 N8e7 13. Rfe1 Qc7 {White has strong play for the piece.})
+8. Bxd5 c6 9. Be4 {Keep the bishop on the diagonal.} 9... Be6 10. O-O Qd7 11. f4 N6e7 12. Be3 Nf5 13. Bf2 h5 {Sharp play. White has compensation, Black should still be better.}

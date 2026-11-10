@@ -1,0 +1,17 @@
+[Event "Caro-Kann Defence"]
+[Orientation "black"]
+
+1. e4 c6 {Caro-Kann: solid pawn structure, ...d5 next, and the light-squared bishop gets out before ...e6.}
+2. d4
+(2. Nc3 d5 3. Nf3 Bg4 4. h3 Bxf3 5. Qxf3 e6 {Two Knights Variation. Solid.})
+(2. c4 d5 3. exd5 cxd5 4. cxd5 Nf6 {Accelerated Panov. Regain the pawn on d5.})
+(2. Nf3 d5 3. e5 Bf5 4. d4 e6 5. Be2 c5 {Transposes to the Advance Short Variation.})
+2... d5
+3. Nc3 {Classical lines.}
+(3. Nd2 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 7. Nf3 Nd7 {Transposes to the main Classical line.})
+(3. e5 Bf5 {Advance Variation. Develop the bishop before ...e6, then attack the chain with ...c5.} 4. Nf3 (4. Nc3 e6 5. g4 Bg6 6. Nge2 c5 7. h4 h6 8. h5 Bh7 9. Nf4 {Bayonet attack. Black breaks the centre with ...c5.}) 4... e6 5. Be2 c5 6. Be3 (6. O-O Nc6 7. c3 Nge7 8. Na3 cxd4) 6... cxd4 7. Nxd4 Nc6 8. Nxc6 bxc6 9. Nd2 Ne7 {Short Variation. Black is solid with ...Nd5 ideas.})
+(3. exd5 cxd5 {Exchange Variation.} 4. Bd3 (4. c4 Nf6 5. Nc3 e6 {Panov-Botvinnik Attack. Isolated d-pawn fights.} 6. Nf3 Bb4 (6... Be7 7. cxd5 Nxd5 8. Bd3 Nc6 9. O-O O-O 10. Re1 Nf6) 7. cxd5 Nxd5 8. Bd2 Nc6 9. Bd3 O-O 10. O-O Nf6) 4... Nc6 5. c3 Nf6 6. Bf4 Bg4 7. Qb3 Qd7 8. Nd2 e6 9. Ngf3 Bd6 10. Bxd6 Qxd6 11. O-O O-O {Symmetrical and equal. Play for ...Rfc8 and ...Ne7-f5.})
+(3. f3 dxe4 4. fxe4 e5 {Fantasy Variation. Strike the centre.} 5. Nf3 Bg4 6. Bc4 Nd7 7. O-O Ngf6)
+3... dxe4 4. Nxe4 Bf5 {The Classical Variation. Bishop out before ...e6.}
+(4... Nd7 {Karpov Variation.} 5. Ng5 Ngf6 6. Bd3 e6 7. N1f3 Bd6 8. Qe2 h6 9. Ne4 Nxe4 10. Qxe4 Qc7)
+5. Ng3 Bg6 6. h4 (6. Nf3 Nd7 7. h4 h6 8. Ne5 Nxe5 {Take the knight. The old 8...Bh7 9.Bc4 e6 10.Qe2 is dangerous: after 10...Ngf6? 11.Nxf7! White wins.} 9. dxe5 Qa5+ 10. c3 Qxe5 11. Be2 Nf6 {Black wins a pawn.}) 6... h6 7. Nf3 Nd7 8. h5 Bh7 9. Bd3 Bxd3 10. Qxd3 e6 11. Bf4 Ngf6 12. O-O-O Be7 {Solid and healthy. Black plays ...Qa5 or ...Nd5 later.}

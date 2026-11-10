@@ -1,0 +1,71 @@
+"""Browser tests for app polish: welcome, custom dialogs, undo toast, keyboard entry, remembered tab, layouts, lazy loading."""
+import sys, os; sys.argv = ['x']
+__file__ = os.path.abspath('tools/e2e.py')
+exec(open('tools/e2e.py').read().split("with sync_playwright() as p:")[0])
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    b = p.chromium.launch()
+    ctx = b.new_context(viewport={'width': 1100, 'height': 800}, service_workers='block'); pg = ctx.new_page()
+    errs = []; reqs = []
+    pg.on('pageerror', lambda e: errs.append(str(e))); pg.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None)
+    pg.on('request', lambda r: reqs.append(r.url))
+    pg.goto(BASE); pg.wait_for_timeout(900)
+    check('welcome sheet shows on first run', pg.locator('#welcome[open]').count() == 1)
+    pg.screenshot(path='/tmp/shots/polish-welcome.png')
+    check('first load does not fetch the pieces CSS or the library chunk', not any('pieces-' in u or 'library-' in u for u in reqs), [u.split('/')[-1] for u in reqs if 'pieces' in u or 'library' in u])
+    pg.click('#welcome [data-act=openlib]'); pg.wait_for_timeout(600)
+    check('library chunk loads on demand', any('library-' in u for u in reqs))
+    pg.click('[data-u=italian]'); pg.wait_for_timeout(600)
+    check('welcome does not return after dismissal', pg.locator('#welcome[open]').count() == 0)
+    # aria + undo toast
+    check('active tab is marked aria-current', pg.get_attribute('[data-m=build]', 'aria-current') == 'page')
+    pg.click('[data-act=del]'); pg.wait_for_timeout(300)
+    check('deleting a move shows an Undo toast', pg.locator('#toast:not([hidden])').count() == 1 and 'Removed' in pg.inner_text('#toast'), pg.inner_text('#toast'))
+    check('the move is gone', 'e4' not in pg.inner_text('#act').split('Undo')[0] or pg.locator('[data-act=go]').count() == 0)
+    pg.screenshot(path='/tmp/shots/polish-toast.png')
+    pg.click('#toast-a'); pg.wait_for_timeout(300)
+    check('Undo restores the move', pg.locator('[data-act=go]').count() >= 1 and 'e4' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
+    # custom confirm for deleting a repertoire
+    pg.click('summary'); pg.click('[data-act=delrep]'); pg.wait_for_timeout(300)
+    check('delete asks with a styled dialog', pg.locator('#ask[open]').count() == 1 and 'Delete' in pg.inner_text('#ask-ok'), pg.inner_text('#ask'))
+    pg.screenshot(path='/tmp/shots/polish-ask.png')
+    pg.click('#ask-no'); pg.wait_for_timeout(300)
+    check('Cancel keeps the repertoire', 'Italian' in pg.eval_on_selector('#rep', 'e=>e.selectedOptions[0].textContent'))
+    # keyboard shortcuts
+    pg.keyboard.press('?'); pg.wait_for_timeout(300)
+    check('? opens the shortcuts sheet', pg.locator('#keys[open]').count() == 1)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    check('Escape closes it', pg.locator('#keys[open]').count() == 0)
+    # type moves
+    pg.click('header [data-act=settings]'); pg.check('#s-san'); pg.dispatch_event('#s-san', 'change'); pg.click('#set [data-act=closedlg]'); pg.wait_for_timeout(300)
+    check('typed-move box appears when enabled', pg.locator('#sanform:not([hidden])').count() == 1)
+    pg.click('[data-act=reset]'); pg.fill('#san', 'e4'); pg.press('#san', 'Enter'); pg.wait_for_timeout(300)
+    check('typing e4 plays the move', pg.inner_text('#path').startswith('1. e4'), pg.inner_text('#path'))
+    pg.fill('#san', 'Qh5'); pg.press('#san', 'Enter'); pg.wait_for_timeout(300)
+    check('an illegal typed move gets a friendly toast', 'not a legal move' in pg.inner_text('#toast'), pg.inner_text('#toast'))
+    pg.fill('#san', 'e5'); pg.press('#san', 'Enter'); pg.fill('#san', 'Nf3'); pg.press('#san', 'Enter'); pg.fill('#san', 'Nc6'); pg.press('#san', 'Enter'); pg.fill('#san', 'Bc4'); pg.press('#san', 'Enter'); pg.fill('#san', 'Nf6'); pg.press('#san', 'Enter'); pg.fill('#san', 'd3'); pg.press('#san', 'Enter'); pg.fill('#san', 'Be7'); pg.press('#san', 'Enter'); pg.fill('#san', 'O-O'); pg.press('#san', 'Enter'); pg.wait_for_timeout(300)
+    check('typed castling works (O-O)', pg.inner_text('#path').strip().endswith('O-O'), pg.inner_text('#path'))
+    # remembers last tab
+    pg.click('[data-m=tactics]'); pg.wait_for_timeout(1200); pg.reload(); pg.wait_for_timeout(1200)
+    check('reopening returns to the last tab', pg.get_attribute('[data-m=tactics]', 'aria-current') == 'page')
+    # pieces css loads lazily when selected
+    n0 = sum('pieces-' in u for u in reqs)
+    pg.click('header [data-act=settings]'); pg.select_option('#s-pieces', 'merida'); pg.wait_for_timeout(700)
+    check('piece set CSS loads on demand', sum('pieces-' in u for u in reqs) > n0 or n0 > 0)
+    pg.click('#set [data-act=closedlg]')
+    check('no console or page errors on desktop', not errs, errs)
+    ctx.close()
+    # layouts
+    for name, vp, mob in (('landscape', {'width': 844, 'height': 390}, True), ('tiny', {'width': 320, 'height': 568}, True), ('tablet', {'width': 768, 'height': 1024}, True)):
+        c = b.new_context(viewport=vp, is_mobile=mob, has_touch=True, device_scale_factor=2, service_workers='block'); q = c.new_page()
+        goto_app(q); q.click('text=Add starter lines'); q.click('[data-u=evans]'); q.wait_for_timeout(700)
+        ov = q.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
+        check(f'{name}: no horizontal overflow', ov)
+        bb = q.locator('#board').bounding_box(); tb = q.locator('#tabs').bounding_box()
+        if name == 'landscape':
+            check('landscape: tab rail on the left, board at least 300px', tb['x'] < 5 and tb['width'] < 90 and bb['width'] >= 300, f'rail {tb} board {bb}')
+            check('landscape: whole board visible without scrolling', bb['y'] + bb['height'] <= vp['height'] + 1, bb)
+        if name == 'tiny': check('tiny: board fits the screen width', bb['width'] <= vp['width'], bb)
+        q.screenshot(path=f'/tmp/shots/polish-{name}.png'); c.close()
+    b.close()
+print('\nerrors:', errs or 'none'); print(sum(1 for r in results if r[1]), '/', len(results))

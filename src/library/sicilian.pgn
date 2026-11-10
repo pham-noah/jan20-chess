@@ -1,0 +1,16 @@
+[Event "Sicilian Defence (Najdorf)"]
+[Orientation "black"]
+
+1. e4 c5 {Sicilian: unbalance the position at once.} 2. Nf3
+(2. c3 Nf6 3. e5 Nd5 4. d4 cxd4 5. Nf3 Nc6 6. cxd4 d6 7. Bc4 Nb6 8. Bb5 dxe5 9. Nxe5 Bd7 10. Nxd7 Qxd7 {Alapin Variation. Black is fine.})
+(2. Nc3 Nc6 3. g3 g6 4. Bg2 Bg7 5. d3 d6 6. f4 e6 7. Nf3 Nge7 8. O-O O-O {Closed Sicilian.})
+2... d6 {Playing ...d6 before ...Nc6 avoids Rossolimo and Alapin ideas.}
+3. d4 {Open Sicilian.}
+(3. Bb5+ Bd7 4. Bxd7+ Qxd7 5. c4 Nc6 6. Nc3 Nf6 7. d4 cxd4 8. Nxd4 g6 9. Be3 Bg7 10. O-O O-O {Moscow Variation. White has no light-squared bishop, so Black is solid.})
+3... cxd4 4. Nxd4 Nf6 5. Nc3 a6 {Najdorf: stops Nb5 and Bb5, prepares ...b5 and ...e5.}
+6. Be3 {English Attack.}
+(6. Bg5 e6 {Keeps the centre and prepares ...Be7.} 7. f4 Be7 (7... Qb6 {Poisoned Pawn. Very sharp.} 8. Qd2 Qxb2 9. Rb1 Qa3 10. Bxf6 gxf6 11. Be2 h5 12. O-O Nc6 13. Kh1 Bd7 14. Nxc6 Bxc6) 8. Qf3 Qc7 9. O-O-O Nbd7 10. g4 b5 11. Bxf6 Nxf6 12. g5 Nd7 13. f5 Ne5)
+(6. Be2 e5 7. Nb3 Be7 8. Be3 Be6 9. O-O Nbd7 10. a4 Rc8 {Classical set-up. Solid.})
+(6. Bc4 e6 7. Bb3 b5 8. O-O Be7 9. Qf3 Qc7 10. Qg3 O-O 11. Bh6 Ne8 {Fischer-Sozin. Defend carefully.})
+(6. h3 e5 7. Nde2 h5 8. Bg5 Be6 9. Ng3 g6 10. Bxf6 Qxf6 11. Nd5 Qd8 12. c3 Bg7)
+6... e5 {Kicks the knight and fixes the centre.} 7. Nb3 Be6 8. f3 Be7 9. Qd2 O-O 10. O-O-O Nbd7 11. g4 b5 12. g5 b4 13. Ne2 Ne8 14. f4 a5 {A sharp race. Black's queenside attack is fast.}

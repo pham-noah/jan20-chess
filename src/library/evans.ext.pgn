@@ -1,0 +1,49 @@
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Nxb4 {Engine-suggested sideline: Nxb4 is also playable here (engine: +0.1 for you). The replies below are engine picks, not book theory.} 5. c3 Nc6 6. d4 Bb6 7. Nxe5 Nxe5 8. dxe5 Ne7
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Be7 {Engine-suggested sideline: Be7 is also playable here (engine: +0.2 for you). The replies below are engine picks, not book theory.} 5. a3 Nf6 6. d3 d5 7. exd5 Nxd5 8. O-O O-O
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Bf8 {Engine-suggested sideline: Bf8 is also playable here (engine: +0.5 for you). The replies below are engine picks, not book theory.} 6. d4 Na5 7. Be2 d6 8. Qa4+ c6 9. dxe5 dxe5
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Be7 6. d4 exd4 {Engine-suggested sideline: exd4 is also playable here (engine: +0.1 for you). The replies below are engine picks, not book theory.} 7. cxd4 Nf6 8. d5 Na5 9. Bd3 c6 10. Nc3 O-O
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Be7 6. d4 Bf6 {Engine-suggested sideline: Bf6 is also playable here (engine: +0.2 for you). The replies below are engine picks, not book theory.} 7. dxe5 Bxe5 8. Bxf7+ Kxf7 9. Qd5+ Ke8 10. Nxe5 Qe7
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Bc5 6. d4 Bb6 {Engine-suggested sideline: Bb6 is also playable here (engine: +0.4 for you). The replies below are engine picks, not book theory.} 7. Nxe5 Nxe5 8. dxe5 Ne7 9. Ba3 O-O 10. O-O d6
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bb6 5. a4 a6 6. Nc3 h6 {Engine-suggested sideline: h6 is also playable here (engine: +0.5 for you). The replies below are engine picks, not book theory.} 7. Nd5 Nf6 8. Ra3 d6 9. Nxb6 cxb6 10. b5 axb5
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bb6 5. a4 a6 6. Nc3 Bd4 {Engine-suggested sideline: Bd4 is also playable here (engine: +0.8 for you). The replies below are engine picks, not book theory.} 7. Nxd4 Nxd4 8. Ne2 Nxe2 9. Qxe2 Ne7 10. O-O O-O
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 6. d4 d6 7. O-O Nf6 {Engine-suggested sideline: Nf6 is also playable here (engine: -0.2 for you). The replies below are engine picks, not book theory.} 8. dxe5 Nxe5 9. Nxe5 dxe5 10. Qb3 O-O 11. Ba3 Nxe4
+
+[Event "evans engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 6. d4 d6 7. O-O Bg4 {Engine-suggested sideline: Bg4 is also playable here (engine: -0.2 for you). The replies below are engine picks, not book theory.} 8. Qb3 Bxf3 9. Bxf7+ Kf8 10. gxf3 exd4 11. Kh1 Bb6

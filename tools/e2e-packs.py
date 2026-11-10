@@ -1,0 +1,30 @@
+import sys; sys.argv=['x']
+__file__=__import__("os").path.abspath("tools/e2e.py")
+exec(open('tools/e2e.py').read().split("with sync_playwright() as p:")[0])
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    b=p.chromium.launch(); ctx=b.new_context(viewport={'width':1100,'height':800},service_workers='block'); pg=ctx.new_page()
+    errs=[]; pg.on('pageerror',lambda e:errs.append(str(e))); pg.on('console',lambda m: errs.append(m.text) if m.type=='error' else None)
+    goto_app(pg); pg.wait_for_timeout(700)
+    pg.click('text=Add starter lines'); pg.wait_for_timeout(300)
+    names=pg.locator('.packhead b').all_inner_texts(); check('library lists 8 packs incl. Stafford, Alien and Martian', len(names)==8 and 'Martian Gambit' in names and 'Stafford Gambit' in names, names)
+    pg.click('[data-u=stafford]'); pg.wait_for_timeout(600)
+    check('stafford added as a Black repertoire', 'black' in pg.eval_on_selector('#rep','e=>e.selectedOptions[0].textContent'))
+    pg.click('[data-m=learn]'); pg.wait_for_timeout(1800)
+    check('stafford learn: White plays first, then it is my move', pg.inner_text('#path').startswith('1. e4') and msg(pg)=='Your move.', pg.inner_text('#path')+' | '+msg(pg))
+    for u in ['e7e5','g8f6','b8c6']:
+        drag(pg,u); pg.wait_for_timeout(1800)
+    check('stafford learn: plays 1...e5 2...Nf6 3...Nc6 vs a random White line', 'Nc6' in pg.inner_text('#path') or 'Nxc6' in pg.inner_text('#path') or msg(pg).startswith('Not'), pg.inner_text('#path')+' | '+msg(pg))
+    pg.screenshot(path='/tmp/shots/stafford-learn.png')
+    pg.click('header [data-act=settings]'); pg.click('#set [data-act=openlib]'); pg.wait_for_timeout(300); pg.click('[data-u=alien]'); pg.wait_for_timeout(600)
+    check('alien added as a White repertoire', 'white' in pg.eval_on_selector('#rep','e=>e.selectedOptions[0].textContent'))
+    pg.click('[data-m=review]'); pg.wait_for_timeout(900); pg.click('[data-act=hint]'); pg.wait_for_timeout(300); u=arrow_uci(pg); drag(pg,u); pg.wait_for_timeout(500)
+    check('alien review: hinted move accepted', msg(pg).startswith('Correct'), msg(pg))
+    pg.click('[data-m=build]'); pg.wait_for_timeout(500)
+    for u in ['e2e4','c7c6','d2d4','d7d5','b1c3','d5e4','c3e4','g8f6','e4g5','h7h6']:
+        drag(pg,u); pg.wait_for_timeout(250)
+    pg.screenshot(path='/tmp/shots/alien-build.png')
+    check('alien build: reached the Alien position', pg.inner_text('#path').endswith('Ng5 h6'), pg.inner_text('#path'))
+    check('alien build: a saved move (Nxf7) is offered here', 'Nxf7' in pg.inner_text('#act'), pg.inner_text('#act')[:80])
+    print('console/page errors:', errs or 'none'); b.close()
+print(sum(1 for r in results if r[1]), '/', len(results))

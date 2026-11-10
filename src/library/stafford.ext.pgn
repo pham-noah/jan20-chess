@@ -1,0 +1,59 @@
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. d4 Nxe4 4. dxe5 {Engine-suggested sideline: dxe5 is also playable here (engine: -0.3 for you). The replies below are engine picks, not book theory.} d5 5. Nbd2 Nxd2 6. Bxd2 c5 7. c3 Nc6 8. Bd3
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. d4 Nxe4 4. Qe2 {Engine-suggested sideline: Qe2 is also playable here (engine: -0.2 for you). The replies below are engine picks, not book theory.} d5 5. Nbd2 Nc6 6. Nxe4 dxe4 7. Qxe4 f5 8. Qe3
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. Nc3 Nc6 4. d4 {Engine-suggested sideline: d4 is also playable here (engine: -0.2 for you). The replies below are engine picks, not book theory.} exd4 5. Nxd4 Bb4 6. Nxc6 bxc6 7. Bd3 d5 8. exd5
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. Nc3 Nc6 4. h3 {Engine-suggested sideline: h3 is also playable here (engine: +0.0 for you). The replies below are engine picks, not book theory.} d5 5. exd5 Nxd5 6. Bb5 Nxc3 7. bxc3 Bd6 8. O-O
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. d3 Nc6 4. Be2 {Engine-suggested sideline: Be2 is also playable here (engine: +0.1 for you). The replies below are engine picks, not book theory.} d5 5. exd5 Nxd5 6. O-O Bd6 7. Nc3 Nxc3 8. bxc3
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. d3 Nc6 4. c3 {Engine-suggested sideline: c3 is also playable here (engine: +0.1 for you). The replies below are engine picks, not book theory.} d5 5. Nbd2 Bd6 6. Be2 O-O 7. O-O h6 8. Re1
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. Bc4 Nxe4 4. Nc3 {Engine-suggested sideline: Nc3 is also playable here (engine: +0.4 for you). The replies below are engine picks, not book theory.} Nxc3 5. dxc3 f6 6. O-O d6 7. Nh4 g6 8. f4
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. Bc4 Nxe4 4. O-O {Engine-suggested sideline: O-O is also playable here (engine: +0.7 for you). The replies below are engine picks, not book theory.} d5 5. Bb3 Nc6 6. d3 Nc5 7. Nxe5 Nxe5 8. Re1
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. Nxe5 Nc6 4. Nf3 Nxe4 5. Nc3 {Engine-suggested sideline: Nc3 is also playable here (engine: -0.2 for you). The replies below are engine picks, not book theory.} Nxc3 6. dxc3 Bc5 7. b4 Bb6 8. a4 a5 9. b5
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. d4 Nxe4 4. Nxe5 d5 5. Qf3 {Engine-suggested sideline: Qf3 is also playable here (engine: -0.1 for you). The replies below are engine picks, not book theory.} Qf6 6. Qxf6 Nxf6 7. Bd3 Bd6 8. Nc3 O-O 9. O-O
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. d4 Nxe4 4. Nxe5 d5 5. Be3 {Engine-suggested sideline: Be3 is also playable here (engine: -0.1 for you). The replies below are engine picks, not book theory.} Bd6 6. Bd3 O-O 7. O-O Nd7 8. f4 Ndf6 9. c4
+
+[Event "stafford engine extension"]
+[Orientation "black"]
+
+1. e4 e5 2. Nf3 Nf6 3. Nc3 Nc6 4. Bb5 Nd4 5. O-O {Engine-suggested sideline: O-O is also playable here (engine: +0.0 for you). The replies below are engine picks, not book theory.} Nxb5 6. Nxb5 c6 7. Nc3 d6 8. d4 Qc7 9. a4

@@ -1,0 +1,31 @@
+import sys, os; sys.argv = ['x']
+__file__ = os.path.abspath('tools/e2e.py')
+exec(open('tools/e2e.py').read().split("with sync_playwright() as p:")[0])
+from playwright.sync_api import sync_playwright
+def play(pg, ucis):
+    for u in ucis: drag(pg, u); pg.wait_for_timeout(220)
+with sync_playwright() as p:
+    b = p.chromium.launch(); ctx = b.new_context(viewport={'width': 1100, 'height': 800}, service_workers='block'); pg = ctx.new_page()
+    errs = []; pg.on('pageerror', lambda e: errs.append(str(e))); pg.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None)
+    goto_app(pg); pg.wait_for_timeout(700); pg.click('text=Add starter lines'); pg.click('[data-u=martian]'); pg.wait_for_timeout(600)
+    pg.click('[data-m=build]'); pg.wait_for_timeout(300)
+    play(pg, ['e2e4', 'c7c6', 'd2d4', 'd7d5', 'b1c3', 'd5e4', 'c3e4', 'c8f5', 'e4g5', 'f5g6', 'g1f3', 'h7h6'])
+    check('martian: reached 6...h6', pg.inner_text('#path').endswith('N1f3 h6') or pg.inner_text('#path').endswith('Nf3 h6'), pg.inner_text('#path'))
+    check('martian: Ne6 offered as the saved sacrifice', 'Ne6' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
+    play(pg, ['g5e6']); pg.wait_for_timeout(200)
+    check('martian: Black replies fxe6 / Qd6 / Qd7 / Qc8 are saved', all(x in pg.inner_text('#act') for x in ['fxe6', 'Qd6']), pg.inner_text('#act')[:80])
+    # Stafford: other third moves
+    pg.click('header [data-act=settings]'); pg.click('#set [data-act=openlib]'); pg.wait_for_timeout(300); pg.click('[data-u=stafford]'); pg.wait_for_timeout(600)
+    pg.click('[data-m=build]'); pg.wait_for_timeout(300)
+    play(pg, ['e2e4', 'e7e5', 'g1f3', 'g8f6'])
+    acts = pg.inner_text('#act')
+    check('stafford: after 2...Nf6 the pack knows 3.Nxe5 d4 Nc3 Bc4 d3', all(x in acts for x in ['Nxe5', 'd4', 'Nc3', 'Bc4', 'd3']), acts[:100])
+    play(pg, ['d2d4']); pg.wait_for_timeout(200)
+    check('stafford: against 3.d4 Black has ...Nxe4', 'Nxe4' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
+    pg.click('[data-act=undo]'); play(pg, ['b1c3'])
+    check('stafford: against 3.Nc3 Black has ...Nc6', 'Nc6' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
+    pg.click('[data-act=undo]'); play(pg, ['f1c4'])
+    check('stafford: against 3.Bc4 Black has ...Nxe4', 'Nxe4' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
+    pg.screenshot(path='/tmp/shots/stafford-3bc4.png')
+    print('console/page errors:', errs or 'none'); b.close()
+print(sum(1 for r in results if r[1]), '/', len(results))

@@ -1,0 +1,18 @@
+[Event "Alien Gambit"]
+[Orientation "white"]
+
+1. e4 c6 {Caro-Kann.} 2. d4 d5 3. Nc3 {The Alien Gambit works against the main line Caro-Kann.}
+(3. Nd2 dxe4 4. Nxe4 Nf6 5. Ng5 {Same position by transposition.})
+3... dxe4 4. Nxe4 Nf6 {Black must play the Tartakower recapture for the gambit to work.}
+5. Ng5 {The Alien Gambit setup. The knight eyes f7 and h7. After ...h6 the f7 sacrifice comes.}
+5... h6 {The most common reply. Black kicks the knight.}
+(5... Bf5 6. Bc4 {Hit f7 at once.} (6. Bd3 Bxd3 7. Qxd3 h6 8. N5f3 {The safe engine line.}) 6... e6 7. Nge2 c5 8. c3 Nc6 9. Be3 {Solid, with the light-squared bishop eyeing e6.})
+(5... e6 6. Bd3 h6 7. Ne4 Nxe4 (7... Qd4 8. Nf3) 8. Bxe4 Nd7 {Play for a lead in development.})
+(5... c5 6. Bc4 e6 7. Nge2 Nc6 8. Nf3 {Quiet and healthy. White has good development.})
+6. Nxf7 {The Alien Gambit proper. White sacrifices a knight to drag the king out and hit the light squares. Objectively unsound, practically tricky.} 6... Kxf7
+7. Nf3 {Develops with threats of Ne5+. Black must be careful with the f5 and e6 squares.}
+(7. Bc4+ e6 8. Qe2 c5 9. Nf3 Nc6 10. Be3 {Check first and develop with Qe2 and Nf3.})
+7... c5 {The engine reply. Black counterattacks in the centre.}
+(7... e6 8. Bc4 c5 9. Qe2 Nc6 10. Be3 {Same plan.})
+(7... Bf5 8. Ne5+ Kg8 9. Bc4+ Nd5 {Black blocks and survives.} (9... e6 10. g4 {White hits the bishop and opens the g-file.}) 10. Qf3 Be6)
+8. Bc4+ e6 9. Qe2 Nc6 10. Be3 {White develops and keeps the pressure on e6 and the king.}

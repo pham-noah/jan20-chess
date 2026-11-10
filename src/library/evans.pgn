@@ -1,0 +1,22 @@
+[Event "Evans Gambit"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 {Evans Gambit. A pawn for time: after ...Bxb4 c3 and d4 come with tempo and White gets a big centre.} 4... Bxb4 {Accepting is Black's most common reply.}
+(4... Bb6 {Declining. Black wastes time and White gains queenside space.} 5. a4 a6 {5...a5 6.b5 kicks the knight.} 6. Nc3 {Showalter Variation.} 6... Nf6 (6... d6 7. Nd5 Ba7) 7. d3 d6 8. Bg5 {Pin the knight and build up. Nd5 ideas.})
+5. c3 {The bishop must move, and c3 prepares d4.} 5... Ba5 {The main retreat. It pins c3 once d4 arrives.}
+(5... Be7 {Anderssen Variation, solid. Black will often give the pawn back.} 6. d4 Na5 7. Be2 {Kasparov's choice: keep the bishop pair and the initiative.} 7... exd4 8. Qxd4)
+(5... Bd6 {Stone-Ware Variation.} 6. d4 {Take the centre at once. White is better developed.})
+(5... Bc5 {Inferior: 6.d4 hits the bishop again with tempo.} 6. d4 exd4 7. O-O d6 8. cxd4 Bb6 {Normal Position, reached by transposition.})
+6. d4 {Second pawn offer. cxd4 is impossible for now because c3 is pinned by the bishop on a5.}
+6... exd4 {The main line.}
+(6... d6 {Bronstein Defence.} 7. Qb3 {Tartakower Attack. Hits f7 and prepares dxe5.} (7. O-O Bb6 8. dxe5 dxe5 9. Qxd8+ Nxd8 10. Nxe5 Be6 {Lasker's Defence. Black returns the pawn and trades queens. White regains the pawn with an easy game.}) 7... Qd7 8. dxe5 Bb6 9. Nbd2 {Natural development. Nc4 and Ba3 ideas follow.})
+(6... Bb6 7. Nxe5 Nxe5 8. dxe5 Ne7 {White has a small plus and Black is cramped.})
+(6... b5 {Leonhardt Countergambit.} 7. Bxb5 Nxd4 8. Nxd4 exd4 9. O-O {Or 9.Qxd4. Either gives White an easy game.})
+7. O-O {Normal Variation: a second pawn for activity and development.} 7... d6
+(7... Nge7 {Mieses Defence.} 8. Ng5 d5 {Black returns the pawn.} (8... O-O {A trap.} 9. Qh5 h6 10. Nxf7 Rxf7 11. Bxf7+ {Winning material.}))
+(7... Nf6 {Anderssen Defence.} 8. e5 d5 9. exf6 dxc4 {Messy. Know your tactics here.})
+(7... dxc3 {Compromised Defence.} 8. Qb3 Qf6 9. e5 Qg6 10. Nxc3 Nge7 11. Ba3 {Very dangerous initiative for White.})
+(7... Bb6 8. cxd4 d6 {Normal Position.})
+8. cxd4 Bb6 {The Normal Position. White has a big centre for the pawn.} 9. Nc3 {Morphy Attack.}
+(9. d5 {Ulvestad Variation.} 9... Na5 10. Bb2 Ne7 11. Bd3 O-O 12. Nc3 Ng6 13. Ne2)
+9... Na5 (9... Bg4 10. Qa4 {Fraser Attack.}) 10. Bg5 {Goring Attack: tricky and dangerous if Black does not know the answers.}

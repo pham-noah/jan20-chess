@@ -1,0 +1,39 @@
+[Event "alien engine extension"]
+[Orientation "white"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Ng5 Bf5 6. Bd3 Qxd4 {Engine-suggested sideline: Qxd4 is also playable here (engine: -0.4 for you). The replies below are engine picks, not book theory.} 7. Bxf5 Qe5+ 8. Be4 Nxe4 9. Qd8+ Kxd8 10. Nxf7+ Ke8
+
+[Event "alien engine extension"]
+[Orientation "white"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Ng5 Bf5 6. Bd3 e6 {Engine-suggested sideline: e6 is also playable here (engine: +0.0 for you). The replies below are engine picks, not book theory.} 7. Bxf5 Qa5+ 8. c3 Qxf5 9. Ne2 h6 10. Ng3 Qb5
+
+[Event "alien engine extension"]
+[Orientation "white"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Ng5 Bf5 6. Bc4 Bg6 {Engine-suggested sideline: Bg6 is also playable here (engine: +0.1 for you). The replies below are engine picks, not book theory.} 7. Ne2 h6 8. Nf3 e6 9. O-O Bd6 10. Nf4 Bf5
+
+[Event "alien engine extension"]
+[Orientation "white"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Ng5 e6 6. Bd3 c5 {Engine-suggested sideline: c5 is also playable here (engine: +0.2 for you). The replies below are engine picks, not book theory.} 7. N1f3 h6 8. Ne4 cxd4 9. Nxd4 Nxe4 10. Bxe4 Bc5
+
+[Event "alien engine extension"]
+[Orientation "white"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Ng5 Bf5 6. Bc4 Nd5 {Engine-suggested sideline: Nd5 is also playable here (engine: +0.3 for you). The replies below are engine picks, not book theory.} 7. Nxf7 Kxf7 8. Qf3 e6 9. g4 Qf6 10. gxf5 Qxf5
+
+[Event "alien engine extension"]
+[Orientation "white"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Ng5 e6 6. Bd3 Be7 {Engine-suggested sideline: Be7 is also playable here (engine: +0.3 for you). The replies below are engine picks, not book theory.} 7. N1f3 c5 8. O-O cxd4 9. Nxd4 Bd7 10. Ngf3 Nc6
+
+[Event "alien engine extension"]
+[Orientation "white"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Ng5 h6 6. Nxf7 Kxf7 7. Bc4+ Be6 {Engine-suggested sideline: Be6 is also playable here (engine: -2.2 for you). The replies below are engine picks, not book theory.} 8. Bxe6+ Kxe6 9. Nf3 Kf7 10. Ne5+ Kg8 11. Ng6 Rh7
+
+[Event "alien engine extension"]
+[Orientation "white"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Ng5 h6 6. Nxf7 Kxf7 7. Nf3 Be6 {Engine-suggested sideline: Be6 is also playable here (engine: -1.6 for you). The replies below are engine picks, not book theory.} 8. Bd3 Nbd7 9. Bd2 c5 10. Qe2 Bd5 11. Ne5+ Nxe5

@@ -1,0 +1,39 @@
+[Event "halloween engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Ne7 {Engine-suggested sideline: Ne7 is also playable here (engine: -0.1 for you). The replies below are engine picks, not book theory.} 7. e5 Nfxd5 8. Nxd5 d6 9. exd6 Nxd5 10. Qxd5 Bxd6
+
+[Event "halloween engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Bd6 {Engine-suggested sideline: Bd6 is also playable here (engine: +0.0 for you). The replies below are engine picks, not book theory.} 7. dxc6 dxc6 8. f3 Qe7 9. Be3 Be6 10. Qd4 Nd7
+
+[Event "halloween engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Neg4 6. e5 Bb4 {Engine-suggested sideline: Bb4 is also playable here (engine: +0.2 for you). The replies below are engine picks, not book theory.} 7. exf6 Nxf6 8. Bd3 d5 9. O-O O-O 10. Bg5 c6
+
+[Event "halloween engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Neg4 6. e5 d6 {Engine-suggested sideline: d6 is also playable here (engine: +0.3 for you). The replies below are engine picks, not book theory.} 7. exf6 Nxf6 8. Bf4 c6 9. d5 Be7 10. Be2 O-O
+
+[Event "halloween engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Ne5 7. f4 Bd6 {Engine-suggested sideline: Bd6 is also playable here (engine: -0.4 for you). The replies below are engine picks, not book theory.} 8. fxe5 Bxe5 9. Bd3 d6 10. O-O Bg4 11. Qe1 Nd7
+
+[Event "halloween engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Bb4 7. dxc6 Qe7 {Engine-suggested sideline: Qe7 is also playable here (engine: -0.1 for you). The replies below are engine picks, not book theory.} 8. Bd3 dxc6 9. O-O Be6 10. a3 Bxc3 11. bxc3 O-O-O
+
+[Event "halloween engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Bb4 7. dxc6 O-O {Engine-suggested sideline: O-O is also playable here (engine: +0.0 for you). The replies below are engine picks, not book theory.} 8. Bd3 d5 9. O-O bxc6 10. exd5 cxd5 11. Qf3 c6
+
+[Event "halloween engine extension"]
+[Orientation "white"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Ne5 7. f4 Nfg4 {Engine-suggested sideline: Nfg4 is also playable here (engine: +0.1 for you). The replies below are engine picks, not book theory.} 8. fxe5 Nxe5 9. Bf4 Qf6 10. Be3 Bb4 11. Qd4 Ba5
