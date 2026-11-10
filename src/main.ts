@@ -339,7 +339,7 @@ function commit(m: any) {
     const snap = snapRep();
     markMove(s, true, u); (cur!.moves[k] ??= {})[u] = s;
     save(); line.push(u); sfx('move'); renderBuild();
-    undoable(`Saved ${s}.`, snap);
+    if (uStack[uStack.length - 1] !== snap) { uStack.push(snap); if (uStack.length > 80) uStack.shift(); rStack.length = 0; }
     void checkBlunder(k, u);
   }
   else if (mode === 'learn') learnAnswer(u, k);
@@ -493,6 +493,19 @@ function pasteLine(text: string): number {
 }
 
 /** Engine guard: flag a move of yours that is a mistake you would not want to memorise. */
+/** Update the warning mark on one chip without rebuilding the panel. */
+function paintWarn(u: string, delta?: number) {
+  if (mode !== 'build') return;
+  const chip = document.querySelector(`.chip[data-chip="${u}"]`) as HTMLElement | null;
+  if (!chip) return;
+  const old = chip.querySelector('.warn') as HTMLElement | null;
+  if (!delta) { old?.remove(); return; }
+  if (old) { old.title = `About ${(delta / 100).toFixed(1)} worse than the best move here`; return; }
+  const b = document.createElement('b');
+  b.className = 'warn'; b.textContent = '⚠';
+  b.title = `About ${(delta / 100).toFixed(1)} worse than the best move here`;
+  chip.insertBefore(b, chip.querySelector('[data-act=del]'));
+}
 async function checkBlunder(k: string, u: string, quiet = false) {
   if (!cur || !S.explain) return;
   if (fromKey(k).turn !== cur.color) return;      // a mistake by the opponent is a trap you want, not a warning
@@ -504,9 +517,9 @@ async function checkBlunder(k: string, u: string, quiet = false) {
     if (!mine) { const s = await engine.search(fen, { ms: 350, searchmoves: [u] }); mine = { score: s.score, mate: s.mate, pv: [u] }; }
     const delta = r.score - (mine.score ?? 0), nk = k + '|' + u;
     if (delta >= 150) {
-      (cur.bad ??= {})[nk] = delta; save(); if (mode === 'build') renderBuild();
+      (cur.bad ??= {})[nk] = delta; save(); paintWarn(u, delta);
       if (!quiet) toast(`⚠ ${sanOfUci(k, u)} is about ${(delta / 100).toFixed(1)} worse than ${sanOfUci(k, r.best)} here. Saved anyway — Ctrl+Z to drop it.`, { ms: 6000 });
-    } else if (cur.bad?.[nk]) { delete cur.bad[nk]; save(); if (mode === 'build') renderBuild(); }
+    } else if (cur.bad?.[nk]) { delete cur.bad[nk]; save(); paintWarn(u, undefined); }
   } catch { /* no engine available: stay quiet */ }
 }
 /** Check every move of yours in the line you are looking at. */

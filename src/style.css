@@ -209,7 +209,8 @@ textarea,input,#msg,#note,#path,.pack p,dialog p,dialog li,dialog dd{-webkit-use
 #sanform{display:flex;gap:8px}
 #sanform[hidden]{display:none}
 #sanform input{flex:1;min-width:0}
-#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:30;display:flex;align-items:center;gap:12px;max-width:min(92vw,460px);padding:10px 12px 10px 16px;border-radius:14px;background:var(--ink);color:var(--bg);box-shadow:0 12px 36px rgba(0,0,0,.4);animation:rise .2s ease-out}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:30;display:flex;align-items:center;gap:12px;max-width:min(92vw,460px);padding:10px 12px 10px 16px;border-radius:14px;background:var(--ink);color:var(--bg);box-shadow:0 12px 36px rgba(0,0,0,.4);animation:rise .2s ease-out;pointer-events:none}
+#toast button{pointer-events:auto}
 #toast[hidden]{display:none}
 #toast.bad{background:var(--bad);color:#fff}
 #toast button{min-height:36px;padding:4px 12px;border:0;border-radius:9px;background:rgba(255,255,255,.18);color:inherit;font-weight:650;box-shadow:none}
