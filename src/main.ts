@@ -196,6 +196,25 @@ const markMove = (san: string, ok: boolean, uci?: string) => {
   layer.appendChild(dest);
   clearTimeout(tileTimer); tileTimer = setTimeout(clearMark, ok ? 1100 : 2400);
 };
+/** The ending is drawn on the board: the mated king carries the mark, not just the sentence. */
+function renderEndMark() {
+  const layer = $('#endmark'); if (!layer) return;
+  layer.textContent = '';
+  const mate = pos.isCheckmate(), stale = !mate && pos.isStalemate();
+  if (!mate && !stale) return;
+  const kingSq = pos.board.king; if (!kingSq.size) return;
+  const sq = [...kingSq][0];
+  const black = orient() === 'black', f = sq & 7, r = sq >> 3;
+  const d = document.createElement('div');
+  d.className = 'mm ' + (mate ? 'bad' : 'stale') + ' dest';
+  d.style.left = `${(black ? 7 - f : f) * 12.5}%`;
+  d.style.top = `${(black ? r : 7 - r) * 12.5}%`;
+  d.innerHTML = `<span class="g" aria-hidden="true">${mate ? '✕' : '½'}</span>`;
+  d.title = mate ? 'Checkmate' : 'Stalemate';
+  layer.appendChild(d);
+}
+/** Engine deltas are centipawns, but a mate score read as "+99.3 worse" makes no sense to a player. */
+const gapText = (cp: number) => (cp >= 1800 ? 'a forced mate' : `about ${(cp / 100).toFixed(1)} pawns`);
 const sanAt = (k: string, u: string) => { try { return makeSan(fromKey(k), parseUci(u)!); } catch { return u; } };
 
 const cg: any = Chessground($('#board'), {
@@ -286,6 +305,7 @@ function show(shapes: any[] = [], can = true) {
     movable: { color: can ? pos.turn : pm ? premoveColor() : undefined, dests: can ? chessgroundDests(pos) : new Map() },
   });
   cg.setAutoShapes(shapes);
+  renderEndMark();
 }
 
 function pathText(us: string[]) {
@@ -294,6 +314,15 @@ function pathText(us: string[]) {
   return s.trim();
 }
 function play(u: string) { lastKey = key(pos); pos.play(parseUci(u)!); last = u; line.push(u); }
+/** The line as a scoresheet: same moves as pathText, but the annotations ride along. */
+function pathHtml(us: string[]): string {
+  const p = Chess.default(); let s = '';
+  us.forEach((u, i) => {
+    const k = key(p), m = parseUci(u)!; const san = makeSan(p, m); p.play(m);
+    s += (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + esc(san) + tagHtml(k, u) + ' ';
+  });
+  return s.trim();
+}
 function toMove(o: string, d: string) {
   const from = parseSquare(o)!; let to = parseSquare(d)!;
   const pc = pos.board.get(from);
@@ -565,10 +594,10 @@ function paintWarn(u: string, delta?: number) {
   if (!chip) return;
   const old = chip.querySelector('.warn') as HTMLElement | null;
   if (!delta) { old?.remove(); return; }
-  if (old) { old.title = `About ${(delta / 100).toFixed(1)} worse than the best move here`; return; }
+  if (old) { old.title = `Worse than the best move here: ${gapText(delta)}`; return; }
   const b = document.createElement('b');
   b.className = 'warn'; b.textContent = '⚠';
-  b.title = `About ${(delta / 100).toFixed(1)} worse than the best move here`;
+  b.title = `Worse than the best move here: ${gapText(delta)}`;
   chip.insertBefore(b, chip.querySelector('[data-act=del]'));
 }
 /** Say why the repertoire move is the repertoire move: the engine's view, compared with the move's own note. */
@@ -604,7 +633,7 @@ async function checkBlunder(k: string, u: string, quiet = false) {
     const delta = r.score - (mine.score ?? 0), nk = k + '|' + u;
     if (delta >= 150) {
       (cur.bad ??= {})[nk] = delta; save(); paintWarn(u, delta);
-      if (!quiet) toast(`⚠ ${sanOfUci(k, u)} is about ${(delta / 100).toFixed(1)} worse than ${sanOfUci(k, engNorm(k, r.best))} here. Saved anyway — Ctrl+Z to drop it.`, { ms: 6000 });
+      if (!quiet) toast(`⚠ ${sanOfUci(k, u)} is worse than ${sanOfUci(k, engNorm(k, r.best))} here by ${gapText(delta)}. Saved anyway — Ctrl+Z to drop it.`, { ms: 6000 });
     } else if (cur.bad?.[nk]) { delete cur.bad[nk]; save(); paintWarn(u, undefined); }
   } catch { /* no engine available: stay quiet */ }
 }
@@ -703,8 +732,8 @@ function renderBuild() {
   show(); showNote('');
   const keys = Object.keys(cur!.moves);
   const mv = cur!.moves[key(pos)] || {};
-  msg(pos.turn === cur!.color ? 'Play a move to save it.' : 'Prepare a reply.');
-  $('#path').textContent = pathText(line);
+  msg(pos.isCheckmate() ? 'Checkmate.' : pos.isStalemate() ? 'Stalemate.' : pos.turn === cur!.color ? 'Play a move to save it.' : 'Prepare a reply.');
+  $('#path').innerHTML = pathHtml(line);
   const here = key(pos), isMine = pos.turn === cur!.color;
   // the saved moves at this position are drawn on the board, not just written under it
   const saved = Object.keys(mv);
@@ -712,7 +741,7 @@ function renderBuild() {
   const chips = Object.entries(mv).map(([u, s], i) => {
     const dot = noteOf(here, u) ? '<b class="dot" title="This move has a note">•</b>' : '';
     const bad = cur!.bad?.[here + '|' + u];
-    const warn = bad ? `<b class="warn" title="About ${(bad / 100).toFixed(1)} worse than the best move here">⚠</b>` : '';
+    const warn = bad ? `<b class="warn" title="Worse than the best move here: ${gapText(bad)}">⚠</b>` : '';
     const main = i ? `<button data-act="main" data-u="${u}" aria-label="Make ${esc(s)} the first move here" title="Make ${esc(s)} the first move here">↑</button>` : '';
     return `<span class="chip ${isMine ? 'mine' : 'opp'}" draggable="true" data-chip="${u}"><button data-act="go" data-u="${u}">${esc(s)}${tagHtml(here, u)}</button>${dot}${warn}${main}<button data-act="del" data-u="${u}" aria-label="Delete ${esc(s)}">✕</button></span>`;
   }).join('');
@@ -731,7 +760,8 @@ function renderBuild() {
       ? `<div class="tree">${treeMarkup()}</div>`
       : `${lines.length > 6 ? `<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>` : ''}<div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
     ${lines.length ? `<div class="row mini"><button data-act="selall">${picked.size ? 'Clear selection' : 'Select all'}</button><button data-act="delpick" class="danger" ${picked.size ? '' : 'disabled'}>Delete selected</button>${others.length ? `<select id="copytarget" aria-label="Copy the selected lines into another pack"><option value="">Copy to…</option>${others.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><button data-act="copypick" ${picked.size ? '' : 'disabled'}>Copy</button>` : ''}</div>` : ''}`}`;
-  $('#act').innerHTML = `<div class="chips">${chips || '<span class="chip slot" title="Play a move to save it here" aria-label="No moves saved here yet">＋</span>'}</div>
+  const over = pos.isCheckmate() || pos.isStalemate();
+  $('#act').innerHTML = `<div class="chips">${chips || (over ? '' : '<span class="chip slot" title="Play a move to save it here" aria-label="No moves saved here yet">＋</span>')}</div>
     ${editor}
     <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
     <p class="stats">here: ${Object.keys(mv).length} saved move${Object.keys(mv).length === 1 ? '' : 's'} · ${through} line${through === 1 ? '' : 's'} through · ${below} ends below</p>
@@ -808,8 +838,10 @@ function lineHtml(l: string[], prev?: string[]): string {
   if (prev) { diff = l.findIndex((u, i) => prev[i] !== u); if (diff < 0) diff = l.length - 1; }
   const p = Chess.default(); let out = '';
   l.forEach((u, i) => {
+    const k = key(p);                                  // the position the move was played from
     const m = parseUci(u)!; const san = makeSan(p, m); p.play(m);
-    out += (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + (i === diff ? `<b class="diff">${esc(san)}</b>` : esc(san)) + (i < l.length - 1 ? ' ' : '');
+    const tag = tagHtml(k, u);                         // …, so its annotation travels with it
+    out += (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + (i === diff ? `<b class="diff">${esc(san)}</b>` : esc(san)) + tag + (i < l.length - 1 ? ' ' : '');
   });
   return out;
 }
@@ -927,7 +959,7 @@ function treeMarkup(): string {
       const here = [...seg.path, ...seg.moves.slice(0, i + 1).map(x => x.u)];
       const note = cur?.notes?.[m.pk + '|' + m.u] ? '<b class="dot" title="Has a note">•</b>' : '';
       const bad = cur?.bad?.[m.pk + '|' + m.u];
-      const warn = bad ? `<b class="warn" title="About ${(bad / 100).toFixed(1)} worse than the best move here">⚠</b>` : '';
+      const warn = bad ? `<b class="warn" title="Worse than the best move here: ${gapText(bad)}">⚠</b>` : '';
       return `<span class="mvwrap"><button class="tsan ${m.ply % 2 === 1 ? 'mine' : 'opp'}" data-act="tnode" data-u="${here.join(' ')}" title="Go to ${esc(m.san)}">${num}${esc(m.san)}${tagHtml(m.pk, m.u)}</button>${note}${warn}<button class="x" data-act="tcutm" data-u="${here.join(' ')}" title="Delete ${esc(m.san)} and everything only it reached" aria-label="Delete ${esc(m.san)}">✕</button></span>`;
     }).join(' ');
     const caret = seg.kids.length ? `<button class="caret" data-act="tfold" data-u="${seg.id}" aria-label="${folded ? 'Expand' : 'Collapse'} this branch">${folded ? '▸' : '▾'}</button>` : '<span class="caret"></span>';
@@ -1211,7 +1243,7 @@ function reviewNext() {
     msg(total ? `Session done. ${total} cards reviewed.` : 'All caught up. Nothing is due.', 'ok'); return;
   }
   const k = queue[0], e = parent.get(k); pos = fromKey(k); line = pathTo(k); last = e?.uci; lastKey = e?.from;
-  $('#path').textContent = pathText(line); showNote(noteOf(lastKey, last)); show();
+  $('#path').innerHTML = pathHtml(line); showNote(noteOf(lastKey, last)); show();
   msg(`You play ${cur!.color === 'white' ? 'White' : 'Black'} here. Find your move.`);
   const allLines = walkLines();
   const ln = allLines.findIndex(l => l.length >= line.length && line.every((u, i) => l[i] === u));

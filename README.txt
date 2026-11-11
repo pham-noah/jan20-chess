@@ -123,6 +123,17 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+MARKS EVERYWHERE, AND THE ENDING ON THE BOARD (v17)
+- **Annotations now travel with the move.** They were only drawn in the editor's chips and its tree, because every
+  other place that prints moves (the editor's flat line list, the line under the message, Walk/Learn, the Review card)
+  went through one function that printed bare SAN. That function now emits the glyph too: `1.e4 e5 2.Nf3!` reads the
+  same wherever the line is shown.
+- **Checkmate is drawn on the king.** The mated king gets the same corner badge used for move feedback (red ×, and a
+  grey ½ for stalemate) from a separate overlay layer, so the transient move badge clearing does not wipe it. The panel
+  says "Checkmate." instead of inviting another move, and the dashed "＋ add a move here" slot disappears once the
+  position is over.
+- Engine deltas no longer print a mate score as "+99.3 worse": past 18 pawns it says "a forced mate".
+
 SHOW, DON'T TELL (v16)
 - **Endgames show the position.** Hovering (or tabbing to) a drill draws that endgame on the big board, with the real
   pieces, before you commit to it — the board is idle in the list, so it becomes the preview. Small postage stamps in

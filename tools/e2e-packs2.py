@@ -89,11 +89,22 @@ with sync_playwright() as p:
     pg.click('[data-act=reset]'); pg.wait_for_timeout(300)
     play(pg, ['e2e4']); pg.wait_for_timeout(400)
     if pg.locator('[data-act=tag]').count():
-        pg.click('[data-act=tag]'); pg.wait_for_timeout(500)
+        pg.click('[data-act=tag]'); pg.wait_for_timeout(600)
+        check('an annotation rides in the line under the board', pg.locator('#path .tag').count() > 0, pg.inner_text('#path')[:40])
+        check('an annotation shows in the tree', pg.locator('.tree .tag').count() > 0, str(pg.locator('.tree .tag').count()))
         pg.click('[data-act=mprev]'); pg.wait_for_timeout(500)
         check('an annotation shows on the move', pg.locator('.chip .tag').count() > 0, str(pg.locator('.chip .tag').count()))
-        pg.keyboard.press('Control+z'); pg.wait_for_timeout(700)
-        check('annotations are undoable', pg.locator('.chip .tag').count() == 0)
+        if not pg.locator('[data-act=viewlines]').is_visible():
+            pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(400)
+        pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)
+        check('an annotation shows in the flat line list', pg.locator('#act .tag').count() > 0, str(pg.locator('#act .tag').count()))
+        pg.click('[data-act=viewtree]'); pg.wait_for_timeout(300)
+        pg.click('[data-m=learn]'); pg.wait_for_timeout(700)
+        check('an annotation shows while learning the line', pg.locator('#act .tag').count() > 0, pg.inner_text('#act')[:50])
+        pg.click('[data-m=build]'); pg.wait_for_timeout(500)
+        pg.keyboard.press('Control+z'); pg.wait_for_timeout(800)
+        pg.click('[data-act=mprev]'); pg.wait_for_timeout(300)
+        check('annotations are undoable', pg.locator('.chip .tag, #path .tag').count() == 0, str(pg.locator('.chip .tag, #path .tag').count()))
     # line names
     if not pg.locator('[data-act=viewlines]').is_visible():
         pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(500)
@@ -124,5 +135,12 @@ with sync_playwright() as p:
         pg.evaluate("() => { const d = document.querySelector('details.weak'); if (d) d.open = true; }")
         pg.wait_for_timeout(300)
         check('weak spots lists a flagged move', pg.locator('.weakrow').count() == 1, pg.inner_text('.weakrow')[:30] if pg.locator('.weakrow').count() else 'none')
+    # checkmate is drawn on the board, not only said
+    pg.click('header [data-act=new]'); pg.fill('#dn', 'Fool'); pg.click('#dok'); pg.wait_for_timeout(400)
+    play(pg, ['f2f3', 'e7e5', 'g2g4', 'd8h4']); pg.wait_for_timeout(700)
+    check('checkmate puts a mark on the mated king', pg.locator('#endmark .mm').count() == 1, str(pg.locator('#endmark .mm').count()))
+    check('the mark is a cross on the king square', '✕' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
+    check('the message says checkmate', msg(pg).startswith('Checkmate'), msg(pg))
     print('console/page errors:', errs or 'none'); b.close()
+
 print(sum(1 for r in results if r[1]), '/', len(results))
