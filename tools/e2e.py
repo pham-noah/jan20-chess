@@ -60,7 +60,12 @@ with sync_playwright() as p:
     pg.click('[data-m=review]'); pg.wait_for_timeout(800)
     pg.click('[data-act=hint]'); pg.wait_for_timeout(300); u = arrow_uci(pg); drag(pg, u); pg.wait_for_timeout(500)
     check('review: hinted move graded and accepted', msg(pg).startswith('Correct'), msg(pg))
-    pg.wait_for_timeout(1200)
+    grades = pg.eval_on_selector_all('[data-act=grade]', 'e => e.map(x => x.innerText + (x.className.includes("on") ? "*" : ""))')
+    check('review: you grade the card yourself', len(grades) == 4 and any(g.endswith('*') for g in grades), str(grades))
+    if len(grades) == 4:
+        pg.click('[data-act=grade][data-u="2"]'); pg.wait_for_timeout(900)
+        check('review: grading moves to the next card', pg.locator('[data-act=grade]').count() == 0, msg(pg)[:40])
+    pg.wait_for_timeout(600)
     # --- Library + notes display
     pg.click('header [data-act=settings]'); pg.click('#set [data-act=openlib]'); pg.wait_for_timeout(300)
     pg.click('[data-u=evans]'); pg.wait_for_timeout(600)

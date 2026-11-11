@@ -94,5 +94,35 @@ with sync_playwright() as p:
         check('an annotation shows on the move', pg.locator('.chip .tag').count() > 0, str(pg.locator('.chip .tag').count()))
         pg.keyboard.press('Control+z'); pg.wait_for_timeout(700)
         check('annotations are undoable', pg.locator('.chip .tag').count() == 0)
+    # line names
+    if not pg.locator('[data-act=viewlines]').is_visible():
+        pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(500)
+    pg.click('[data-act=viewlines]'); pg.wait_for_timeout(500)
+    if pg.locator('[data-act=nameline]').count():
+        pg.click('[data-act=nameline][data-u="0"]'); pg.wait_for_timeout(400)
+        pg.fill('#ask-in', 'Suite name'); pg.click('#ask-ok'); pg.wait_for_timeout(800)
+        check('a line can be named', pg.locator('.lname').count() > 0, str(pg.locator('.lname').count()))
+        pg.click('[data-act=viewtree]'); pg.wait_for_timeout(500)
+        check('the name shows on the tree leaf', 'Suite name' in pg.inner_text('.tseg .ln') or pg.eval_on_selector_all('.tseg .ln', 'e => e.some(x => x.innerText.includes("Suite name"))'))
+    # weak spots, seeded through the backup importer so the check does not depend on engine timing
+    import json as _json
+    seed = {"app": "jan20", "v": 3, "reps": [{"id": "seed-weak", "name": "Weak seed", "color": "white",
+            "moves": {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -": {"e2e4": "e4"}}, "cards": {}, "notes": {},
+            "bad": {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -|e2e4": 180}}],
+            "tactics": {"cards": {}, "stats": {}, "imported": []}, "endgames": {"cards": {}, "custom": []}}
+    seed_path = 'C:/Users/Noah/AppData/Local/hermes/cache/scratch/weak-seed.json'
+    open(seed_path, 'w', encoding='utf-8').write(_json.dumps(seed))
+    pg.click('header [data-act=settings]'); pg.wait_for_timeout(300)
+    pg.click('[data-act=import-merge]'); pg.wait_for_timeout(300)
+    pg.set_input_files('#file', seed_path); pg.wait_for_timeout(1400)
+    if pg.locator('#set[open]').count(): pg.click('#set [data-act=closedlg]')
+    pg.click('[data-m=build]'); pg.wait_for_timeout(700)
+    opts = pg.eval_on_selector_all('#rep option', 'e => e.map(o => o.textContent)')
+    pick = [o for o in opts if o.startswith('Weak seed')]
+    if pick:
+        pg.select_option('#rep', label=pick[0]); pg.wait_for_timeout(800)
+        pg.evaluate("() => { const d = document.querySelector('details.weak'); if (d) d.open = true; }")
+        pg.wait_for_timeout(300)
+        check('weak spots lists a flagged move', pg.locator('.weakrow').count() == 1, pg.inner_text('.weakrow')[:30] if pg.locator('.weakrow').count() else 'none')
     print('console/page errors:', errs or 'none'); b.close()
 print(sum(1 for r in results if r[1]), '/', len(results))
