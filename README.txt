@@ -123,6 +123,25 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+UX PASS: ONE TASK PER SCREEN, AND PROGRESS YOU CAN SEE (v13)
+Scored the five modes as a designer before touching anything (5.3/10) and fixed what the score was paying for:
+- Review said only "Find your move. 15 left." It now says whose move it is ("You play White here"), counts the card
+  ("Card 3 of 15"), offers **Show me** next to Hint, grades a reveal as a miss and puts the card back, and after every
+  answer there is an explicit **Next card ›** rather than a silent 900 ms jump. Notes stay on screen long enough to read.
+- Learn put the loudest button on "Next line", which is the escape hatch, not the task. The board is the task now; line
+  controls moved to their own quieter row, the ply buttons are labelled by their tooltips and the hint line spells out
+  the keys ("Drag a move or type one · ← → step through the line · H hint").
+- Tactics tells you where you are in the set and how the puzzle relates to you ("Puzzle 3 of 10 · rated 1220 (you 1200)"),
+  and keeps the theme picker inside the session (removing it stranded you until the set ended).
+- Endgames says "3 of 16 practised", names the next drill ("Next drill: King and queen vs king"), and every row keeps
+  its last result (✓ good, ~ with a hint, ✕ failed) next to the due status.
+- The Editor lost its duplicate header (one "Lines and tree" row with the Tree | Lines toggle), the board is sticky so
+  clicking a tree move no longer scrolls it away, and the panel says what to do instead of leaving the import message
+  up. Adding a pack toasts "Start learning" as an action instead of printing a hint that never goes away.
+- Tree fixes found while testing: move buttons were inheriting the 44 px touch target, so rows overlapped and clicks
+  landed on the wrong row; rows now flow like text with a hanging indent, and counts/line numbers float right instead
+  of squeezing the moves. Nested branches no longer duplicated their opening move in the path.
+
 EVERY CHANGE IS WRITTEN STRAIGHT TO A FILE (v12)
 - No export step any more. In the desktop app each save writes the whole state to `jan20-repertoire.json` in the app
   config folder (`%APPDATA%\app.jan20.trainer` on Windows), and that file is read back at start-up — it is the copy

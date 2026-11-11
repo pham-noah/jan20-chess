@@ -642,17 +642,16 @@ function renderBuild() {
   const others = reps.filter(r => r.id !== cur!.id);
   const rows = lines.map((l, i) =>
     `<div class="rowline ${i === 0 ? 'first' : ''}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lhtml[i]}</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
-  const lineList = `<div class="linehead"><h3>Repertoire tree</h3><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
-    <div class="seg viewseg" role="tablist"><button data-act="viewtree" class="${treeView ? 'on' : ''}">Tree</button><button data-act="viewlines" class="${treeView ? '' : 'on'}">Lines (${lines.length})</button></div>
+  const lineList = `<div class="linehead"><div class="seg viewseg" role="tablist"><button data-act="viewtree" class="${treeView ? 'on' : ''}">Tree</button><button data-act="viewlines" class="${treeView ? '' : 'on'}">Lines (${lines.length})</button></div><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
     ${treeView
-      ? `<div class="tree">${treeMarkup()}</div><p class="dim">Click a move to jump there · ▾ folds a branch · ↑ makes it the first branch · ✕ cuts it and everything only it reached.</p>`
+      ? `<div class="tree">${treeMarkup()}</div><p class="dim kbdhint">Click a move to jump there · ▾ folds · ✕ cuts that move and what only it reached · ↑ makes that branch first</p>`
       : `<div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
     ${lines.length ? `<div class="row mini"><button data-act="selall">${picked.size ? 'Clear selection' : 'Select all'}</button><button data-act="delpick" class="danger" ${picked.size ? '' : 'disabled'}>Delete selected</button>${others.length ? `<select id="copytarget" aria-label="Copy the selected lines into another pack"><option value="">Copy to…</option>${others.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><button data-act="copypick" ${picked.size ? '' : 'disabled'}>Copy</button>` : ''}</div>` : ''}`}`;
   $('#act').innerHTML = `<div class="chips">${chips || '<span class="dim">No saved moves from this position yet.</span>'}</div>
     ${editor}
     <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
     <p class="stats">${keys.length} positions · ${keys.filter(k => k.split(' ')[1] === mine()).length} yours · ${lines.length} line${lines.length === 1 ? '' : 's'}<br>here: ${Object.keys(mv).length} saved move${Object.keys(mv).length === 1 ? '' : 's'} · ${through} line${through === 1 ? '' : 's'} through · ${below} line-end${below === 1 ? '' : 's'} below</p>
-    <details><summary>Every line in this repertoire</summary>${lineList}</details>
+    <details><summary>Lines and tree</summary>${lineList}</details>
     <details><summary>Paste or copy a line</summary>
       <textarea id="paste" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 — pasted from anywhere, variations and comments ignored"></textarea>
       <div class="row mini"><button data-act="paste" class="primary">Add from here</button><button data-act="copyline">Copy this line</button></div>
@@ -806,7 +805,7 @@ function segmentTree(): TSeg {
       for (const [u, san] of branch) {
         const p = fromKey(nodeKey), m = parseUci(u); if (!m) continue;
         p.play(m);
-        seg.kids.push(build(key(p), nodePly + 1, [...seg.path, ...seg.moves.map(x => x.u), u], { u, san, pk: nodeKey }));
+        seg.kids.push(build(key(p), nodePly + 1, [...seg.path, ...seg.moves.map(x => x.u)], { u, san, pk: nodeKey }));
       }
     }
     seg.leaves = seg.kids.length ? seg.kids.reduce((a, c) => a + c.leaves, 0) : seg.leaf ? 1 : 0;
@@ -888,8 +887,9 @@ function walkPanel() {
     return `<button class="item ${i === wIdx ? 'on' : ''} ${ok ? 'done' : ''}" data-act="wline" data-u="${i}"><span>${i + 1}.${ok ? ' <b class="tick">✓</b>' : ''}</span><span class="walk">${wHtml![i]}</span></button>`;
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
-    <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" class="primary" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
-    <h3>All lines (${wLines.length}) · ${done} discovered</h3><div class="list">${rows || '<p class="dim">No moves yet. ' + addHint() + '</p>'}</div>`;
+    <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><span class="grow"></span><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
+    <p class="dim kbdhint">Drag a move or type one · ← → step through the line · H hint · ? all shortcuts</p>
+    <h3>All lines (${wLines.length}) · ${done} discovered · playing line ${wIdx + 1}</h3><div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div>`;
 }
 function startWalkLine(i: number) {
   if (!wLines.length) return;
@@ -1069,15 +1069,18 @@ function arenaFinish(end: ArenaEnd) {
 function reviewInit() { buildIndex(); queue = queueKeys(); total = queue.length; reviewNext(); }
 function reviewNext() {
   locked = false; hinted = false;
-  $('#act').innerHTML = queue.length ? `<div class="row"><button data-act="hint">Hint</button></div>` : '';
   updateDue();
+  const done = total - queue.length;
   $('#bar').hidden = !total; $('#bar i').style.width = total ? `${Math.max(0, (total - queue.length) / total) * 100}%` : '0';
   if (!queue.length) {
     pos = Chess.default(); line = []; last = undefined; lastKey = undefined; show([], false); showNote(''); $('#path').textContent = '';
     msg(total ? `Session done. ${total} cards reviewed.` : 'All caught up. Nothing is due.', 'ok'); return;
   }
   const k = queue[0], e = parent.get(k); pos = fromKey(k); line = pathTo(k); last = e?.uci; lastKey = e?.from;
-  $('#path').textContent = pathText(line); showNote(noteOf(lastKey, last)); show(); msg(`Find your move. ${queue.length} left.`);
+  $('#path').textContent = pathText(line); showNote(noteOf(lastKey, last)); show();
+  msg(`You play ${cur!.color === 'white' ? 'White' : 'Black'} here. Find your move.`);
+  $('#act').innerHTML = `<div class="row"><span class="hintline">Card ${done + 1} of ${total} · ${queue.length} to go · ${dueCount(cur!.cards)} due today</span></div>
+    <div class="row"><button data-act="hint">Hint</button><button data-act="reveal">Show me</button></div>`;
 }
 function reviewAnswer(u: string, k: string) {
   locked = true;
@@ -1087,7 +1090,8 @@ function reviewAnswer(u: string, k: string) {
   cur!.cards[k] = r; save();
   if (ok) {
     markMove(mv[u], true, u); play(u); sfx('ok'); flash('ok'); show([], false); showNote(noteOf(k, u)); msg(`Correct. Next review ${rel(r.due)}.`, 'ok'); queue.shift();
-    const wait = noteOf(k, u) ? 2600 : 900;
+    $('#act').innerHTML = `<div class="row"><button data-act="next" class="primary">Next card ›</button></div>`;
+    const wait = noteOf(k, u) ? 4200 : 2200;
     const tok = session; setTimeout(() => { if (mode === 'review' && tok === session) reviewNext(); }, wait);
   } else {
     buzz(); sfx('bad'); markMove(sanAt(k, u), false, u); queue.push(queue.shift()!); show(Object.keys(mv).map(arrow), false);
@@ -1133,7 +1137,9 @@ function tacticsNext() {
   }
   const p = pmap().get(tQueue[0])!; tRun = new PuzzleRun(p); tColor = tRun.solverColor;
   pos = tRun.pos.clone(); last = undefined; show([], false); locked = true;
-  $('#path').textContent = ''; msg('Get ready…');
+  const done = tTotal - tQueue.length;
+  $('#path').textContent = `Puzzle ${done + 1} of ${tTotal} · rated ${p.rating} (you ${Math.round(pstats.rating)}) · ${S.ptheme === 'all' ? 'all themes' : humanTheme(S.ptheme)}`;
+  msg('Get ready…');
   $('#act').innerHTML = `${tTiles()}${themeSelect()}<div class="row"><button data-act="thint">Hint</button><button data-act="tsolution">Show solution</button><button data-act="tskip">Skip</button></div>`;
   setTimeout(() => {
     if (tok !== session || !tRun) return;
@@ -1193,9 +1199,13 @@ function endgamesInit() {
   pos = fromFen(nxt.fen); eColor = pos.turn; last = undefined; show([], false);
   const groups = [...new Set(defs.map(d => d.group))];
   const status = (d: DrillDef) => { const c = ecards[d.id]; return !c ? 'new' : isDue(c) ? 'due' : rel(new Date(c.due)); };
-  msg('Pick an endgame. You play against Stockfish.'); $('#path').textContent = 'Mistakes are taken back so you can try again. Hints lower your grade.';
-  $('#act').innerHTML = `<div class="row"><button data-act="enext" class="primary">Next drill</button><button data-act="ecustom">Practise a FEN</button></div>` +
-    groups.map(g => `<h3>${esc(g)}</h3><div class="list">${defs.filter(d => d.group === g).map(d => `<button class="item" data-act="edrill" data-u="${d.id}"><span>${esc(d.name)}</span><span class="pill ${d.goal}">${d.goal === 'win' ? 'win' : 'hold'}</span><span class="stat ${status(d) === 'due' ? 'due' : ''}">${status(d)}</span></button>`).join('')}</div>`).join('');
+  const grade = (d: DrillDef) => { const c = ecards[d.id]; return !c?.last ? '' : c.last === 'good' ? '✓' : c.last === 'hard' ? '~' : '✕'; };
+  const practised = defs.filter(d => ecards[d.id]).length;
+  const next = nextDrill();
+  msg('Pick an endgame. You play against Stockfish.');
+  $('#path').textContent = `${practised} of ${defs.length} practised · mistakes are taken back so you can try again`;
+  $('#act').innerHTML = `<div class="row"><button data-act="enext" class="primary">Next drill: ${esc(next.name)}</button><button data-act="ecustom">Practise a FEN</button></div>` +
+    groups.map(g => `<h3>${esc(g)}</h3><div class="list">${defs.filter(d => d.group === g).map(d => `<button class="item" data-act="edrill" data-u="${d.id}"><span>${esc(d.name)}</span><span class="pill ${d.goal}">${d.goal === 'win' ? 'win' : 'hold'}</span><span class="stat ${grade(d) === '✕' ? 'due' : ''}">${grade(d) ? `<b title="last result">${grade(d)}</b> ` : ''}${status(d)}</span></button>`).join('')}</div>`).join('');
   updateDue();
 }
 function nextDrill() {
@@ -1237,6 +1247,7 @@ async function endgameAnswer(m: any) {
 function finishDrill(end: DrillEnd) {
   const run = eRun!; eEnded = true; eBusy = false; show([], false);
   const due = sched(ecards, run.def.id, end.grade === 'good' ? Rating.Good : end.grade === 'hard' ? Rating.Hard : Rating.Again);
+  const card = (ecards[run.def.id] ??= {}); card.last = end.grade; card.plays = (card.plays ?? 0) + 1; card.ok = end.ok; save();
   msg(end.text, end.ok ? 'ok' : 'bad'); sfx(end.ok ? 'done' : 'bad'); if (end.ok) flash('ok');
   $('#path').textContent = `${run.def.name} · ${run.mistakes} mistake${run.mistakes === 1 ? '' : 's'}${run.hinted ? ' · hint used' : ''} · next review ${rel(due)}`;
   $('#act').innerHTML = `<div class="row"><button data-act="eagain" class="primary">Again</button><button data-act="enext">Next drill</button><button data-act="elist">All endgames</button></div>`;
@@ -1300,7 +1311,8 @@ function addPack(p: Pack) {
   const rep: Rep = { id: crypto.randomUUID(), name: p.name, color: p.color, moves: {}, cards: {}, notes: {}, src: p.id };
   const n = importInto(rep, p.pgn); reps.push(rep); cur = rep; save();
   document.querySelectorAll('dialog[open]').forEach((d: any) => d.close('cancel'));
-  enter('build'); msg(`Added ${p.name}: ${n} moves. Try Learn next.`, 'ok');
+  enter('build');
+  toast(`Added ${p.name}: ${n} moves — the board is ready.`, { ms: 4200, action: 'Start learning', onAction: () => enter('learn') });
 }
 /** Refresh a stored copy of a bundled pack: new lines in, review progress and your notes kept. */
 function updatePack(p: Pack) {
@@ -1487,6 +1499,17 @@ document.addEventListener('click', e => {
   }
   else if (a === 'wnext') { wLines = walkLines(); wHtml = undefined; startWalkLine(wIdx + 1); }
   else if (a === 'next') reviewNext();
+  else if (a === 'reveal' && mode === 'review' && queue.length) {
+    locked = true;
+    const k = queue[0], mv = cur!.moves[k] || {};
+    const card = cur!.cards[k] ? { ...cur!.cards[k], due: new Date(cur!.cards[k].due), last_review: cur!.cards[k].last_review ? new Date(cur!.cards[k].last_review) : undefined } : createEmptyCard();
+    cur!.cards[k] = f.next(card, new Date(), Rating.Again).card; save();
+    queue.push(queue.shift()!);
+    show(Object.keys(mv).map(arrow), false);
+    showNote(Object.keys(mv).map(x => noteOf(k, x)).filter(Boolean).join('\n'));
+    msg(`You prepared ${Object.values(mv).join(' or ')}. It will come round again.`);
+    $('#act').innerHTML = `<div class="row"><button data-act="next" class="primary">Next card ›</button></div>`;
+  }
   else if (a === 'lmode') { S.lmode = u as LMode; save(); learnInit(); }
   else if (a === 'dstart') drillStart();
   else if (a === 'tstart') timeStart();

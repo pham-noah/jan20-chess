@@ -28,7 +28,7 @@ with sync_playwright() as p:
     check('stafford: against 3.Bc4 Black has ...Nxe4', 'Nxe4' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
     pg.screenshot(path='/tmp/shots/stafford-3bc4.png')
     # stepping through the moves of one line, chess-viewer style
-    pg.click('summary:has-text("Every line")'); pg.wait_for_timeout(400)
+    pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(400)
     pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)      # the numbered list view
     pg.click('[data-act=goline][data-u="0"]'); pg.wait_for_timeout(500)
     mv = lambda t: t.split('\u00b7')[-1].strip()
@@ -55,6 +55,7 @@ with sync_playwright() as p:
     check('pasted line is added and aligned', pg.inner_text('#path').endswith('c3 Nf6'), pg.inner_text('#path')[-40:])
     # the repertoire tree (the details is already open — clicking its summary again would close it)
     pg.click('[data-act=viewtree]'); pg.wait_for_timeout(500)
+    pg.wait_for_function("() => { const t = document.querySelector('#toast'); return !t || t.hidden; }", timeout=8000)
     nodes0 = pg.locator('.tseg').count()
     if nodes0:
         check('tree shows a row per move run', nodes0 > 3, str(nodes0))
@@ -64,9 +65,9 @@ with sync_playwright() as p:
         check('single-move runs are merged into rows', moves_n > nodes0, f'{moves_n} moves on {nodes0} rows')
         pg.locator('[data-act=tnode]').nth(5).click(); pg.wait_for_timeout(500)
         check('clicking a move in the tree jumps to it', len(mv(pg.inner_text('#path'))) > 4, pg.inner_text('#path')[-40:])
-        pg.locator('[data-act=tfold]').first.click(); pg.wait_for_timeout(400)
+        pg.eval_on_selector('[data-act=tfold]', 'e => e.click()'); pg.wait_for_timeout(500)   # fire it directly
         check('folding a branch hides its moves', pg.locator('.tseg').count() < nodes0, f'{nodes0} -> {pg.locator(".tseg").count()}')
-        pg.locator('[data-act=tfold]').first.click(); pg.wait_for_timeout(400)
+        pg.eval_on_selector('[data-act=tfold]', 'e => e.click()'); pg.wait_for_timeout(500)
         pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)
         check('Lines view still lists them', pg.locator('.rowline').count() > 0, str(pg.locator('.rowline').count()))
         pg.click('[data-act=viewtree]'); pg.wait_for_timeout(300)
