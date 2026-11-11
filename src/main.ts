@@ -1079,7 +1079,7 @@ function reviewNext() {
   const k = queue[0], e = parent.get(k); pos = fromKey(k); line = pathTo(k); last = e?.uci; lastKey = e?.from;
   $('#path').textContent = pathText(line); showNote(noteOf(lastKey, last)); show();
   msg(`You play ${cur!.color === 'white' ? 'White' : 'Black'} here. Find your move.`);
-  $('#act').innerHTML = `<div class="row"><span class="hintline">Card ${done + 1} of ${total} · ${queue.length} to go · ${dueCount(cur!.cards)} due today</span></div>
+  $('#act').innerHTML = `<div class="row"><span class="hintline">Card ${done + 1} of ${total} · ${queue.length} to go</span></div>
     <div class="row"><button data-act="hint">Hint</button><button data-act="reveal">Show me</button></div>`;
 }
 function reviewAnswer(u: string, k: string) {
