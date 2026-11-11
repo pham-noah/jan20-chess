@@ -223,7 +223,8 @@ function renderBoardMarks() {
   if (tag && mu) {
     const m = parseUci(mu) as any;
     const meta = TAGS.find(x => x[0] === tag);
-    if (m) put(m.to, 'tagmark', meta ? meta[1] : tag, meta ? `${sanAt(mk!, mu)}: ${meta[2]}` : sanAt(mk!, mu));
+    const tone = tag === '!' || tag === '!?' ? 'good' : tag === '?!' ? 'mid' : tag === 'trap' ? 'trap' : 'bad';
+    if (m) put(m.to, `tagmark ${tone}`, meta ? meta[1] : tag, meta ? `${sanAt(mk!, mu)}: ${meta[2]}` : sanAt(mk!, mu));
   }
   // and the ending is drawn on the king that has none
   const mate = pos.isCheckmate(), stale = !mate && pos.isStalemate();

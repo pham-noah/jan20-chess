@@ -129,6 +129,8 @@ MARKS ON THE SQUARE, AND THE RIGHT KING (v18)
   that has no move. Verified both ways: 1.f3 e5 2.g4 Qh4# marks e1, 1.e4 f6 2.d4 g5 3.Qh5# marks e8.
 - **The mate mark is colour-independent**: a black hash with a white halo, no disc and no square tint, so it reads on a
   white king, a black king, a light board or a dark one.
+- **The board badge is toned like chess.com's annotations**: `!` and `!?` green, `?!` amber, `?` and `??` red, our trap flag
+  purple — the same disc-with-white-ring language as the move ✓/✕ badge, sized to the glyph so `??` still fits.
 - **A marked move now carries its badge on the board.** The annotation of the move you are looking at is drawn on the
   corner of its destination square — in the Editor as soon as you mark it, and in Learn while that ply is on the board
   (including the pause when a line is done, before the walk moves on).

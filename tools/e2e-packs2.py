@@ -97,6 +97,8 @@ with sync_playwright() as p:
         pg.click('[data-act=mnext]'); pg.wait_for_timeout(500)
         check('an annotation is drawn on the board square', pg.locator('#endmark .tagmark').count() == 1, str(pg.locator('#endmark .tagmark').count()))
         check('the board badge carries the glyph', '!' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
+        check('the badge is toned by the annotation (good = green, chess.com style)',
+              pg.locator('#endmark .tagmark.good').count() == 1, pg.eval_on_selector('#endmark .mm', 'e => e.className'))
         pg.click('[data-act=mprev]'); pg.wait_for_timeout(400)
         if not pg.locator('[data-act=viewlines]').is_visible():
             pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(400)
