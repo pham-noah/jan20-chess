@@ -123,6 +123,16 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+MARKS ON THE SQUARE, AND THE RIGHT KING (v18)
+- **The mate badge was on the wrong king.** `board.king` in chessops is a SquareSet holding both kings, and the code took
+  the first one — so mating Black put the hash on your own king. It now picks the king of the side to move, the side
+  that has no move. Verified both ways: 1.f3 e5 2.g4 Qh4# marks e1, 1.e4 f6 2.d4 g5 3.Qh5# marks e8.
+- **The mate mark is colour-independent**: a black hash with a white halo, no disc and no square tint, so it reads on a
+  white king, a black king, a light board or a dark one.
+- **A marked move now carries its badge on the board.** The annotation of the move you are looking at is drawn on the
+  corner of its destination square — in the Editor as soon as you mark it, and in Learn while that ply is on the board
+  (including the pause when a line is done, before the walk moves on).
+
 MARKS EVERYWHERE, AND THE ENDING ON THE BOARD (v17)
 - **Annotations now travel with the move.** They were only drawn in the editor's chips and its tree, because every
   other place that prints moves (the editor's flat line list, the line under the message, Walk/Learn, the Review card)

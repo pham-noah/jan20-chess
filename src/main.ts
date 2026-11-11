@@ -196,22 +196,41 @@ const markMove = (san: string, ok: boolean, uci?: string) => {
   layer.appendChild(dest);
   clearTimeout(tileTimer); tileTimer = setTimeout(clearMark, ok ? 1100 : 2400);
 };
-/** The ending is drawn on the board: the mated king carries the mark, not just the sentence. */
-function renderEndMark() {
+/** Marks that belong to the position rather than to a move attempt: the ending, and the
+    annotation of the move you are looking at. Drawn from their own layer so the transient
+    move-feedback badge cannot wipe them. */
+function renderBoardMarks() {
   const layer = $('#endmark'); if (!layer) return;
   layer.textContent = '';
+  const put = (sq: number, cls: string, glyph: string, title: string) => {
+    const black = orient() === 'black', f = sq & 7, r = sq >> 3;
+    const d = document.createElement('div');
+    d.className = 'mm ' + cls + ' dest';
+    d.style.left = `${(black ? 7 - f : f) * 12.5}%`;
+    d.style.top = `${(black ? r : 7 - r) * 12.5}%`;
+    d.innerHTML = `<span class="g" aria-hidden="true">${glyph}</span>`;
+    d.title = title;
+    layer.appendChild(d);
+  };
+  // the move on the board carries its annotation (in Walk, that is the ply you are looking at)
+  let mu = last, mk = lastKey;
+  if (mode === 'learn' && line.length) {
+    const i = line.length - wBack - 1;                 // the ply this position came from
+    if (i < 0) { mu = undefined; }
+    else { const p = Chess.default(); for (let j = 0; j < i; j++) p.play(parseUci(line[j])!); mu = line[i]; mk = key(p); }
+  }
+  const tag = tagOf(mk, mu);
+  if (tag && mu) {
+    const m = parseUci(mu) as any;
+    const meta = TAGS.find(x => x[0] === tag);
+    if (m) put(m.to, 'tagmark', meta ? meta[1] : tag, meta ? `${sanAt(mk!, mu)}: ${meta[2]}` : sanAt(mk!, mu));
+  }
+  // and the ending is drawn on the king that has none
   const mate = pos.isCheckmate(), stale = !mate && pos.isStalemate();
   if (!mate && !stale) return;
-  const kingSq = pos.board.king; if (!kingSq.size) return;
-  const sq = [...kingSq][0];
-  const black = orient() === 'black', f = sq & 7, r = sq >> 3;
-  const d = document.createElement('div');
-  d.className = 'mm ' + (mate ? 'mate' : 'stale') + ' dest';
-  d.style.left = `${(black ? 7 - f : f) * 12.5}%`;
-  d.style.top = `${(black ? r : 7 - r) * 12.5}%`;
-  d.innerHTML = `<span class="g" aria-hidden="true">${mate ? '#' : '½'}</span>`;
-  d.title = mate ? 'Checkmate' : 'Stalemate';
-  layer.appendChild(d);
+  const sq = [...pos.board.king].find(s => pos.board.get(s)?.color === pos.turn);   // the side to move
+  if (sq === undefined) return;
+  put(sq, mate ? 'mate' : 'stale', mate ? '#' : '½', mate ? 'Checkmate' : 'Stalemate');
 }
 /** Engine deltas are centipawns, but a mate score read as "+99.3 worse" makes no sense to a player. */
 const gapText = (cp: number) => (cp >= 1800 ? 'a forced mate' : `about ${(cp / 100).toFixed(1)} pawns`);
@@ -305,7 +324,7 @@ function show(shapes: any[] = [], can = true) {
     movable: { color: can ? pos.turn : pm ? premoveColor() : undefined, dests: can ? chessgroundDests(pos) : new Map() },
   });
   cg.setAutoShapes(shapes);
-  renderEndMark();
+  renderBoardMarks();
 }
 
 function pathText(us: string[]) {
@@ -747,6 +766,7 @@ function renderBuild() {
   }).join('');
   const editor = last ? `<label class="field">Note for ${esc(lastSan)}<textarea id="note-ed" maxlength="800" placeholder="Why this move? Plans, traps, what to remember.">${esc(noteOf(lastKey, last))}</textarea></label>
     <div class="row mini annots" role="group" aria-label="Annotation for ${esc(lastSan)}">${TAGS.map(([v, g, t]) => `<button class="tagbtn ${tagOf(lastKey, last) === v ? 'on' : ''}" data-act="tag" data-u="${v}" title="${esc(t)}" aria-pressed="${tagOf(lastKey, last) === v}">${esc(g)}</button>`).join('')}</div>` : '';
+  renderBoardMarks();
   const lines = walkLines(); const lhtml = lines.map((l, i) => lineHtml(l, lines[i - 1]));
   const through = lines.filter(l => line.every((u, i) => l[i] === u)).length;
   const below = leavesUnder(here);
@@ -857,8 +877,10 @@ function walkStep(d: number) {
   if (wBack > 0) {
     session++;                                   // stop any pending opponent reply
     const shown = line.slice(0, line.length - wBack);
-    pos = Chess.default(); for (const u of shown) pos.play(parseUci(u)!);
-    last = shown[shown.length - 1]; lastKey = undefined;
+    pos = Chess.default(); for (const u of shown.slice(0, -1)) pos.play(parseUci(u)!);
+    lastKey = key(pos);                                // so the move's annotation can be shown
+    last = shown[shown.length - 1];
+    if (last) pos.play(parseUci(last)!);
     show([], false);
     $('#path').textContent = `Line ${wIdx + 1} of ${wLines.length} · ${pathText(shown)}`;
     msg(`Looking back: ply ${shown.length} of ${line.length}. → to go forward.`);

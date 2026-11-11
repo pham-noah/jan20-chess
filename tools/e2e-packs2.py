@@ -94,6 +94,10 @@ with sync_playwright() as p:
         check('an annotation shows in the tree', pg.locator('.tree .tag').count() > 0, str(pg.locator('.tree .tag').count()))
         pg.click('[data-act=mprev]'); pg.wait_for_timeout(500)
         check('an annotation shows on the move', pg.locator('.chip .tag').count() > 0, str(pg.locator('.chip .tag').count()))
+        pg.click('[data-act=mnext]'); pg.wait_for_timeout(500)
+        check('an annotation is drawn on the board square', pg.locator('#endmark .tagmark').count() == 1, str(pg.locator('#endmark .tagmark').count()))
+        check('the board badge carries the glyph', '!' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
+        pg.click('[data-act=mprev]'); pg.wait_for_timeout(400)
         if not pg.locator('[data-act=viewlines]').is_visible():
             pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(400)
         pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)
@@ -135,15 +139,21 @@ with sync_playwright() as p:
         pg.evaluate("() => { const d = document.querySelector('details.weak'); if (d) d.open = true; }")
         pg.wait_for_timeout(300)
         check('weak spots lists a flagged move', pg.locator('.weakrow').count() == 1, pg.inner_text('.weakrow')[:30] if pg.locator('.weakrow').count() else 'none')
-    # checkmate is drawn on the board, not only said
-    pg.click('header [data-act=new]'); pg.fill('#dn', 'Fool'); pg.click('#dok'); pg.wait_for_timeout(400)
-    play(pg, ['f2f3', 'e7e5', 'g2g4', 'd8h4']); pg.wait_for_timeout(700)
-    check('checkmate puts a mark on the mated king', pg.locator('#endmark .mm').count() == 1, str(pg.locator('#endmark .mm').count()))
+    # checkmate is drawn on the king that has no move — and not on the other one
+    def mate_line(name, moves):
+        pg.click('header [data-act=new]'); pg.fill('#dn', name); pg.click('#dok'); pg.wait_for_timeout(400)
+        play(pg, moves); pg.wait_for_timeout(800)
+        where = pg.eval_on_selector('#endmark .mm', 'e => e.style.left + " " + e.style.top') if pg.locator('#endmark .mm').count() else 'none'
+        return where
+    white = mate_line('Fool white', ['f2f3', 'e7e5', 'g2g4', 'd8h4'])
+    check('checkmate puts a mark on the board', white != 'none', white)
+    check('the mark lands on the mated king (white: e1)', white.startswith('50% 87.5%'), white)
     check('the mark is a hash, the way chess writes mate', '#' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
-    check('the hash sits on a black disc', '#101010' in pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).backgroundColor') or
-          'rgb(16, 16, 16)' in pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).backgroundColor'),
-          pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).backgroundColor'))
+    check('the hash is black', 'rgb(5, 5, 5)' in pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).color'),
+          pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).color'))
     check('the message says checkmate', msg(pg).startswith('Checkmate'), msg(pg))
+    black = mate_line('Fool black', ['e2e4', 'f7f6', 'd2d4', 'g7g5', 'd1h5'])
+    check('it also lands on a mated black king (e8)', black.startswith('50% 0%'), black)
     print('console/page errors:', errs or 'none'); b.close()
 
 print(sum(1 for r in results if r[1]), '/', len(results))
