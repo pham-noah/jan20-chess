@@ -24,7 +24,7 @@ import { ArenaRun, type ArenaEnd } from './arena';
 import STARTER from './tactics/starter.json';
 import TRAPS from './tactics/traps.json';
 
-type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; bad?: Record<string, number>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number; seen?: Record<string, true> };
+type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; bad?: Record<string, number>; tags?: Record<string, string>; lineNames?: Record<string, string>; hist?: Record<string, number>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number; seen?: Record<string, true> };
 type Mode = 'build' | 'learn' | 'review' | 'tactics' | 'endgames';
 type LMode = 'walk' | 'drill' | 'time' | 'arena';
 type Settings = { san: boolean; welcomed: boolean; lmode: LMode; explain: boolean; appearance: string; pieces: string; sound: boolean; newCap: number; retention: number; theme: string; coords: boolean; anim: boolean; haptics: boolean; learnDelay: number; engineMs: number; newPuzzles: number; window: number; importMin: number; importMax: number; importCount: number; ptheme: string };
@@ -67,7 +67,7 @@ let queue: string[] = [];
 let total = 0, hinted = false, locked = false, flipped = false, session = 0;
 let fileMode: 'merge' | 'replace' | 'pgn' | 'csv' = 'merge';
 let imported: Puzzle[] = []; let pcards: Record<string, any> = {};
-let pstats = { rating: 1200, solved: 0, failed: 0, streak: 0, best: 0 };
+let pstats: { rating: number; solved: number; failed: number; streak: number; best: number; hist?: Record<string, { ok: number; n: number }> } = { rating: 1200, solved: 0, failed: 0, streak: 0, best: 0 };
 let ecards: Record<string, any> = {}; let egCustom: DrillDef[] = [];
 let tRun: PuzzleRun | undefined, tColor: 'white' | 'black' | undefined, tGraded = false, tHinted = false, tQueue: string[] = [], tTotal = 0;
 const tRequeued = new Set<string>(); let tFailed = false;
@@ -75,7 +75,7 @@ let eRun: DrillRun | undefined, eColor: 'white' | 'black' | undefined, eBusy = f
 let promo: { m: any; prev: string } | undefined;
 const parent = new Map<string, { from: string; uci: string }>();
 let dScore = 0, dLines = 0, dActive = false, ttEnd = 0, ttTimer: any;
-let wLines: string[][] = [], wIdx = 0, wBack = 0;
+let wLines: string[][] = [], wIdx = 0, wBack = 0, wNotes = false;
 let aRun: ArenaRun | undefined, aBusy = false;
 
 let timer: any;
@@ -140,6 +140,16 @@ const rel = (d: Date) => { const m = Math.round((+d - Date.now()) / 60000); retu
 const orient = () => (mode === 'tactics' && tColor ? tColor : mode === 'endgames' && eColor ? eColor : (cur?.color === 'black') !== flipped ? 'black' : 'white');
 const mine = () => (cur!.color === 'white' ? 'w' : 'b');
 const noteOf = (k?: string, u?: string) => (k && u ? cur?.notes?.[k + '|' + u] : undefined) || '';
+/** Move annotations, the way a scoresheet carries them. `trap` is our own. */
+const TAGS: [string, string, string][] = [['!', '!', 'good move'], ['!?', '!?', 'interesting'], ['?!', '?!', 'dubious'], ['?', '?', 'mistake'], ['??', '??', 'blunder'], ['trap', '⚑', 'a trap to remember']];
+const TAG_NAG: Record<string, number> = { '!': 1, '?': 2, '??': 4, '!?': 5, '?!': 6 };
+const tagOf = (k?: string, u?: string) => (k && u ? cur?.tags?.[k + '|' + u] : undefined) || '';
+const tagHtml = (k?: string, u?: string) => {
+  const t = tagOf(k, u); if (!t) return '';
+  const meta = TAGS.find(x => x[0] === t);
+  const glyph = meta ? meta[1] : t;
+  return `<b class="tag t-${t === 'trap' ? 'trap' : 'nag'}" title="${esc(meta ? meta[2] : t)}">${esc(glyph)}</b>`;
+};
 const showNote = (t: string) => { const n = $('#note'); n.textContent = t; n.hidden = !t; };
 
 let actx: AudioContext | undefined;
@@ -311,9 +321,12 @@ function renderStrip() {
     const ls = wLines.length ? wLines : walkLines();
     bits.push([String(ls.filter(seenLine).length), 'discovered'], [String(ls.length), 'lines'], [String(bestOf('drill')), 'best streak']);
   } else if (mode === 'review' && cur) {
-    bits.push([String(dueCount(cur.cards)), 'due today'], [String(Object.keys(cur.cards).length), 'seen before'], [String(queue.length), 'cards left']);
+    const h = cur.hist ?? {}, days = Object.keys(h).sort().slice(-7);
+    const week = days.reduce((a, d) => a + h[d], 0);
+    bits.push([String(dueCount(cur.cards)), 'due today'], [String(week), 'reviews this week'], [String(queue.length), 'cards left']);
   } else if (mode === 'tactics') {
-    bits.push([String(Math.round(pstats.rating)), 'rating'], [String(pstats.streak), 'streak'], [String(pstats.best ?? 0), 'best streak']);
+    const w = weekAccuracy();
+    bits.push([String(Math.round(pstats.rating)), 'rating'], [w.n ? `${w.pct}%` : '—', `7-day (${w.n})`], [String(pstats.streak), 'streak']);
   } else if (mode === 'endgames') {
     const defs = allDrills();
     bits.push([String(defs.filter(d => ecards[d.id]).length), 'practised'], [String(defs.length), 'drills'], [String(defs.filter(d => ecards[d.id] && isDue(ecards[d.id])).length), 'due']);
@@ -396,7 +409,12 @@ function pgnLine(k: string, ply: number, force: boolean, seen: Set<string>): str
   seen.add(k);
   const n = Math.floor(ply / 2) + 1;
   const label = (s: string, fo: boolean) => (ply % 2 === 0 ? `${n}. ` : fo ? `${n}... ` : '') + s;
-  const nt = (u: string) => { const t = cur!.notes?.[k + '|' + u]; return t ? ` {${t.replace(/[{}]/g, '')}}` : ''; };
+  const nt = (u: string) => {
+    const t = cur!.notes?.[k + '|' + u];
+    const tag = cur!.tags?.[k + '|' + u];
+    const nag = tag && TAG_NAG[tag] ? ` $${TAG_NAG[tag]}` : '';
+    return (t ? ` {${t.replace(/[{}]/g, '')}}` : '') + nag;
+  };
   const next = (u: string) => { const p = fromKey(k); p.play(parseUci(u)!); return key(p); };
   const [[u0, s0], ...rest] = ent;
   let out = label(s0, force) + nt(u0);
@@ -444,13 +462,13 @@ const stateJson = () => JSON.stringify({ app: 'jan20', v: 3, exported: new Date(
 const exportAll = () => download(`jan20-backup-${new Date().toISOString().slice(0, 10)}.json`, stateJson());
 
 /* ---------- Build ---------- */
-const snapRep = () => ({ moves: structuredClone(cur!.moves), notes: structuredClone(cur!.notes ?? {}), bad: structuredClone(cur!.bad ?? {}) });
-type RepSnap = { moves: any; notes: any; bad: any };
+const snapRep = () => ({ moves: structuredClone(cur!.moves), notes: structuredClone(cur!.notes ?? {}), bad: structuredClone(cur!.bad ?? {}), tags: structuredClone(cur!.tags ?? {}) });
+type RepSnap = { moves: any; notes: any; bad: any; tags: any };
 const uStack: RepSnap[] = [], rStack: RepSnap[] = [];
 function snapNow(): RepSnap { const s = snapRep(); uStack.push(s); if (uStack.length > 80) uStack.shift(); rStack.length = 0; return s; }
 function applySnap(s: RepSnap) {
   if (!cur) return;
-  cur.moves = s.moves; cur.notes = s.notes; cur.bad = s.bad;
+  cur.moves = s.moves; cur.notes = s.notes; cur.bad = s.bad; cur.tags = s.tags;
   save();
   if (mode === 'build') { line = line.filter(Boolean); if (line.length) { const p = Chess.default(); for (const u of line) { const m = parseUci(u); if (!m) break; p.play(m); } } renderBuild(); }
 }
@@ -467,6 +485,14 @@ function doUndo() {
 function doRedo() {
   if (!rStack.length) return void toast('Nothing to redo.', { ms: 1400 });
   uStack.push(snapRep()); applySnap(rStack.pop()!); toast('Redone.', { ms: 1500 });
+}
+/** Every move of yours the engine flagged, worst first. */
+function weakSpots() {
+  if (!cur?.bad) return [] as { nk: string; k: string; san: string; delta: number; line: string[] }[];
+  return Object.entries(cur.bad).map(([nk, delta]) => {
+    const [k, u] = nk.split('|');
+    return { nk, k, san: sanOfUci(k, u), delta, line: pathTo(k) };
+  }).sort((a, b) => b.delta - a.delta);
 }
 /** How many line-ends sit below this position: the size of the branch you would cut. */
 function leavesUnder(k: string): number {
@@ -679,16 +705,18 @@ function renderBuild() {
     const bad = cur!.bad?.[here + '|' + u];
     const warn = bad ? `<b class="warn" title="About ${(bad / 100).toFixed(1)} worse than the best move here">⚠</b>` : '';
     const main = i ? `<button data-act="main" data-u="${u}" aria-label="Make ${esc(s)} the first move here" title="Make ${esc(s)} the first move here">↑</button>` : '';
-    return `<span class="chip ${isMine ? 'mine' : 'opp'}" draggable="true" data-chip="${u}"><button data-act="go" data-u="${u}">${esc(s)}</button>${dot}${warn}${main}<button data-act="del" data-u="${u}" aria-label="Delete ${esc(s)}">✕</button></span>`;
+    return `<span class="chip ${isMine ? 'mine' : 'opp'}" draggable="true" data-chip="${u}"><button data-act="go" data-u="${u}">${esc(s)}${tagHtml(here, u)}</button>${dot}${warn}${main}<button data-act="del" data-u="${u}" aria-label="Delete ${esc(s)}">✕</button></span>`;
   }).join('');
-  const editor = last ? `<label class="field">Note for ${esc(lastSan)}<textarea id="note-ed" maxlength="800" placeholder="Why this move? Plans, traps, what to remember.">${esc(noteOf(lastKey, last))}</textarea></label>` : '';
+  const editor = last ? `<label class="field">Note for ${esc(lastSan)}<textarea id="note-ed" maxlength="800" placeholder="Why this move? Plans, traps, what to remember.">${esc(noteOf(lastKey, last))}</textarea></label>
+    <div class="row mini annots" role="group" aria-label="Annotation for ${esc(lastSan)}">${TAGS.map(([v, g, t]) => `<button class="tagbtn ${tagOf(lastKey, last) === v ? 'on' : ''}" data-act="tag" data-u="${v}" title="${esc(t)}" aria-pressed="${tagOf(lastKey, last) === v}">${esc(g)}</button>`).join('')}</div>` : '';
   const lines = walkLines(); const lhtml = lines.map((l, i) => lineHtml(l, lines[i - 1]));
   const through = lines.filter(l => line.every((u, i) => l[i] === u)).length;
   const below = leavesUnder(here);
   const others = reps.filter(r => r.id !== cur!.id);
+  const bad = weakSpots();
   const plain = lhtml.map(h => h.replace(/<[^>]*>/g, ''));
   const rows = lines.map((l, i) =>
-    `<div class="rowline ${i === 0 ? 'first' : ''}" data-line="${esc(plain[i].toLowerCase())}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lhtml[i]}</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
+    `<div class="rowline ${i === 0 ? 'first' : ''}" data-line="${esc((plain[i] + ' ' + lineName(l)).toLowerCase())}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lineName(l) ? `<b class="lname">${esc(lineName(l))}</b> ` : ''}${lhtml[i]}</button><button data-act="nameline" data-u="${i}" title="Name this line" aria-label="Name line ${i + 1}">✎</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
   const lineList = `<div class="linehead"><div class="seg viewseg" role="tablist"><button data-act="viewtree" class="${treeView ? 'on' : ''}">Tree</button><button data-act="viewlines" class="${treeView ? '' : 'on'}">Lines (${lines.length})</button></div><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
     ${treeView
       ? `<div class="tree">${treeMarkup()}</div><p class="dim kbdhint">Click a move to jump there · ▾ folds · ✕ cuts that move and what only it reached · ↑ makes that branch first</p>`
@@ -703,6 +731,10 @@ function renderBuild() {
       <textarea id="paste" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 — pasted from anywhere, variations and comments ignored"></textarea>
       <div class="row mini"><button data-act="paste" class="primary">Add from here</button><button data-act="copyline">Copy this line</button></div>
     </details>
+    ${bad && bad.length ? `<details class="weak"><summary>Weak spots (${bad.length})</summary>
+      <p class="dim">Moves of yours the engine rates well below its own choice. Click one to go there.</p>
+      <div class="list">${bad.map(w => `<div class="rowline weakrow"><span class="delta">−${(w.delta / 100).toFixed(1)}</span><button class="walk" data-act="wjump" data-u="${esc(w.k)}" title="Go to this move">${esc(w.san)}</button><span class="dim">${esc(pathText(w.line).slice(-28))}</span><button data-act="unflag" data-u="${esc(w.nk)}" aria-label="Clear this flag">✕</button></div>`).join('')}</div>
+      <div class="row mini"><button data-act="checkline">Re-check the line you are on</button></div></details>` : ''}
     <details><summary>Gaps and engine</summary>
       <div id="gapout"><p class="dim">Find opponent moves here that you have no answer prepared for.</p></div>
       <div class="row mini"><button data-act="gaps">Find gaps here</button><button data-act="checkline">Check this line</button></div>
@@ -811,6 +843,17 @@ function buildStep(d: number) {
   const next = want && here.includes(want) ? want : here[0];
   if (next) { line.push(next); renderBuild(); }
 }
+/** Every note along one line, in order, so the ideas can be read before they are played. */
+function lineNotes(path: string[]): string {
+  const p = Chess.default(); const out: string[] = [];
+  for (const u of path) {
+    const k = key(p), m = parseUci(u); if (!m) break;
+    const san = makeSan(p, m), n = noteOf(k, u);
+    if (n) out.push(`${san} — ${n}`);
+    p.play(m);
+  }
+  return out.join('\n');
+}
 /** The repertoire as a tree: every saved move is an edge, every position a node. */
 type TNode = { k: string; pk?: string; u?: string; san?: string; ply: number; kids: TNode[]; leaves: number; plies: number };
 function repertoireTree(): TNode {
@@ -876,17 +919,17 @@ function treeMarkup(): string {
       const note = cur?.notes?.[m.pk + '|' + m.u] ? '<b class="dot" title="Has a note">•</b>' : '';
       const bad = cur?.bad?.[m.pk + '|' + m.u];
       const warn = bad ? `<b class="warn" title="About ${(bad / 100).toFixed(1)} worse than the best move here">⚠</b>` : '';
-      return `<span class="mvwrap"><button class="tsan ${m.ply % 2 === 1 ? 'mine' : 'opp'}" data-act="tnode" data-u="${here.join(' ')}" title="Go to ${esc(m.san)}">${num}${esc(m.san)}</button>${note}${warn}<button class="x" data-act="tcutm" data-u="${here.join(' ')}" title="Delete ${esc(m.san)} and everything only it reached" aria-label="Delete ${esc(m.san)}">✕</button></span>`;
+      return `<span class="mvwrap"><button class="tsan ${m.ply % 2 === 1 ? 'mine' : 'opp'}" data-act="tnode" data-u="${here.join(' ')}" title="Go to ${esc(m.san)}">${num}${esc(m.san)}${tagHtml(m.pk, m.u)}</button>${note}${warn}<button class="x" data-act="tcutm" data-u="${here.join(' ')}" title="Delete ${esc(m.san)} and everything only it reached" aria-label="Delete ${esc(m.san)}">✕</button></span>`;
     }).join(' ');
     const caret = seg.kids.length ? `<button class="caret" data-act="tfold" data-u="${seg.id}" aria-label="${folded ? 'Expand' : 'Collapse'} this branch">${folded ? '▸' : '▾'}</button>` : '<span class="caret"></span>';
     const cnt = seg.kids.length
       ? `<span class="cnt">${seg.kids.length} branches${seg.leaves === seg.kids.length ? '' : ` · ${seg.leaves} lines`}</span>`
-      : `<span class="ln">line ${seg.leaf}</span>`;
+      : `<span class="ln">line ${seg.leaf}${lineName([...seg.path, ...seg.moves.map(m => m.u)]) ? ` · ${esc(lineName([...seg.path, ...seg.moves.map(m => m.u)]))}` : ''}</span>`;
     const promo = seg.kids.length ? `<button data-act="tpromo" data-u="${[...seg.path, seg.moves[0]?.u].filter(Boolean).join(' ')}" title="Make this the first branch here" aria-label="Make this the first branch here">↑</button>` : '';
     const lastMove = seg.moves[seg.moves.length - 1];
     const penId = seg.moves.length ? [...seg.path, ...seg.moves.map(m => m.u)].join(' ') : '';
     const pen = lastMove ? `<button data-act="tnote" data-u="${penId}" title="Note for ${esc(lastMove.san)}" aria-label="Edit the note for ${esc(lastMove.san)}">✎</button>` : '';
-    out.push(`<div class="tseg ${onPath ? 'on' : ''} ${isNow ? 'now' : ''}" style="--d:${Math.min(depth, 10)}">
+    out.push(`<div class="tseg ${onPath ? 'on' : ''} ${isNow ? 'now' : ''}" draggable="true" data-seg="${penId}" data-par="${seg.path.join(' ')}" data-first="${seg.moves[0]?.u ?? ''}" style="--d:${Math.min(depth, 10)}">
       ${caret}<span class="run">${run}</span>${cnt}
       <span class="tacts">${promo}${pen}</span></div>`);
     if (noteEditId === penId && lastMove) {
@@ -929,6 +972,24 @@ function promoteAt(path: string[]) {
   save(); renderBuild(); undoable(`“${mv[u]}” is now the first branch here.`, snap);
 }
 const lineKey = (l: string[]) => l.join(' ');
+const today = () => new Date().toISOString().slice(0, 10);
+const lineName = (l: string[]) => cur?.lineNames?.[lineKey(l)] ?? '';
+/** A line's own name (or comment): "Fried Liver — the knight sac comes here". */
+async function nameLine(l: string[]) {
+  if (!cur || !l.length) return;
+  const got = await ask({ title: 'Name this line', text: 'Shown in the line list, in the tree and when Walk starts this line. Leave it empty to remove the name.', input: true, ok: 'Save', value: lineName(l), placeholder: 'For example: Fried Liver' });
+  if (got === null) return;
+  cur.lineNames ??= {};
+  const k = lineKey(l), v = String(got).trim();
+  if (v) cur.lineNames[k] = v; else delete cur.lineNames[k];
+  save(); renderBuild(); toast(v ? `Line named “${v}”.` : 'Name removed.', { ms: 2200 });
+}
+/** Tactics accuracy over the last week, straight from the daily history. */
+function weekAccuracy() {
+  const h = pstats.hist ?? {}; const days = Object.keys(h).sort().slice(-7);
+  const ok = days.reduce((a, d) => a + h[d].ok, 0), n = days.reduce((a, d) => a + h[d].n, 0);
+  return { ok, n, pct: n ? Math.round((ok / n) * 100) : 0 };
+}
 const seenLine = (l: string[]) => !!(cur?.seen ?? {})[lineKey(l)];
 function walkPanel() {
   wHtml ??= wLines.map((l, i) => lineHtml(l, wLines[i - 1]));
@@ -942,7 +1003,7 @@ function walkPanel() {
     return `<button class="item ${i === wIdx ? 'on' : ''} ${ok ? 'done' : ''}" data-act="wline" data-u="${i}" data-line="${esc(plain)}"><span>${i + 1}.${ok ? ' <b class="tick">✓</b>' : ''}</span><span class="walk">${wHtml![i]}</span></button>`;
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
-    <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><span class="grow"></span><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
+    <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="wnotes" class="${wNotes ? 'on' : ''}" title="Show every note in this line">Notes</button><span class="grow"></span><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
     <p class="dim kbdhint">Drag a move or type one · ← → step through the line · H hint · ? all shortcuts</p>
     <h3>All lines (${wLines.length}) · ${done} discovered · playing line ${wIdx + 1}</h3>
     ${wLines.length > 8 ? '<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>' : ''}
@@ -955,6 +1016,8 @@ function startWalkLine(i: number) {
   cur!.walk = wIdx; save();
   session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); locked = false;
   walkPanel();
+  { const nm = lineName(wLines[wIdx] ?? []); if (nm) showNote(`${nm}`); }
+  if (wNotes) showNote(lineNotes(wLines[wIdx] ?? []) || 'No notes in this line yet.');
   learnStep();
 }
 function walkDone() {
@@ -962,6 +1025,8 @@ function walkDone() {
   const l = wLines[wIdx];
   if (l) { (cur!.seen ??= {})[lineKey(l)] = true; save(); walkPanel(); }
   locked = true; sfx('ok'); flash('ok'); show([], false);
+  const notes = lineNotes(l ?? []);
+  if (notes) showNote(notes);
   msg(last ? `Line ${wIdx + 1} of ${wLines.length} done. All lines walked.` : `Line ${wIdx + 1} of ${wLines.length} done. Next line…`, 'ok');
   const tok = session;
   setTimeout(() => { if (tok === session && S.lmode === 'walk' && mode === 'learn') startWalkLine(last ? 0 : wIdx + 1); }, last ? 1600 : 1100);
@@ -1125,7 +1190,7 @@ function arenaFinish(end: ArenaEnd) {
 /* ---------- Review ---------- */
 function reviewInit() { buildIndex(); queue = queueKeys(); total = queue.length; reviewNext(); }
 function reviewNext() {
-  locked = false; hinted = false;
+  locked = false; hinted = false; reviewGrade = undefined;
   updateDue();
   const done = total - queue.length;
   $('#bar').hidden = !total; $('#bar i').style.width = total ? `${Math.max(0, (total - queue.length) / total) * 100}%` : '0';
@@ -1144,20 +1209,45 @@ function reviewNext() {
     <div class="reviewmeta"><span>${esc(cur!.name)} · ${ln >= 0 ? `line ${ln + 1} of ${allLines.length}` : 'a branch that is not a full line'}</span>
     <span>${c0 ? `last seen ${c0.last_review ? rel(new Date(c0.last_review)) : 'never'} · next due ${rel(new Date(c0.due))}` : 'first time'}</span></div>`;
 }
+/** Schedule one card and hand back the new state. */
+function scheduleCard(k: string, rating: Rating) {
+  const c = cur!.cards[k];
+  const card = c ? { ...c, due: new Date(c.due), last_review: c.last_review ? new Date(c.last_review) : undefined } : createEmptyCard();
+  const r = f.next(card, new Date(), rating as any).card;    // Rating values are the four grades
+  cur!.cards[k] = r;
+  cur!.hist ??= {}; cur!.hist[today()] = (cur!.hist[today()] ?? 0) + 1;
+  save();
+  return r;
+}
+/** You know how well you knew it; the buttons (or 1–4) decide, and the default is applied if you ignore them. */
+let reviewGrade: { k: string; auto: Rating; done: boolean } | undefined;
+const gradeRow = (auto: Rating) => `<div class="row grades" role="group" aria-label="How well did you know it?">${([
+  [Rating.Again, 'Again', '1'], [Rating.Hard, 'Hard', '2'], [Rating.Good, 'Good', '3'], [Rating.Easy, 'Easy', '4']] as [Rating, string, string][])
+  .map(([r, label, key]) => `<button data-act="grade" data-u="${r}" class="${r === auto ? 'on' : ''}" title="${label} (${key})">${label}</button>`).join('')}</div>`;
+function applyReviewGrade(rating: Rating) {
+  if (!reviewGrade || reviewGrade.done) return;
+  reviewGrade.done = true;
+  const k = reviewGrade.k, card = scheduleCard(k, rating);
+  if (rating === Rating.Again) { queue.push(k); msg('Back in the queue — you will see it again this session.'); }
+  else msg(`Next review ${rel(card.due)}.`, 'ok');
+  reviewNext();
+}
 function reviewAnswer(u: string, k: string) {
   locked = true;
-  const mv = cur!.moves[k], ok = !!mv[u], c = cur!.cards[k];
-  const card = c ? { ...c, due: new Date(c.due), last_review: c.last_review ? new Date(c.last_review) : undefined } : createEmptyCard();
-  const r = f.next(card, new Date(), ok ? (hinted ? Rating.Hard : Rating.Good) : Rating.Again).card;
-  cur!.cards[k] = r; save();
+  const mv = cur!.moves[k], ok = !!mv[u];
   if (ok) {
-    markMove(mv[u], true, u); play(u); sfx('ok'); flash('ok'); show([], false); showNote(noteOf(k, u)); msg(`Correct. Next review ${rel(r.due)}.`, 'ok'); queue.shift();
-    $('#act').innerHTML = `<div class="row"><button data-act="next" class="primary">Next card ›</button></div>`;
+    markMove(mv[u], true, u); play(u); sfx('ok'); flash('ok'); show([], false); showNote(noteOf(k, u));
+    const auto = hinted ? Rating.Hard : Rating.Good;
+    reviewGrade = { k, auto, done: false };
+    queue.shift();
+    msg('Correct. How well did you know it?', 'ok');
+    $('#act').innerHTML = `${gradeRow(auto)}<div class="row"><button data-act="next" class="primary">Next card ›</button></div>`;
     void whyBook(k, u);
-    const wait = noteOf(k, u) ? 4200 : 3200;
-    const tok = session; setTimeout(() => { if (mode === 'review' && tok === session) reviewNext(); }, wait);
+    const tok = session;
+    setTimeout(() => { if (tok === session && mode === 'review' && reviewGrade && !reviewGrade.done) applyReviewGrade(auto); }, 6000);
   } else {
-    buzz(); sfx('bad'); markMove(sanAt(k, u), false, u); queue.push(queue.shift()!); show(Object.keys(mv).map(arrow), false);
+    buzz(); sfx('bad'); markMove(sanAt(k, u), false, u); scheduleCard(k, Rating.Again); queue.push(queue.shift()!);
+    show(Object.keys(mv).map(arrow), false);
     const base = Object.keys(mv).map(x => noteOf(k, x)).filter(Boolean).join('\n'); showNote(base); explainWrong(k, u, base);
     msg(`Not quite. You prepared ${Object.values(mv).join(' or ')}.`, 'bad');
     $('#act').innerHTML = `<div class="row"><button data-act="next" class="primary">Next card</button></div>`;
@@ -1184,9 +1274,35 @@ function themeSelect() {
   const opts = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 60);
   return `<label class="field">Theme<select id="t-theme"><option value="all">All themes</option>${opts.map(t => `<option value="${t}" ${S.ptheme === t ? 'selected' : ''}>${humanTheme(t)} (${counts[t]})</option>`).join('')}</select></label>`;
 }
+const tSetRow = () => `<div class="row mini" role="group" aria-label="Set size">${[5, 10, 20].map(n => `<button data-act="tset" data-u="${n}" class="${S.newPuzzles === n ? 'on' : ''}" title="A set of ${n} puzzles">${n}</button>`).join('')}</div>`;
 const tTiles = () => `<div class="tiles"><div class="tile"><b>${Math.round(pstats.rating)}</b><span>Rating</span></div><div class="tile"><b>${pstats.streak}</b><span>Streak</span></div><div class="tile"><b>${pstats.solved}</b><span>Solved</span></div></div>`;
 
-function tacticsInit(extra = 0) { tQueue = puzzleQueue(extra); tTotal = tQueue.length; tRequeued.clear(); tacticsNext(); }
+type TResult = { id: string; kind: 'solve' | 'hint' | 'fail' };
+let tResults: TResult[] = [];
+function tacticsInit(extra = 0) { tQueue = puzzleQueue(extra); tTotal = tQueue.length; tRequeued.clear(); tResults = []; tacticsNext(); }
+/** What the set just taught: how many were clean, and how each theme went. */
+function tacticsSummary() {
+  const rank = { solve: 3, hint: 2, fail: 1 } as const;
+  const best = new Map<string, TResult['kind']>();
+  for (const r of tResults) { const prev = best.get(r.id); if (!prev || rank[r.kind] > rank[prev]) best.set(r.id, r.kind); }
+  const byTheme = new Map<string, { ok: number; n: number }>();
+  for (const [id, kind] of best) {
+    const p = pmap().get(id); if (!p) continue;
+    for (const t of p.themes.filter(x => !['short', 'long', 'oneMove'].includes(x))) {
+      const e = byTheme.get(t) ?? { ok: 0, n: 0 };
+      e.n++; if (kind !== 'fail') e.ok++;
+      byTheme.set(t, e);
+    }
+  }
+  const n = best.size, clean = [...best.values()].filter(k => k === 'solve').length;
+  if (!n) return '';
+  const sorted = [...byTheme.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 6);
+  const rows = sorted.map(([t, e]) => `<div class="srow"><span>${esc(humanTheme(t))}</span><b>${e.ok}/${e.n}</b></div>`).join('');
+  const weak = sorted.filter(([, e]) => e.ok < e.n).slice(0, 3)
+    .map(([t]) => `<button data-act="tth" data-u="${esc(t)}">Practise ${esc(humanTheme(t))}</button>`).join('');
+  return `<div class="summary"><h3>${n} puzzle${n === 1 ? '' : 's'} · ${clean} clean · ${Math.round((clean / n) * 100)}%</h3>${rows}
+    ${weak ? `<div class="row mini">${weak}</div>` : ''}</div>`;
+}
 function tacticsNext() {
   session++; tGraded = false; tHinted = false; tFailed = false; const tok = session;
   $('#bar').hidden = !tTotal; $('#bar i').style.width = tTotal ? `${Math.max(0, (tTotal - tQueue.length) / tTotal) * 100}%` : '0';
@@ -1195,7 +1311,7 @@ function tacticsNext() {
     tRun = undefined; pos = Chess.default(); line = []; last = undefined; tColor = undefined; show([], false);
     $('#path').textContent = '';
     msg(tTotal ? `Session done. ${tTotal} puzzles.` : 'No puzzles to do right now.', 'ok');
-    $('#act').innerHTML = `${tTiles()}${themeSelect()}<div class="row"><button data-act="tmore" class="primary">Practice more</button></div>`;
+    $('#act').innerHTML = `${tacticsSummary()}${tTiles()}${themeSelect()}<div class="row"><button data-act="tmore" class="primary">Practice more</button></div>`;
     return;
   }
   const p = pmap().get(tQueue[0])!; tRun = new PuzzleRun(p); tColor = tRun.solverColor;
@@ -1203,7 +1319,7 @@ function tacticsNext() {
   const done = tTotal - tQueue.length;
   $('#path').textContent = `Puzzle ${done + 1} of ${tTotal} · rated ${p.rating} (you ${Math.round(pstats.rating)}) · ${S.ptheme === 'all' ? 'all themes' : humanTheme(S.ptheme)}`;
   msg('Get ready…');
-  $('#act').innerHTML = `${tTiles()}${themeSelect()}<div class="row"><button data-act="thint">Hint</button><button data-act="tsolution">Show solution</button><button data-act="tskip">Skip</button></div>`;
+  $('#act').innerHTML = `${tTiles()}${tSetRow()}${themeSelect()}<div class="row"><button data-act="thint">Hint</button><button data-act="tsolution">Show solution</button><button data-act="tskip">Skip</button></div>`;
   setTimeout(() => {
     if (tok !== session || !tRun) return;
     const u = tRun.setupMove(); pos = tRun.pos; if (u) last = u;
@@ -1215,6 +1331,9 @@ function gradePuzzle(kind: 'fail' | 'solve' | 'hint') {
   const p = tRun.p, ur = pstats.rating, exp = 1 / (1 + 10 ** ((p.rating - ur) / 400));
   const sc = kind === 'solve' ? 1 : kind === 'hint' ? 0.5 : 0;
   pstats.rating = Math.max(400, ur + 24 * (sc - exp));
+  tResults.push({ id: p.id, kind });
+  pstats.hist ??= {};
+  { const d = today(), e = pstats.hist[d] ?? (pstats.hist[d] = { ok: 0, n: 0 }); e.n++; if (kind !== 'fail') e.ok++; }
   if (kind === 'fail') { pstats.failed++; pstats.streak = 0; tFailed = true; } else { pstats.solved++; pstats.streak++; pstats.best = Math.max(pstats.best, pstats.streak); }
   sched(pcards, p.id, kind === 'solve' ? Rating.Good : kind === 'hint' ? Rating.Hard : Rating.Again);
 }
@@ -1279,21 +1398,23 @@ function endgamesInit() {
   const groups = [...new Set(defs.map(d => d.group))];
   const status = (d: DrillDef) => { const c = ecards[d.id]; return !c ? 'new' : isDue(c) ? 'due' : rel(new Date(c.due)); };
   const grade = (d: DrillDef) => { const c = ecards[d.id]; return !c?.last ? '' : c.last === 'good' ? '✓' : c.last === 'hard' ? '~' : '✕'; };
+  const bestOfDrill = (d: DrillDef) => { const b = ecards[d.id]?.best; return b ? `${b.moves}${b.secs ? ` / ${b.secs}s` : ''}` : ''; };
   const practised = defs.filter(d => ecards[d.id]).length;
   const next = nextDrill();
   msg('Pick an endgame. You play against Stockfish.');
   $('#path').textContent = `${practised} of ${defs.length} practised · mistakes are taken back so you can try again`;
   showNote(next.blurb ? `Next up — ${next.name}: ${next.blurb}` : '');
   $('#act').innerHTML = `<div class="row"><button data-act="enext" class="primary">Next drill: ${esc(next.name)}</button><button data-act="ecustom">Practise a FEN</button></div>` +
-    groups.map(g => `<h3>${esc(g)}</h3><div class="list">${defs.filter(d => d.group === g).map(d => `<button class="item" data-act="edrill" data-u="${d.id}"><span>${esc(d.name)}</span><span class="pill ${d.goal}">${d.goal === 'win' ? 'win' : 'hold'}</span><span class="stat ${grade(d) === '✕' ? 'due' : ''}">${grade(d) ? `<b title="last result">${grade(d)}</b> ` : ''}${status(d)}</span></button>`).join('')}</div>`).join('');
+    groups.map(g => `<h3>${esc(g)}</h3><div class="list">${defs.filter(d => d.group === g).map(d => `<button class="item" data-act="edrill" data-u="${d.id}"><span>${esc(d.name)}</span><span class="pill ${d.goal}">${d.goal === 'win' ? 'win' : 'hold'}</span><span class="stat ${grade(d) === '✕' ? 'due' : ''}">${grade(d) ? `<b title="last result">${grade(d)}</b> ` : ''}${status(d)}${bestOfDrill(d) ? `<b class="best" title="best run"> ${bestOfDrill(d)}</b>` : ''}</span></button>`).join('')}</div>`).join('');
   updateDue();
 }
 function nextDrill() {
   const defs = allDrills();
   return defs.find(d => ecards[d.id] && isDue(ecards[d.id])) ?? defs.find(d => !ecards[d.id]) ?? defs[0];
 }
+let eStart = 0;
 async function startDrill(def: DrillDef) {
-  session++; const tok = session;
+  session++; const tok = session; eStart = Date.now();
   eRun = new DrillRun(def, engine, S.engineMs); pos = eRun.pos; eColor = eRun.color; last = undefined; eEnded = false; eBusy = true;
   $('#bar').hidden = def.goal !== 'hold'; $('#bar i').style.width = '0';
   show([], false); msg('Starting the engine…'); $('#path').textContent = def.name; showNote(def.blurb);
@@ -1327,7 +1448,12 @@ async function endgameAnswer(m: any) {
 function finishDrill(end: DrillEnd) {
   const run = eRun!; eEnded = true; eBusy = false; show([], false);
   const due = sched(ecards, run.def.id, end.grade === 'good' ? Rating.Good : end.grade === 'hard' ? Rating.Hard : Rating.Again);
-  const card = (ecards[run.def.id] ??= {}); card.last = end.grade; card.plays = (card.plays ?? 0) + 1; card.ok = end.ok; save();
+  const card = (ecards[run.def.id] ??= {}); card.last = end.grade; card.plays = (card.plays ?? 0) + 1; card.ok = end.ok;
+  const secs = eStart ? Math.round((Date.now() - eStart) / 1000) : undefined;
+  if (end.ok && run.moves && (!card.best || run.moves < card.best.moves || (run.moves === card.best.moves && secs && secs < (card.best.secs ?? 1e9)))) {
+    card.best = { moves: run.moves, secs };
+  }
+  save();
   msg(end.text, end.ok ? 'ok' : 'bad'); sfx(end.ok ? 'done' : 'bad'); if (end.ok) flash('ok');
   $('#path').textContent = `${run.def.name} · ${run.mistakes} mistake${run.mistakes === 1 ? '' : 's'}${run.hinted ? ' · hint used' : ''} · next review ${rel(due)}`;
   $('#act').innerHTML = `<div class="row"><button data-act="eagain" class="primary">Again</button><button data-act="enext">Next drill</button><button data-act="elist">All endgames</button></div>`;
@@ -1519,6 +1645,12 @@ document.addEventListener('click', e => {
   else if (a === 'tpromo') promoteAt(u.split(' ').filter(Boolean));
   else if (a === 'mprev') buildStep(-1);
   else if (a === 'mnext') buildStep(1);
+  else if (a === 'tag' && last && lastKey) {
+    const nk = lastKey + '|' + last, snap = snapRep();
+    cur!.tags ??= {};
+    if (cur!.tags[nk] === u) delete cur!.tags[nk]; else cur!.tags[nk] = u;
+    save(); renderBuild(); undoable(cur!.tags[nk] ? `${lastSan} marked ${u}.` : `${lastSan} unmarked.`, snap);
+  }
   else if (a === 'undo2') doUndo();
   else if (a === 'redo2') doRedo();
   else if (a === 'selall') { if (picked.size) picked.clear(); else walkLines().forEach((_, i) => picked.add(i)); renderBuild(); }
@@ -1534,8 +1666,17 @@ document.addEventListener('click', e => {
   else if (a === 'paste') { const t = ($('#paste') as HTMLTextAreaElement | null)?.value ?? ''; if (!pasteLine(t)) toast('Nothing legal to add there.', { ms: 2400 }); }
   else if (a === 'copyline') copyText(line.length ? pgnOfLine(line) : 'Nothing played yet.');
   else if (a === 'gaps') void findGaps();
+  else if (a === 'wjump') { line = pathTo(u); renderBuild(); msg('This is where that move is played — the chip is below.'); }
+  else if (a === 'nameline') { const ls = walkLines(); if (ls[+u]) void nameLine(ls[+u]); }
+  else if (a === 'unflag') { if (cur?.bad) { delete cur.bad[u]; save(); renderBuild(); toast('Flag cleared.', { ms: 1600 }); } }
   else if (a === 'checkline') void checkLine();
   else if (a === 'gapadd') { line.push(u); renderBuild(); msg(`Now play the answer you want to ${sanOfUci(key(pos), u)}.`); }
+  else if (a === 'wnotes') {
+    wNotes = !wNotes; walkPanel();
+    const l = wLines[wIdx] ?? line;
+    showNote(wNotes ? (lineNotes(l) || 'No notes in this line yet.') : noteOf(lastKey, last));
+    if (wNotes) msg('Notes for this line — hide them again before you play it.');
+  }
   else if (a === 'wback') walkStep(-1);
   else if (a === 'wfwd') walkStep(1);
   else if (a === 'lprev') { if (!wLines.length) wLines = walkLines(); startWalkLine(wIdx - 1); }
@@ -1581,6 +1722,7 @@ document.addEventListener('click', e => {
   }
   else if (a === 'wnext') { wLines = walkLines(); wHtml = undefined; startWalkLine(wIdx + 1); }
   else if (a === 'next') reviewNext();
+  else if (a === 'grade' && mode === 'review') applyReviewGrade(+u as Rating);
   else if (a === 'reveal' && mode === 'review' && queue.length) {
     locked = true;
     const k = queue[0], mv = cur!.moves[k] || {};
@@ -1603,6 +1745,8 @@ document.addEventListener('click', e => {
   else if (a === 'tskip') tacticsAdvance(true);
   else if (a === 'tnext') tacticsAdvance();
   else if (a === 'tmore') tacticsInit(10);
+  else if (a === 'tset') { S.newPuzzles = Math.max(1, Math.min(100, +u)); save(); tacticsInit(); }
+  else if (a === 'tth') { S.ptheme = u; save(); tacticsInit(); }
   else if (a === 'edrill') startDrill(allDrills().find(d => d.id === u)!);
   else if (a === 'enext') startDrill(nextDrill());
   else if (a === 'ecustom') customDrill();
@@ -1640,7 +1784,42 @@ document.addEventListener('dragover', e => {
   e.preventDefault(); c.classList.add('over');
 });
 document.addEventListener('dragleave', e => (e.target as HTMLElement).closest?.('.chip')?.classList.remove('over'));
+/* Dragging a tree row onto a sibling row re-orders the branches at that point. */
+let dragSeg: { par: string; first: string } | undefined;
+document.addEventListener('dragstart', e => {
+  const seg = (e.target as HTMLElement).closest?.('.tseg') as HTMLElement | null;
+  if (!seg || !seg.dataset.first) return;
+  dragSeg = { par: seg.dataset.par ?? '', first: seg.dataset.first };
+  seg.classList.add('dragging');
+});
+document.addEventListener('dragend', () => { dragSeg = undefined; document.querySelectorAll('.tseg.dragging,.tseg.over').forEach(x => x.classList.remove('dragging', 'over')); });
+document.addEventListener('dragover', e => {
+  const seg = (e.target as HTMLElement).closest?.('.tseg') as HTMLElement | null;
+  if (!seg || !dragSeg || !seg.dataset.first) return;
+  if ((seg.dataset.par ?? '') !== dragSeg.par) return;           // only among siblings
+  e.preventDefault(); seg.classList.add('over');
+});
 document.addEventListener('drop', e => {
+  const seg = (e.target as HTMLElement).closest?.('.tseg') as HTMLElement | null;
+  if (seg && dragSeg && cur) {
+    e.preventDefault();
+    const onto = seg.dataset.first ?? '', move = dragSeg.first, par = dragSeg.par;
+    if (onto && move && (seg.dataset.par ?? '') === par && move !== onto) {
+      const p = Chess.default(); for (const u of par.split(' ').filter(Boolean)) p.play(parseUci(u)!);
+      const k = key(p), mv = cur.moves[k];
+      if (mv && mv[move] && mv[onto]) {
+        const snap = snapRep();
+        const rest = Object.entries(mv).filter(([x]) => x !== move);
+        const at = rest.findIndex(([x]) => x === onto);
+        rest.splice(at < 0 ? rest.length : at, 0, [move, mv[move]]);
+        cur.moves[k] = Object.fromEntries(rest);
+        save(); renderBuild(); undoable('Reordered the branches here.', snap);
+      }
+    }
+    dragSeg = undefined;
+    document.querySelectorAll('.tseg.dragging,.tseg.over').forEach(x => x.classList.remove('dragging', 'over'));
+    return;
+  }
   const c = (e.target as HTMLElement).closest?.('.chip') as HTMLElement | null;
   if (!c || !dragChip || !cur) return;
   e.preventDefault(); c.classList.remove('over');
@@ -1697,6 +1876,7 @@ document.addEventListener('keydown', e => {
   }
   else if (e.key === 'Backspace' && mode === 'build' && line.length) { e.preventDefault(); line.pop(); renderBuild(); }
   else if (e.key === 'h' && mode !== 'build') $('[data-act=hint]')?.click();
+  else if (mode === 'review' && reviewGrade && !reviewGrade.done && ['1', '2', '3', '4'].includes(e.key)) { e.preventDefault(); applyReviewGrade(+e.key as Rating); }
   else if ((e.key === 'Enter' || e.key === ' ') && $('[data-act=next]')) { e.preventDefault(); reviewNext(); }
 });
 $('#rep').addEventListener('change', (e: any) => { cur = reps.find(r => r.id === e.target.value); save(); enter(mode); });
@@ -1772,6 +1952,7 @@ async function init() {
       console.log('Loaded', reps.length, 'repertoires from', fs.path);
     }
     kvSet('reps', reps);
+    if (fs.note) toast(`⚠ ${fs.note}. Your data is safe; a fresh file will be written.`, { ms: 9000 });
   }
   imported = (await kvGet('puzzles')) ?? []; pcards = (await kvGet('pcards')) ?? {}; pstats = { ...pstats, ...((await kvGet('pstats')) ?? {}) };
   ecards = (await kvGet('ecards')) ?? {}; egCustom = (await kvGet('egcustom')) ?? [];

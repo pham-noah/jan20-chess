@@ -49,6 +49,22 @@ fn load_local(app: tauri::AppHandle) -> Result<Option<String>, String> {
     std::fs::read_to_string(&path).map(Some).map_err(|e| e.to_string())
 }
 
+/// Move an unreadable file out of the way so the next save cannot destroy it. Returns the new path.
+#[tauri::command]
+fn backup_local(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = local_path(&app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let aside = path.with_file_name(format!("jan20-repertoire.broken-{}.json", stamp));
+    std::fs::rename(&path, &aside).map_err(|e| e.to_string())?;
+    Ok(Some(aside.display().to_string()))
+}
+
 /// Where that file lives, so Settings can show it.
 #[tauri::command]
 fn local_path_hint(app: tauri::AppHandle) -> Result<String, String> {
@@ -60,7 +76,7 @@ fn main() {
         .manage(LastState(Mutex::new(String::new())))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![save_local, load_local, local_path_hint])
+        .invoke_handler(tauri::generate_handler![save_local, load_local, local_path_hint, backup_local])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 flush_on_close(&window.app_handle());

@@ -182,6 +182,25 @@ textarea{width:100%;min-height:96px;resize:vertical}
 .tseg:hover .tacts{opacity:1}
 .tseg .tacts button{min-height:0;height:18px;padding:0 5px;font-size:.7rem;color:var(--dim);background:none;border:0;box-shadow:none}
 .tseg .tacts button:hover{color:var(--ink)}
+.tseg.dragging{opacity:.45}
+.tseg.over{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:7px}
+.lname{color:var(--accent);font-weight:700;font-size:.8rem}
+.weakrow{grid-template-columns:auto 1fr auto auto;align-items:center}
+.weakrow .delta{color:#c0392b;font-size:.74rem;font-variant-numeric:tabular-nums;min-width:3em}
+.weakrow .walk{color:var(--ink);font-weight:600;font-size:.86rem}
+.tag{font-size:.72rem;font-weight:800;margin-left:2px;vert-align:super}
+.tag.t-nag{color:var(--accent)}
+.tag.t-trap{color:#c0392b}
+.annots{margin:-6px 0 8px}
+.tagbtn{min-height:28px;min-width:30px;padding:0 6px;font-size:.8rem;font-weight:700}
+.tagbtn.on{border-color:var(--accent);color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+.grades{gap:6px;margin-bottom:4px}
+.grades button{flex:1 1 0;min-height:34px;font-size:.82rem;font-weight:600}
+.grades button.on{border-color:var(--accent);color:var(--accent)}
+.summary{margin:2px 0 10px}
+.summary h3{font-size:.86rem;margin:0 0 6px}
+.srow{display:flex;justify-content:space-between;gap:10px;font-size:.8rem;color:var(--dim);padding:1px 0;border-top:1px solid var(--line)}
+.srow b{color:var(--ink);font-variant-numeric:tabular-nums}
 .tnote{padding:2px 0 8px calc(var(--d, 0) * 14px + 22px)}
 .tnote textarea{min-height:64px;font-size:.82rem}
 .viewseg{margin:6px 0 8px}
@@ -265,7 +284,7 @@ body[data-mode=review] #strip{order:9}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0 0 12px}
 .keys dt{font:650 .85rem var(--sans);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:2px 9px;justify-self:start}
 .keys dd{margin:0;color:var(--dim)}
-@media(min-width:820px){#toast{bottom:28px}}
+@media(min-width:820px){#toast{left:auto;right:22px;bottom:22px;transform:none;max-width:min(38vw,420px)}}
 
 /* Small phones */
 @media(max-width:360px){

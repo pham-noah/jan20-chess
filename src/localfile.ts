@@ -42,10 +42,17 @@ export async function initFile(ctx: Ctx): Promise<FileState> {
 /** Read whatever is in the file already (desktop only: the browser file is loaded by the user). */
 export async function readFile(): Promise<any | undefined> {
   if (!tauri()) return undefined;
-  try {
-    const text = await tauri().core.invoke('load_local');
-    return text ? JSON.parse(text) : undefined;
-  } catch { return undefined; }
+  let text: string | undefined;
+  try { text = await tauri().core.invoke('load_local'); } catch { return undefined; }
+  if (!text) return undefined;
+  try { return JSON.parse(text); } catch {
+    // The file is not valid JSON. Keep it: move it aside, then let a fresh file be written from what we have.
+    try {
+      const aside = await tauri().core.invoke('backup_local');
+      state.note = aside ? `the file could not be read and was moved to ${aside}` : 'the file could not be read';
+    } catch { state.note = 'the file could not be read'; }
+    return undefined;
+  }
 }
 
 /** Ask the user for a file and start writing to it (browser). */

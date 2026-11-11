@@ -123,6 +123,33 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+FEATURES (v15)
+- **Move annotations**: !, !?, ?!, ?, ?? and a ⚑ "trap" mark on any move, chosen from a palette under the note box,
+  drawn as a glyph on the chip, in the tree and in the line list, and exported to PGN as real NAGs ($1, $5, $6, $2,
+  $4). Undoable like every other edit.
+- **You grade the review card.** A correct answer shows Again / Hard / Good / Easy (keys 1–4) with the automatic choice
+  marked; the default is applied after six seconds if you ignore it, and choosing Again puts the card back in the
+  session. A miss is still graded Again automatically.
+- **Weak spots**: every move the engine guard flagged, worst first, with how many pawns it gives up — click one to jump
+  to it, ✕ to clear the flag. This is the ⚠ data finally being useful rather than a badge you see once.
+- **Tactics**: set size (5 / 10 / 20) is chosen in the panel, and the end-of-set summary offers "Practise <theme>" for
+  whichever themes you got wrong, which restarts a set filtered to that theme.
+- **Line names**: name any line ("Fried Liver") from the ✎ in the line list; the name shows in the list, on the line's
+  leaf in the tree, and when Walk starts that line.
+- **Progress over time**: reviews per day and tactics results per day are recorded, and the status strip shows the last
+  seven days — "7-day 78% (54)" in Tactics, "12 reviews this week" in Review.
+
+UX PASS 3 (v14)
+- Tactics ends a set with a summary instead of a bare "Session done": how many puzzles, how many clean, the accuracy,
+  and a per-theme table ("Crushing 4/5, Middlegame 2/3, Trap 1/1"). Revealed and skipped puzzles are counted the way
+  they were graded, so the number matches the rating change you just felt.
+- Learn can show **every note in the line** on demand (Notes button) instead of only revealing one when you reach that
+  move — the notes for a whole line are also shown automatically once the line is finished, so nothing is spoiled early.
+- The tree rows are draggable: drop a branch on a sibling to re-order it, which is what numbers the Walk lines. It only
+  accepts drops among siblings (a row's own parent path has to match), it is undoable, and ↑ still sends one to the front.
+- Endgames remembers each drill's best run ("18 / 12s" — fewest moves, then fastest) beside the last result and the due
+  date, and the panel says how many drills you have practised.
+
 UX PASS 2 (v13, continued) — the gaps the first pass listed are closed
 - Review's controls now sit above the note text (a note used to outrank the thing you were supposed to do), and the
   space under the short panel carries state: "Italian Game · line 5 of 33" and "last seen … · next due …".

@@ -51,6 +51,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1400)
     tp = pg.inner_text('#path')
     check('tactics says where you are in the set', 'Puzzle' in tp and ' of ' in tp, tp[:50])
+    check('a set size can be chosen from the panel', pg.locator('[data-act=tset]').count() >= 3, str(pg.locator('[data-act=tset]').count()))
     pg.click('[data-act=tsolution]'); pg.wait_for_timeout(900)
     check('a finished puzzle says what it was teaching', 'Why this one' in pg.inner_text('#note'), pg.inner_text('#note')[:44])
     # pieces css loads lazily when selected
