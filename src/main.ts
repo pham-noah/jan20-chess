@@ -885,12 +885,15 @@ function walkPanel() {
   if (bar && bi) { bar.hidden = !wLines.length; bi.style.width = wLines.length ? `${(done / wLines.length) * 100}%` : '0'; }
   const rows = wLines.map((l, i) => {
     const ok = !!seen[lineKey(l)];
-    return `<button class="item ${i === wIdx ? 'on' : ''} ${ok ? 'done' : ''}" data-act="wline" data-u="${i}"><span>${i + 1}.${ok ? ' <b class="tick">✓</b>' : ''}</span><span class="walk">${wHtml![i]}</span></button>`;
+    const plain = wHtml![i].replace(/<[^>]*>/g, '').toLowerCase();
+    return `<button class="item ${i === wIdx ? 'on' : ''} ${ok ? 'done' : ''}" data-act="wline" data-u="${i}" data-line="${esc(plain)}"><span>${i + 1}.${ok ? ' <b class="tick">✓</b>' : ''}</span><span class="walk">${wHtml![i]}</span></button>`;
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
     <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><span class="grow"></span><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
     <p class="dim kbdhint">Drag a move or type one · ← → step through the line · H hint · ? all shortcuts</p>
-    <h3>All lines (${wLines.length}) · ${done} discovered · playing line ${wIdx + 1}</h3><div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div>`;
+    <h3>All lines (${wLines.length}) · ${done} discovered · playing line ${wIdx + 1}</h3>
+    ${wLines.length > 8 ? '<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>' : ''}
+    <div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div>`;
 }
 function startWalkLine(i: number) {
   if (!wLines.length) return;
@@ -1195,7 +1198,7 @@ function showSolution() {
   const run = tRun; if (!run) return; gradePuzzle('fail'); locked = true;
   showNote(`Why this one: ${puzzleThemes(run.p) || 'tactics'}.`);
   const rest = run.p.moves.slice(run.i);
-  msg(`Solution: ${sanLine(fenOf(run.pos), rest)}`, 'bad');
+  msg(`Solution: ${sanLine(fenOf(run.pos), rest)} — counted as a miss.`);
   show(rest.length ? [arrow(rest[0])] : [], false);
   $('#act').innerHTML = `<div class="row"><button data-act="tnext" class="primary">Next puzzle</button></div>`;
 }
@@ -1588,7 +1591,7 @@ document.addEventListener('input', e => {
   const el = e.target as HTMLTextAreaElement;
   if (el.id === 'linefilter') {                       // filter the numbered lines in place, without a re-render
     const q = el.value.trim().toLowerCase();
-    const rows = [...document.querySelectorAll('#act .rowline')] as HTMLElement[];
+    const rows = [...document.querySelectorAll('#act .rowline, #act .item[data-act=wline]')] as HTMLElement[];
     let shown = 0;
     rows.forEach(r => { const hit = !q || (r.dataset.line ?? '').includes(q); r.hidden = !hit; if (hit) shown++; });
     const c = document.querySelector('#linecount'); if (c) c.textContent = q ? `${shown} of ${rows.length} lines` : '';
