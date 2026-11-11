@@ -131,7 +131,8 @@ MARKS ON THE SQUARE, AND THE RIGHT KING (v18)
   light board or a dark one.
 - **Everything on the board speaks one language now**: a tinted *box* on the square (inset ring, the same as the move
   ✓/✕ mark) plus a small *square* tile on its corner — white tile with a black `#` for mate, coloured tile with a white
-  glyph for annotations. No pills, no floating glyphs.
+  glyph for annotations, green/red tile for the check and cross during training. No circles, no pills, no floating
+  glyphs: the ✓ and ✕ marks were discs until they were made square to match.
 - **The board badge is toned like chess.com's annotations**: `!` and `!?` green, `?!` amber, `?` and `??` red, our trap flag
   purple — the same disc-with-white-ring language as the move ✓/✕ badge, sized to the glyph so `??` still fits.
 - **A marked move now carries its badge on the board.** The annotation of the move you are looking at is drawn on the

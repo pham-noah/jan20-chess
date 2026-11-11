@@ -99,6 +99,9 @@ with sync_playwright() as p:
         check('the board badge carries the glyph', '!' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
         check('the badge is toned by the annotation (good = green, chess.com style)',
               pg.locator('#endmark .tagmark.good').count() == 1, pg.eval_on_selector('#endmark .mm', 'e => e.className'))
+        check('the check/cross mark is a square tile too, not a circle',
+              pg.locator('#mmarks .g').count() == 0 or pg.eval_on_selector('#mmarks .g', 'e => getComputedStyle(e).borderTopLeftRadius') == '3px',
+              pg.eval_on_selector('#mmarks .g', 'e => getComputedStyle(e).borderTopLeftRadius') if pg.locator('#mmarks .g').count() else 'expired')
         check('the annotation badge is a square tile, not a pill',
               pg.eval_on_selector('#endmark .tagmark .g', 'e => getComputedStyle(e).borderTopLeftRadius') == '3px',
               pg.eval_on_selector('#endmark .tagmark .g', 'e => getComputedStyle(e).borderTopLeftRadius'))

@@ -90,7 +90,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .marks .mm.tagmark.mid .g{background:#c8871c}
 .marks .mm.tagmark.bad .g{background:#c0392b}
 .marks .mm.tagmark.trap .g{background:#5b4b8a}
-.marks .mm .g{position:absolute;top:0;right:0;transform:translate(50%,-50%);display:flex;align-items:center;justify-content:center;width:50%;height:50%;border-radius:50%;color:#fff;font:800 min(3.6vw,18px)/1 var(--sans);box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 2px 8px rgba(0,0,0,.5)}
+.marks .mm .g{position:absolute;top:0;right:0;transform:translate(50%,-50%);display:flex;align-items:center;justify-content:center;width:50%;height:50%;border-radius:3px;color:#fff;font:800 min(3.6vw,18px)/1 var(--sans);box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 2px 8px rgba(0,0,0,.5)}
 .marks .mm.ok .g{background:#1f7a4d}
 .marks .mm.bad .g{background:#c0392b}
 .marks .mm.stale .g{background:#6b7280}
