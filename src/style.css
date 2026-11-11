@@ -85,7 +85,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .marks .mm.stale{background:rgba(120,120,120,.3);box-shadow:inset 0 0 0 3px rgba(120,120,120,.85)}
 .marks .mm.mate{background:rgba(20,20,20,.3);box-shadow:inset 0 0 0 3px rgba(20,20,20,.85)}
 .marks .mm.tagmark{background:none;box-shadow:none}
-.marks .mm.tagmark .g{width:50%;height:50%;padding:0;border-radius:3px;color:#fff;font:800 min(2.9vw,15px)/1 var(--sans);letter-spacing:-.06em;box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 2px 8px rgba(0,0,0,.5);transform:translate(38%,-50%)}
+.marks .mm.tagmark .g{width:50%;height:50%;padding:0;border-radius:3px;color:#fff;font:800 min(2.9vw,15px)/1 var(--sans);letter-spacing:-.06em;box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 2px 8px rgba(0,0,0,.5);transform:translate(40%,-50%)}
 .marks .mm.tagmark.brilliant .g{background:#26c2a3}
 .marks .mm.tagmark.great .g{background:#749bbf}
 .marks .mm.tagmark.interesting .g{background:#95b776}
@@ -93,11 +93,16 @@ main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .marks .mm.tagmark.mistake .g{background:#ffa459;color:#1b1b1b}
 .marks .mm.tagmark.blunder .g{background:#fa412d}
 .marks .mm.tagmark.trap .g{background:#5b4b8a}
-.marks .mm .g{position:absolute;top:0;right:0;transform:translate(50%,-50%);display:flex;align-items:center;justify-content:center;width:50%;height:50%;border-radius:3px;color:#fff;font:800 min(3.6vw,18px)/1 var(--sans);box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 2px 8px rgba(0,0,0,.5)}
+/* the badge hangs on the square's corner; on the last file and the top rank it is pulled inside
+   the board instead, so nothing is cut off */
+.marks .mm.edge-right .g{transform:translate(0,-50%)}
+.marks .mm.edge-top .g{transform:translate(40%,0)}
+.marks .mm.edge-top.edge-right .g{transform:translate(0,0)}
+.marks .mm .g{position:absolute;top:0;right:0;transform:translate(40%,-50%);display:flex;align-items:center;justify-content:center;width:50%;height:50%;border-radius:3px;color:#fff;font:800 min(3.6vw,18px)/1 var(--sans);box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 2px 8px rgba(0,0,0,.5)}
 .marks .mm.ok .g{background:#1f7a4d}
 .marks .mm.bad .g{background:#c0392b}
 .marks .mm.stale .g{background:#6b7280}
-.marks .mm.mate .g{width:50%;height:50%;background:#fff;color:#0a0a0a;font:800 min(3.1vw,17px)/1 var(--sans);border-radius:3px;box-shadow:0 0 0 2.5px rgba(0,0,0,.72),0 2px 6px rgba(0,0,0,.45);transform:translate(38%,-50%)}
+.marks .mm.mate .g{width:50%;height:50%;background:#fff;color:#0a0a0a;font:800 min(3.1vw,17px)/1 var(--sans);border-radius:3px;box-shadow:0 0 0 2.5px rgba(0,0,0,.72),0 2px 6px rgba(0,0,0,.45);transform:translate(40%,-50%)}
 @keyframes mmark{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
 #board.flash-ok{animation:flashok .7s ease-out}
 #board.flash-bad{animation:flashbad .45s ease-out}

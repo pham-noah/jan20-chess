@@ -126,9 +126,26 @@ const arrow = (u: string) => {
   return { orig: makeSquare(m.from), dest: makeSquare(to), brush: 'hint' };
 };
 function lastPair(u: string) {
-  const m: any = parseUci(u)!; let to = m.to;
-  if ((m.from === 4 || m.from === 60) && [0, 7, 56, 63].includes(m.to) && !pos.board.get(m.to)) to = m.to > m.from ? m.from + 2 : m.from - 2;
-  return [makeSquare(m.from), makeSquare(to)] as any;
+  const m: any = parseUci(u)!; const to = landingOf(u, lastKey);
+  return [makeSquare(m.from), makeSquare(to < 0 ? m.to : to)] as any;
+}
+/** Where a move actually lands. Castling is stored as king-takes-rook (e1h1), so the king's real
+    destination is two files over — the same correction lastPair makes for the highlight. */
+/** Where a move lands, judged from the position BEFORE it was played (castling is stored as
+    king-takes-rook, e1h1, so the king really lands two files over). */
+function landingOf(u: string, preKey?: string): number {
+  const m = parseUci(u) as any; if (!m) return -1;
+  let at = pos; if (preKey) { try { at = fromKey(preKey); } catch { /* keep pos */ } }
+  const pc = at.board.get(m.from);
+  const df = (m.to & 7) - (m.from & 7);
+  if (pc?.role === 'king' && Math.abs(df) > 1) return m.from + 2 * Math.sign(df);
+  return m.to;
+}
+/** Keep a corner badge inside the board when its square is on the top row or the h-file. */
+function edgeClasses(d: HTMLElement, sq: number) {
+  const black = orient() === 'black', f = sq & 7, r = sq >> 3;
+  d.classList.toggle('edge-right', (black ? 7 - f : f) === 7);
+  d.classList.toggle('edge-top', (black ? r : 7 - r) === 0);
 }
 const buzz = () => {
   if (!S.haptics) return;
@@ -194,10 +211,12 @@ const markMove = (san: string, ok: boolean, uci?: string) => {
     d.className = 'mm ' + cls;
     d.style.left = `${(black ? 7 - f : f) * 12.5}%`;
     d.style.top = `${(black ? r : 7 - r) * 12.5}%`;
+    edgeClasses(d, sq);
     return d;
   };
   layer.appendChild(cell(m.from, ok ? 'ok' : 'bad'));
-  const dest = cell(m.to, (ok ? 'ok' : 'bad') + ' dest');
+  const land = landingOf(uci!, lastKey);
+  const dest = cell(land, (ok ? 'ok' : 'bad') + ' dest');
   dest.innerHTML = `<span class="g" aria-hidden="true">${ok ? '✓' : '✕'}</span>`;
   dest.title = san;
   layer.appendChild(dest);
@@ -215,6 +234,7 @@ function renderBoardMarks() {
     d.className = 'mm ' + cls + ' dest';
     d.style.left = `${(black ? 7 - f : f) * 12.5}%`;
     d.style.top = `${(black ? r : 7 - r) * 12.5}%`;
+    edgeClasses(d, sq);
     d.innerHTML = `<span class="g" aria-hidden="true">${glyph}</span>`;
     d.title = title;
     layer.appendChild(d);
@@ -231,7 +251,8 @@ function renderBoardMarks() {
     const m = parseUci(mu) as any;
     const meta = TAGS.find(x => x[0] === tag);
     const tone = TAG_TONE[tag] || 'blunder';
-    if (m) put(m.to, `tagmark ${tone}`, meta ? meta[1] : tag, meta ? `${sanAt(mk!, mu)}: ${meta[2]}` : sanAt(mk!, mu));
+    const land = landingOf(mu, mk);
+    if (m) put(land >= 0 ? land : m.to, `tagmark ${tone}`, meta ? meta[1] : tag, meta ? `${sanAt(mk!, mu)}: ${meta[2]}` : sanAt(mk!, mu));
   }
   // and the ending is drawn on the king that has none
   const mate = pos.isCheckmate(), stale = !mate && pos.isStalemate();

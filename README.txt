@@ -123,6 +123,15 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+CASTLING AND THE EDGES (v19)
+- **Castling marks were one file out.** A castle is stored king-takes-rook (`e1h1`), and the badge went to the square
+  the move was *written* with, i.e. h1 — where the rook used to be — instead of g1. The landing square is now computed
+  from the position *before* the move: a king whose file distance is more than one lands two files over. Both the
+  annotation tile and the ✓/✕ badge and the last-move highlight use that one rule, so they can never disagree again.
+- **Badges no longer get cut off at the board edge.** The badge is anchored to the square's right/top corner, so a mark
+  on the h-file or the top rank hung outside the clipped overlay and lost a corner. Those squares now pull the badge
+  inside (`.edge-right`, `.edge-top`), verified by measuring the tile against the board rectangle.
+
 MARKS ON THE SQUARE, AND THE RIGHT KING (v18)
 - **The mate badge was on the wrong king.** `board.king` in chessops is a SquareSet holding both kings, and the code took
   the first one — so mating Black put the hash on your own king. It now picks the king of the side to move, the side

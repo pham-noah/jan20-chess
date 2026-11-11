@@ -172,6 +172,28 @@ with sync_playwright() as p:
     check('the message says checkmate', msg(pg).startswith('Checkmate'), msg(pg))
     black = mate_line('Fool black', ['e2e4', 'f7f6', 'd2d4', 'g7g5', 'd1h5'])
     check('it also lands on a mated black king (e8)', black.startswith('50% 0%'), black)
+    # castling lands on g1, not on the rook's square, and corner badges stay inside the board
+    pg.click('header [data-act=new]'); pg.fill('#dn', 'Castle'); pg.click('#dok'); pg.wait_for_timeout(400)
+    play(pg, ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1c4', 'f8c5', 'e1g1']); pg.wait_for_timeout(600)
+    if pg.locator('[data-act=tag]').count():
+        pg.click('[data-act=tag]'); pg.wait_for_timeout(500)
+        spot = pg.eval_on_selector('#endmark .mm', 'e => e.style.left + " " + e.style.top')
+        check('a castling annotation lands on g1, not on the h1 rook', spot.startswith('75% 87.5%'), spot)
+    ins = pg.evaluate("""() => {
+      const b = document.querySelector('#board cg-board').getBoundingClientRect();
+      const g = document.querySelector('#endmark .g') || document.querySelector('#mmarks .dest .g');
+      if (!g) return null; const q = g.getBoundingClientRect();
+      return q.left >= b.left - 1 && q.right <= b.right + 1 && q.top >= b.top - 1 && q.bottom <= b.bottom + 1;
+    }""")
+    check('a badge on the edge is not cut off by the board', ins is True, str(ins))
+    play(pg, ['h7h6']); pg.wait_for_timeout(250)
+    ins2 = pg.evaluate("""() => {
+      const b = document.querySelector('#board cg-board').getBoundingClientRect();
+      const g = document.querySelector('#mmarks .dest .g'); if (!g) return null;
+      const q = g.getBoundingClientRect();
+      return q.right <= b.right + 1 && q.left >= b.left - 1;
+    }""")
+    check('a tick on the h-file stays inside the board', ins2 is True, str(ins2))
     print('console/page errors:', errs or 'none'); b.close()
 
 print(sum(1 for r in results if r[1]), '/', len(results))
