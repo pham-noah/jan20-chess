@@ -133,8 +133,10 @@ MARKS ON THE SQUARE, AND THE RIGHT KING (v18)
   ✓/✕ mark) plus a small *square* tile on its corner — white tile with a black `#` for mate, coloured tile with a white
   glyph for annotations, green/red tile for the check and cross during training. No circles, no pills, no floating
   glyphs: the ✓ and ✕ marks were discs until they were made square to match.
-- **The board badge is toned like chess.com's annotations**: `!` and `!?` green, `?!` amber, `?` and `??` red, our trap flag
-  purple — the same disc-with-white-ring language as the move ✓/✕ badge, sized to the glyph so `??` still fits.
+- **The board badge uses chess.com's exact classification palette** (checked against their published list, not guessed):
+  `!!` brilliant `#26C2A3`, `!` great move `#749BBF`, `!?` interesting `#95B776`, `?!` dubious `#F7C631`,
+  `?` mistake `#FFA459`, `??` blunder `#FA412D`; our own trap flag stays purple. The glyphs carry the same colours
+  inline wherever a line is printed, and `!!` exports as the real NAG `$3`.
 - **A marked move now carries its badge on the board.** The annotation of the move you are looking at is drawn on the
   corner of its destination square — in the Editor as soon as you mark it, and in Learn while that ply is on the board
   (including the pause when a line is done, before the walk moves on).

@@ -86,9 +86,12 @@ main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 .marks .mm.mate{background:rgba(20,20,20,.3);box-shadow:inset 0 0 0 3px rgba(20,20,20,.85)}
 .marks .mm.tagmark{background:none;box-shadow:none}
 .marks .mm.tagmark .g{width:50%;height:50%;padding:0;border-radius:3px;color:#fff;font:800 min(2.9vw,15px)/1 var(--sans);letter-spacing:-.06em;box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 2px 8px rgba(0,0,0,.5);transform:translate(38%,-50%)}
-.marks .mm.tagmark.good .g{background:#1f7a4d}
-.marks .mm.tagmark.mid .g{background:#c8871c}
-.marks .mm.tagmark.bad .g{background:#c0392b}
+.marks .mm.tagmark.brilliant .g{background:#26c2a3}
+.marks .mm.tagmark.great .g{background:#749bbf}
+.marks .mm.tagmark.interesting .g{background:#95b776}
+.marks .mm.tagmark.dubious .g{background:#f7c631;color:#1b1b1b}
+.marks .mm.tagmark.mistake .g{background:#ffa459;color:#1b1b1b}
+.marks .mm.tagmark.blunder .g{background:#fa412d}
 .marks .mm.tagmark.trap .g{background:#5b4b8a}
 .marks .mm .g{position:absolute;top:0;right:0;transform:translate(50%,-50%);display:flex;align-items:center;justify-content:center;width:50%;height:50%;border-radius:3px;color:#fff;font:800 min(3.6vw,18px)/1 var(--sans);box-shadow:0 0 0 2.5px rgba(255,255,255,.92),0 2px 8px rgba(0,0,0,.5)}
 .marks .mm.ok .g{background:#1f7a4d}
@@ -206,6 +209,13 @@ textarea{width:100%;min-height:96px;resize:vertical}
 .weakrow .delta{color:#c0392b;font-size:.74rem;font-variant-numeric:tabular-nums;min-width:3em}
 .weakrow .walk{color:var(--ink);font-weight:600;font-size:.86rem}
 .tag{font-size:.72rem;font-weight:800;margin-left:2px;vert-align:super}
+.tag.t-brilliant{color:#26c2a3}
+.tag.t-great{color:#749bbf}
+.tag.t-interesting{color:#95b776}
+.tag.t-dubious{color:#c99a10}
+.tag.t-mistake{color:#d9791f}
+.tag.t-blunder{color:#e23a26}
+.tag.t-trap{color:#7c6bb5}
 .tag.t-nag{color:var(--accent)}
 .tag.t-trap{color:#c0392b}
 .annots{margin:-6px 0 8px}

@@ -142,14 +142,21 @@ const orient = () => (mode === 'tactics' && tColor ? tColor : mode === 'endgames
 const mine = () => (cur!.color === 'white' ? 'w' : 'b');
 const noteOf = (k?: string, u?: string) => (k && u ? cur?.notes?.[k + '|' + u] : undefined) || '';
 /** Move annotations, the way a scoresheet carries them. `trap` is our own. */
-const TAGS: [string, string, string][] = [['!', '!', 'good move'], ['!?', '!?', 'interesting'], ['?!', '?!', 'dubious'], ['?', '?', 'mistake'], ['??', '??', 'blunder'], ['trap', '⚑', 'a trap to remember']];
-const TAG_NAG: Record<string, number> = { '!': 1, '?': 2, '??': 4, '!?': 5, '?!': 6 };
+const TAGS: [string, string, string][] = [
+  ['!!', '!!', 'brilliant'], ['!', '!', 'great move'], ['!?', '!?', 'interesting'],
+  ['?!', '?!', 'dubious'], ['?', '?', 'mistake'], ['??', '??', 'blunder'], ['trap', '⚑', 'a trap to remember'],
+];
+const TAG_NAG: Record<string, number> = { '!!': 3, '!': 1, '?': 2, '??': 4, '!?': 5, '?!': 6 };
+/** chess.com's own classification palette, so a mark reads the way players already read them. */
+const TAG_TONE: Record<string, string> = {
+  '!!': 'brilliant', '!': 'great', '!?': 'interesting', '?!': 'dubious', '?': 'mistake', '??': 'blunder', trap: 'trap',
+};
 const tagOf = (k?: string, u?: string) => (k && u ? cur?.tags?.[k + '|' + u] : undefined) || '';
 const tagHtml = (k?: string, u?: string) => {
   const t = tagOf(k, u); if (!t) return '';
   const meta = TAGS.find(x => x[0] === t);
   const glyph = meta ? meta[1] : t;
-  return `<b class="tag t-${t === 'trap' ? 'trap' : 'nag'}" title="${esc(meta ? meta[2] : t)}">${esc(glyph)}</b>`;
+  return `<b class="tag t-${TAG_TONE[t] || 'nag'}" title="${esc(meta ? meta[2] : t)}">${esc(glyph)}</b>`;
 };
 const showNote = (t: string) => { const n = $('#note'); n.textContent = t; n.hidden = !t; };
 
@@ -223,7 +230,7 @@ function renderBoardMarks() {
   if (tag && mu) {
     const m = parseUci(mu) as any;
     const meta = TAGS.find(x => x[0] === tag);
-    const tone = tag === '!' || tag === '!?' ? 'good' : tag === '?!' ? 'mid' : tag === 'trap' ? 'trap' : 'bad';
+    const tone = TAG_TONE[tag] || 'blunder';
     if (m) put(m.to, `tagmark ${tone}`, meta ? meta[1] : tag, meta ? `${sanAt(mk!, mu)}: ${meta[2]}` : sanAt(mk!, mu));
   }
   // and the ending is drawn on the king that has none

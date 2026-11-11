@@ -97,8 +97,12 @@ with sync_playwright() as p:
         pg.click('[data-act=mnext]'); pg.wait_for_timeout(500)
         check('an annotation is drawn on the board square', pg.locator('#endmark .tagmark').count() == 1, str(pg.locator('#endmark .tagmark').count()))
         check('the board badge carries the glyph', '!' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
-        check('the badge is toned by the annotation (good = green, chess.com style)',
-              pg.locator('#endmark .tagmark.good').count() == 1, pg.eval_on_selector('#endmark .mm', 'e => e.className'))
+        check('the badge is toned by the annotation (chess.com palette)',
+              pg.locator('#endmark .tagmark.brilliant').count() == 1 or pg.locator('#endmark .tagmark.great').count() == 1,
+              pg.eval_on_selector('#endmark .mm', 'e => e.className'))
+        check('the palette offers !! brilliant and ! great move',
+              pg.eval_on_selector_all('[data-act=tag]', 'e => e.map(x => x.dataset.u)')[:2] == ['!!', '!'],
+              pg.eval_on_selector_all('[data-act=tag]', 'e => e.map(x => x.dataset.u)'))
         check('the check/cross mark is a square tile too, not a circle',
               pg.locator('#mmarks .g').count() == 0 or pg.eval_on_selector('#mmarks .g', 'e => getComputedStyle(e).borderTopLeftRadius') == '3px',
               pg.eval_on_selector('#mmarks .g', 'e => getComputedStyle(e).borderTopLeftRadius') if pg.locator('#mmarks .g').count() else 'expired')
