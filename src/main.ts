@@ -15,7 +15,7 @@ import { chessgroundDests } from 'chessops/compat';
 import { fsrs, createEmptyCard, Rating } from 'ts-fsrs';
 import { engine } from './engine';
 import { initFile, readFile, writeSoon, writeNow, fileState, linkFile, unlinkFile, filePicking, fileNative } from './localfile';
-import { toEngine, fenOf, fromFen } from './uci';
+import { toEngine, fenOf, fromFen, fromEngine } from './uci';
 import { PuzzleRun, parseCsvLine, humanTheme, sanLine, type Puzzle } from './puzzle';
 import { DrillRun, type DrillDef, type DrillEnd } from './drill';
 import { DRILLS } from './endgames';
@@ -301,9 +301,30 @@ const queueKeys = () => {
   return shuffle([...due, ...fresh]);
 };
 const dueCount = (store: Record<string, any>) => Object.keys(store).filter(k => isDue(store[k])).length;
+/** Three facts about where you are, pinned to the foot of the panel so a short mode is not a blank column. */
+function renderStrip() {
+  const el = $('#strip') as HTMLElement | null; if (!el) return;
+  const bits: [string, string][] = [];
+  if (mode === 'build' && cur) {
+    bits.push([String(Object.keys(cur.moves).length), 'positions'], [String(walkLines().length), 'lines'], [String(cur.bad ? Object.keys(cur.bad).length : 0), 'flagged']);
+  } else if (mode === 'learn' && cur) {
+    const ls = wLines.length ? wLines : walkLines();
+    bits.push([String(ls.filter(seenLine).length), 'discovered'], [String(ls.length), 'lines'], [String(bestOf('drill')), 'best streak']);
+  } else if (mode === 'review' && cur) {
+    bits.push([String(dueCount(cur.cards)), 'due today'], [String(Object.keys(cur.cards).length), 'seen before'], [String(queue.length), 'cards left']);
+  } else if (mode === 'tactics') {
+    bits.push([String(Math.round(pstats.rating)), 'rating'], [String(pstats.streak), 'streak'], [String(pstats.best ?? 0), 'best streak']);
+  } else if (mode === 'endgames') {
+    const defs = allDrills();
+    bits.push([String(defs.filter(d => ecards[d.id]).length), 'practised'], [String(defs.length), 'drills'], [String(defs.filter(d => ecards[d.id] && isDue(ecards[d.id])).length), 'due']);
+  }
+  el.hidden = !bits.length;
+  el.innerHTML = bits.map(([v, l]) => `<span><b>${esc(v)}</b>${esc(l)}</span>`).join('');
+}
 const updateDue = () => {
   $('#due').textContent = cur ? queueKeys().length || '' : '';
   $('#tdue').textContent = dueCount(pcards) || ''; $('#edue').textContent = dueCount(ecards) || '';
+  renderStrip();
 };
 
 function buildIndex() {
@@ -456,6 +477,10 @@ function leavesUnder(k: string): number {
   return n;
 }
 const sanOfUci = (k: string, u: string): string => { const p = fromKey(k); const m = parseUci(u); return m ? makeSan(p, m) : u; };
+/** Stockfish can report castling as king-takes-rook; bring any engine move back into our own UCI space. */
+const engNorm = (k: string, uci: string): string => {
+  try { const m = fromEngine(fromKey(k), uci); return m ? makeUci(m as any) : uci; } catch { return uci; }
+};
 async function copyText(t: string) {
   try { await navigator.clipboard.writeText(t); toast('Copied to the clipboard.', { ms: 1600 }); }
   catch { toast('Could not reach the clipboard.', { ms: 2000 }); }
@@ -514,6 +539,27 @@ function paintWarn(u: string, delta?: number) {
   b.title = `About ${(delta / 100).toFixed(1)} worse than the best move here`;
   chip.insertBefore(b, chip.querySelector('[data-act=del]'));
 }
+/** Say why the repertoire move is the repertoire move: the engine's view, compared with the move's own note. */
+async function whyBook(k: string, u: string) {
+  if (!cur || !S.explain) return;
+  const base = noteOf(k, u);
+  if (base) return;                                  // the author already explained it
+  const tok = session, fen = fenOf(fromKey(k)), p = fromKey(k);
+  try {
+    const r = await engine.search(fen, { ms: Math.min(600, Math.max(300, S.engineMs)), multipv: 3 });
+    if (tok !== session || mode !== 'review') return;
+    const mine = r.lines.find(l => engNorm(k, l.pv[0]) === u) ?? (engNorm(k, r.best) === u ? { score: r.score, pv: [u] } : undefined);
+    const san = sanAt(k, u);
+    const bestSan = r.best ? sanOfUci(k, engNorm(k, r.best)) : '';
+    const cp = (x?: number) => (x == null ? '—' : (x >= 0 ? '+' : '') + (x / 100).toFixed(1));
+    const text = !mine
+      ? `Book move: ${san}. The engine did not rank it in its top three here (it likes ${bestSan}).`
+      : bestSan && bestSan !== san
+        ? `Book move: ${san} (${cp(mine.score)}). The engine's first choice is ${bestSan} (${cp(r.score)}) — the book keeps to its plan.`
+        : `Book move: ${san} — the engine's first choice too (${cp(r.score)}).`;
+    showNote(text);
+  } catch { /* no engine, no explanation */ }
+}
 async function checkBlunder(k: string, u: string, quiet = false) {
   if (!cur || !S.explain) return;
   if (fromKey(k).turn !== cur.color) return;      // a mistake by the opponent is a trap you want, not a warning
@@ -521,12 +567,12 @@ async function checkBlunder(k: string, u: string, quiet = false) {
     const fen = fenOf(fromKey(k));
     const ms = Math.min(700, Math.max(300, S.engineMs));
     const r = await engine.search(fen, { ms, multipv: 4 });
-    let mine = r.lines.find(l => l.pv[0] === u);
-    if (!mine) { const s = await engine.search(fen, { ms: 350, searchmoves: [u] }); mine = { score: s.score, mate: s.mate, pv: [u] }; }
+    let mine = r.lines.find(l => engNorm(k, l.pv[0]) === u);
+    if (!mine) { const s = await engine.search(fen, { ms: 350, searchmoves: [toEngine(fromKey(k), parseUci(u) as any)] }); mine = { score: s.score, mate: s.mate, pv: [u] }; }
     const delta = r.score - (mine.score ?? 0), nk = k + '|' + u;
     if (delta >= 150) {
       (cur.bad ??= {})[nk] = delta; save(); paintWarn(u, delta);
-      if (!quiet) toast(`⚠ ${sanOfUci(k, u)} is about ${(delta / 100).toFixed(1)} worse than ${sanOfUci(k, r.best)} here. Saved anyway — Ctrl+Z to drop it.`, { ms: 6000 });
+      if (!quiet) toast(`⚠ ${sanOfUci(k, u)} is about ${(delta / 100).toFixed(1)} worse than ${sanOfUci(k, engNorm(k, r.best))} here. Saved anyway — Ctrl+Z to drop it.`, { ms: 6000 });
     } else if (cur.bad?.[nk]) { delete cur.bad[nk]; save(); paintWarn(u, undefined); }
   } catch { /* no engine available: stay quiet */ }
 }
@@ -781,6 +827,7 @@ function repertoireTree(): TNode {
   return mk(START, 0);
 }
 let treeView = true;                     // tree is the default view of the repertoire
+let noteEditId: string | undefined;      // which tree row has its note editor open
 const collapsed = new Set<string>();     // nodes folded away, by path
 /** A run of moves with no branch in it, rendered as one row. Indentation happens only where the repertoire
  *  actually splits — a 20-move line should not look like a 20-level staircase. */
@@ -836,9 +883,15 @@ function treeMarkup(): string {
       ? `<span class="cnt">${seg.kids.length} branches${seg.leaves === seg.kids.length ? '' : ` · ${seg.leaves} lines`}</span>`
       : `<span class="ln">line ${seg.leaf}</span>`;
     const promo = seg.kids.length ? `<button data-act="tpromo" data-u="${[...seg.path, seg.moves[0]?.u].filter(Boolean).join(' ')}" title="Make this the first branch here" aria-label="Make this the first branch here">↑</button>` : '';
+    const lastMove = seg.moves[seg.moves.length - 1];
+    const penId = seg.moves.length ? [...seg.path, ...seg.moves.map(m => m.u)].join(' ') : '';
+    const pen = lastMove ? `<button data-act="tnote" data-u="${penId}" title="Note for ${esc(lastMove.san)}" aria-label="Edit the note for ${esc(lastMove.san)}">✎</button>` : '';
     out.push(`<div class="tseg ${onPath ? 'on' : ''} ${isNow ? 'now' : ''}" style="--d:${Math.min(depth, 10)}">
       ${caret}<span class="run">${run}</span>${cnt}
-      <span class="tacts">${promo}</span></div>`);
+      <span class="tacts">${promo}${pen}</span></div>`);
+    if (noteEditId === penId && lastMove) {
+      out.push(`<div class="tnote"><textarea id="tn-ed" data-k="${lastMove.pk}|${lastMove.u}" maxlength="800" placeholder="Note for ${esc(lastMove.san)} — why this move, what to remember">${esc(noteOf(lastMove.pk, lastMove.u))}</textarea></div>`);
+    }
     if (!folded) for (const kid of seg.kids) draw(kid, depth + 1);
   };
   draw(root, 0);
@@ -1100,7 +1153,8 @@ function reviewAnswer(u: string, k: string) {
   if (ok) {
     markMove(mv[u], true, u); play(u); sfx('ok'); flash('ok'); show([], false); showNote(noteOf(k, u)); msg(`Correct. Next review ${rel(r.due)}.`, 'ok'); queue.shift();
     $('#act').innerHTML = `<div class="row"><button data-act="next" class="primary">Next card ›</button></div>`;
-    const wait = noteOf(k, u) ? 4200 : 2200;
+    void whyBook(k, u);
+    const wait = noteOf(k, u) ? 4200 : 3200;
     const tok = session; setTimeout(() => { if (mode === 'review' && tok === session) reviewNext(); }, wait);
   } else {
     buzz(); sfx('bad'); markMove(sanAt(k, u), false, u); queue.push(queue.shift()!); show(Object.keys(mv).map(arrow), false);
@@ -1166,9 +1220,22 @@ function gradePuzzle(kind: 'fail' | 'solve' | 'hint') {
 }
 function tacticsAnswer(m: any) {
   const run = tRun; if (!run) return;
+  const tok0 = session;
   const san = (() => { try { return makeSan(run.pos, m); } catch { return '?'; } })();
   const u = toEngine(run.pos, m), r = run.try(u, m);
-  if (r === 'wrong') { buzz(); sfx('bad'); markMove(san, false, makeUci(m)); gradePuzzle('fail'); msg('Not that one. Try again.', 'bad'); showNote(`Looking for: ${puzzleThemes(run.p) || 'the best move'}.`); show(); return; }
+  if (r === 'wrong') {
+    buzz(); sfx('bad'); markMove(san, false, makeUci(m)); gradePuzzle('fail');
+    msg('Not that one. Try again.', 'bad');
+    const base = `Looking for: ${puzzleThemes(run.p) || 'the best move'}.`;
+    showNote(base); show();
+    if (S.explain) {
+      const fen = fenOf(run.pos), want = [run.p.moves[run.i]].filter(Boolean);
+      void explain(engine, fen, u, want, Math.min(500, S.engineMs))
+        .then(t => { if (tok0 === session && mode === 'tactics') showNote(`${base}\n\n${t}`); })
+        .catch(() => { /* engine unavailable */ });
+    }
+    return;
+  }
   markMove(san, true, makeUci(m));
   pos = run.pos; last = u; show([], false);
   if (r === 'solved') { sfx('done'); flash('ok'); return finishPuzzle(); }
@@ -1447,6 +1514,7 @@ document.addEventListener('click', e => {
   else if (a === 'viewlines') { treeView = false; renderBuild(); }
   else if (a === 'tnode') openNode(u.split(' ').filter(Boolean));
   else if (a === 'tfold') { if (collapsed.has(u)) collapsed.delete(u); else collapsed.add(u); renderBuild(); }
+  else if (a === 'tnote') { noteEditId = noteEditId === u ? undefined : u; renderBuild(); setTimeout(() => ($('#tn-ed') as HTMLTextAreaElement | null)?.focus(), 30); }
   else if (a === 'tcut' || a === 'tcutm') cutAt(u.split(' ').filter(Boolean));
   else if (a === 'tpromo') promoteAt(u.split(' ').filter(Boolean));
   else if (a === 'mprev') buildStep(-1);
@@ -1597,6 +1665,14 @@ document.addEventListener('input', e => {
     const c = document.querySelector('#linecount'); if (c) c.textContent = q ? `${shown} of ${rows.length} lines` : '';
     return;
   }
+  if (el.id === 'tn-ed') {                              // the tree's inline note editor
+    if (!cur) return;
+    const nk = el.dataset.k!;
+    cur.notes ??= {};
+    if (noteSnapKey !== nk) { noteSnapKey = nk; snapNow(); }
+    if (el.value.trim()) cur.notes[nk] = el.value.trim(); else delete cur.notes[nk];
+    save(); return;
+  }
   if (el.id !== 'note-ed' || !cur || !last || !lastKey) return;
   cur.notes ??= {}; const nk = lastKey + '|' + last;
   if (noteSnapKey !== nk) { noteSnapKey = nk; snapNow(); }
@@ -1605,13 +1681,14 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('keydown', e => {
   if (document.querySelector('dialog[open]')) return;
+  if (e.key === 'Escape' && noteEditId) { noteEditId = undefined; renderBuild(); return; }
   const typing = (e.target as HTMLElement).matches('input,textarea,select');
   if ((e.ctrlKey || e.metaKey) && !typing && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); return void (e.shiftKey ? doRedo() : doUndo()); }
   if ((e.ctrlKey || e.metaKey) && !typing && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); return void doRedo(); }
   if (typing) return;
   if (e.key === '?') return void $('#keys').showModal();
   if (!cur && opening(mode)) return;
-  if (e.key === 'Escape') { cg.cancelPremove(); return; }
+  if (e.key === 'Escape') { if (noteEditId) { noteEditId = undefined; renderBuild(); return; } cg.cancelPremove(); return; }
   if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && mode === 'build') {
     e.preventDefault(); buildStep(e.key === 'ArrowRight' ? 1 : -1);
   }
