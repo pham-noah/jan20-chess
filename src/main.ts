@@ -316,14 +316,14 @@ function renderStrip() {
   const el = $('#strip') as HTMLElement | null; if (!el) return;
   const bits: [string, string][] = [];
   if (mode === 'build' && cur) {
-    bits.push([String(Object.keys(cur.moves).length), 'positions'], [String(walkLines().length), 'lines'], [String(cur.bad ? Object.keys(cur.bad).length : 0), 'flagged']);
+    bits.push([String(Object.keys(cur.moves).length), 'positions'], [String(Object.keys(cur.moves).filter(k => k.split(' ')[1] === mine()).length), 'yours'], [String(walkLines().length), 'lines'], [String(cur.bad ? Object.keys(cur.bad).length : 0), 'flagged']);
   } else if (mode === 'learn' && cur) {
     const ls = wLines.length ? wLines : walkLines();
     bits.push([String(ls.filter(seenLine).length), 'discovered'], [String(ls.length), 'lines'], [String(bestOf('drill')), 'best streak']);
   } else if (mode === 'review' && cur) {
     const h = cur.hist ?? {}, days = Object.keys(h).sort().slice(-7);
     const week = days.reduce((a, d) => a + h[d], 0);
-    bits.push([String(dueCount(cur.cards)), 'due today'], [String(week), 'reviews this week'], [String(queue.length), 'cards left']);
+    bits.push([String(dueCount(cur.cards)), 'due today'], [String(Object.keys(cur.cards).length), 'seen before'], [String(week), 'reviews this week']);
   } else if (mode === 'tactics') {
     const w = weekAccuracy();
     bits.push([String(Math.round(pstats.rating)), 'rating'], [w.n ? `${w.pct}%` : '—', `7-day (${w.n})`], [String(pstats.streak), 'streak']);
@@ -697,7 +697,7 @@ function renderBuild() {
   show(); showNote('');
   const keys = Object.keys(cur!.moves);
   const mv = cur!.moves[key(pos)] || {};
-  msg(pos.turn === cur!.color ? 'Your move. Play it on the board to save it.' : 'Opponent’s move. Play a reply you want to prepare for.');
+  msg(pos.turn === cur!.color ? 'Play a move to save it.' : 'Prepare a reply.');
   $('#path').textContent = pathText(line);
   const here = key(pos), isMine = pos.turn === cur!.color;
   const chips = Object.entries(mv).map(([u, s], i) => {
@@ -719,13 +719,13 @@ function renderBuild() {
     `<div class="rowline ${i === 0 ? 'first' : ''}" data-line="${esc((plain[i] + ' ' + lineName(l)).toLowerCase())}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lineName(l) ? `<b class="lname">${esc(lineName(l))}</b> ` : ''}${lhtml[i]}</button><button data-act="nameline" data-u="${i}" title="Name this line" aria-label="Name line ${i + 1}">✎</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
   const lineList = `<div class="linehead"><div class="seg viewseg" role="tablist"><button data-act="viewtree" class="${treeView ? 'on' : ''}">Tree</button><button data-act="viewlines" class="${treeView ? '' : 'on'}">Lines (${lines.length})</button></div><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
     ${treeView
-      ? `<div class="tree">${treeMarkup()}</div><p class="dim kbdhint">Click a move to jump there · ▾ folds · ✕ cuts that move and what only it reached · ↑ makes that branch first</p>`
+      ? `<div class="tree">${treeMarkup()}</div>`
       : `${lines.length > 6 ? `<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>` : ''}<div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
     ${lines.length ? `<div class="row mini"><button data-act="selall">${picked.size ? 'Clear selection' : 'Select all'}</button><button data-act="delpick" class="danger" ${picked.size ? '' : 'disabled'}>Delete selected</button>${others.length ? `<select id="copytarget" aria-label="Copy the selected lines into another pack"><option value="">Copy to…</option>${others.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><button data-act="copypick" ${picked.size ? '' : 'disabled'}>Copy</button>` : ''}</div>` : ''}`}`;
   $('#act').innerHTML = `<div class="chips">${chips || '<span class="dim">No saved moves from this position yet.</span>'}</div>
     ${editor}
     <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
-    <p class="stats">${keys.length} positions · ${keys.filter(k => k.split(' ')[1] === mine()).length} yours · ${lines.length} line${lines.length === 1 ? '' : 's'}<br>here: ${Object.keys(mv).length} saved move${Object.keys(mv).length === 1 ? '' : 's'} · ${through} line${through === 1 ? '' : 's'} through · ${below} line-end${below === 1 ? '' : 's'} below</p>
+    <p class="stats">here: ${Object.keys(mv).length} saved move${Object.keys(mv).length === 1 ? '' : 's'} · ${through} line${through === 1 ? '' : 's'} through · ${below} ends below</p>
     <details><summary>Lines and tree</summary>${lineList}</details>
     <details><summary>Paste or copy a line</summary>
       <textarea id="paste" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 — pasted from anywhere, variations and comments ignored"></textarea>
@@ -1004,8 +1004,8 @@ function walkPanel() {
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
     <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="wnotes" class="${wNotes ? 'on' : ''}" title="Show every note in this line">Notes</button><span class="grow"></span><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
-    <p class="dim kbdhint">Drag a move or type one · ← → step through the line · H hint · ? all shortcuts</p>
-    <h3>All lines (${wLines.length}) · ${done} discovered · playing line ${wIdx + 1}</h3>
+    <p class="dim kbdhint">Drag or type a move · ? shortcuts</p>
+    <h3>All lines (${wLines.length})</h3>
     ${wLines.length > 8 ? '<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>' : ''}
     <div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div>`;
 }

@@ -173,7 +173,7 @@ textarea{width:100%;min-height:96px;resize:vertical}
 .tseg .tsan.opp{font-weight:500;color:var(--dim)}
 .tseg.on .tsan.opp{color:color-mix(in srgb, var(--accent) 70%, var(--dim))}
 .tseg .tsan .n{color:var(--dim);font-weight:400;margin-right:2px;font-variant-numeric:tabular-nums;font-size:.8rem}
-.tseg .x{display:inline;min-height:0;background:none;border:0;box-shadow:none;padding:0 1px;border-radius:3px;font-size:.6rem;line-height:1;color:var(--dim);opacity:.32}
+.tseg .x{display:inline;min-height:0;background:none;border:0;box-shadow:none;padding:0 2px;margin-left:3px;border-radius:3px;font-size:.6rem;line-height:1;color:var(--dim);opacity:.22}
 .tseg:hover .x{opacity:.85}
 .tseg .x:hover{color:#c0392b}
 .tseg .cnt{float:right;color:var(--dim);font-size:.72rem;margin-left:8px;white-space:nowrap}
@@ -262,7 +262,7 @@ body[data-mode=review] #act{order:4}
 body[data-mode=review] #note{order:5;margin-top:4px}
 body[data-mode=review] #panel .reviewmeta{order:6}
 body[data-mode=review] #strip{order:9}
-.statusstrip{display:flex;gap:16px;flex-wrap:wrap;margin-top:auto;padding-top:10px;border-top:1px solid var(--line);font-size:.7rem;color:var(--dim);letter-spacing:.02em}
+.statusstrip{position:sticky;bottom:-2px;display:flex;gap:16px;flex-wrap:wrap;margin-top:auto;padding:8px 0 2px;border-top:1px solid var(--line);background:var(--panel);font-size:.7rem;color:var(--dim);letter-spacing:.02em}
 .statusstrip b{display:block;font-size:1rem;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.2}
 .statusstrip span{min-width:56px}
 .reviewmeta{display:grid;gap:2px;font-size:.78rem;color:var(--dim);padding-top:10px;border-top:1px solid var(--line)}

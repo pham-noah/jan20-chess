@@ -123,6 +123,18 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+TEXT PASS (v15)
+- Cut the standing instruction paragraphs and the duplicated counts. The Editor said its position and line counts twice
+  (once as a paragraph, once in the status strip) and kept a 20-word tree tutorial permanently on screen; both are gone,
+  the counts moved into the strip and the tutorial into the keyboard-shortcuts sheet. Learn stated its line number twice
+  ("Line 1 of 33" and "playing line 1") and its discovered count twice; the heading is now just "All lines (33)".
+  Chrome text per screen went from 46 → 35 words (Editor), 44 → 32 (Learn), 34 → 28 (Review).
+- Shorter in the places that were throat-clearing: "Play a move to save it." / "Prepare a reply." instead of two
+  sentences; the welcome and library blurbs lost a clause each.
+- Fixed while looking: "33 below" regained the word it needed ("33 ends below"), Review's strip no longer says
+  "0 due today" beside 15 cards, the tree's ✕ no longer reads as part of the notation ("e4✕"), and the status strip
+  sticks to the bottom of a long panel instead of living under 2500 px of tree.
+
 IF THE LIVE FILE IS DAMAGED (v15)
 - A live file that cannot be parsed is never overwritten. It is renamed to `jan20-repertoire.broken-<unix>.json` first,
   the app carries on from what it has stored, and it says so in a toast. Your old data is then still on disk, unlike
