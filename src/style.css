@@ -158,6 +158,9 @@ textarea{width:100%;min-height:96px;resize:vertical}
 .rowline .pick{width:15px;height:15px;margin:5px 0 0;accent-color:var(--accent)}
 .rowline{grid-template-columns:auto 2.2em 1fr auto}
 .kbdhint{font-size:.78rem;margin:2px 0 8px;line-height:1.4}
+.setprev{display:flex;justify-content:center;margin:6px 0 12px}
+#setprev.cg-wrap{width:180px;height:180px;border-radius:10px;overflow:hidden;flex:0 0 auto}
+@media(max-width:560px){.setprev{display:none}}
 .grow{flex:1 1 auto}
 .hintline{color:var(--dim);font-size:.78rem;font-variant-numeric:tabular-nums}
 @media(min-width:820px){.board-wrap{position:sticky;top:14px}}

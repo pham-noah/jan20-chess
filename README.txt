@@ -123,6 +123,16 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+SHOW, DON'T TELL (v16)
+- **Endgames show the position.** Hovering (or tabbing to) a drill draws that endgame on the big board, with the real
+  pieces, before you commit to it — the board is idle in the list, so it becomes the preview. Small postage stamps in
+  each row were tried first and removed: at 54 px the pieces were unreadable decoration.
+- **Tactics draw the motif.** When the solution is shown, the move that lands is drawn to the enemy pieces it now
+  attacks (purple arrows), so "Why this one: Fork" is something you see rather than read.
+- **Settings show their effect.** A live 180 px board under the Settings heading reflects board colours, piece set and
+  coordinates as you change them, instead of naming them.
+- **Review progress is notched**: one notch per card on the bar, with "Card 1 of 15" still spelled out.
+
 SHOW, DON'T TELL (v15)
 The rule now applied where the app was talking instead of drawing:
 - **The board shows the repertoire.** Every move saved at the position you are on is drawn on the board as an arrow

@@ -59,9 +59,28 @@ with sync_playwright() as p:
     pg.click('header [data-act=settings]'); pg.select_option('#s-pieces', 'merida'); pg.wait_for_timeout(700)
     check('piece set CSS loads on demand', sum('pieces-' in u for u in reqs) > n0 or n0 > 0)
     pg.click('#set [data-act=closedlg]')
+    # --- show, don't tell: progress as notches, the fork drawn on the board
+    pg.click('[data-m=review]'); pg.wait_for_timeout(900)
+    if pg.locator('[data-act=rstart]').count(): pg.click('[data-act=rstart]'); pg.wait_for_timeout(700)
+    check('review: the bar is notched per card',
+          'repeating-linear-gradient' in pg.eval_on_selector('#bar', 'e => e.style.backgroundImage'),
+          pg.eval_on_selector('#bar', 'e => e.style.backgroundImage')[:40])
+    check('review: the count is still spelled out too', 'Card 1 of' in pg.inner_text('#act'), pg.inner_text('#act')[:40])
+    pg.click('[data-m=tactics]'); pg.wait_for_timeout(1200)
+    fork = False; strokes = []
+    for _ in range(6):
+        try:
+            pg.click('[data-act=tsolution]'); pg.wait_for_timeout(700)
+            strokes = pg.eval_on_selector_all('#board .cg-shapes line', 'e => e.map(x => x.getAttribute("stroke"))')
+            if '#7c5cff' in strokes: fork = True; break
+        except Exception: pass
+        if pg.locator('[data-act=tnext]').count(): pg.click('[data-act=tnext]'); pg.wait_for_timeout(900)
+    check('tactics: the solution draws what the move attacks', fork, strokes)
+
     check('no console or page errors on desktop', not errs, errs)
     ctx.close()
     # layouts
+
     for name, vp, mob in (('landscape', {'width': 844, 'height': 390}, True), ('tiny', {'width': 320, 'height': 568}, True), ('tablet', {'width': 768, 'height': 1024}, True)):
         c = b.new_context(viewport=vp, is_mobile=mob, has_touch=True, device_scale_factor=2, service_workers='block'); q = c.new_page()
         goto_app(q); q.click('text=Add starter lines'); q.click('[data-u=evans]'); q.wait_for_timeout(700)

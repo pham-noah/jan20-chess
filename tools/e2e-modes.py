@@ -62,5 +62,21 @@ with sync_playwright() as p:
     check('arena: rating line and book summary shown', 'rating' in pg.inner_text('#path').lower(), pg.inner_text('#path'))
     pg.screenshot(path='/tmp/shots/arena-end.png')
     print('   arena result:', txt, '|', pg.inner_text('#path'), '|', pg.inner_text('#note')[:120].replace('\n', ' '))
+
+    # --- show, don't tell: the board carries the information the copy used to
+    pg.click('[data-m=endgames]'); pg.wait_for_timeout(900)
+    if pg.locator('[data-act=elist]').count(): pg.click('[data-act=elist]'); pg.wait_for_timeout(700)
+    check('endgames: the list carries no unreadable stamps', pg.locator('.item .thumb, svg.mini').count() == 0)
+    sig = "() => [...document.querySelectorAll('#board piece')].map(p => p.className).sort().join(',')"
+    pg.hover('[data-act=edrill] >> nth=0'); pg.wait_for_timeout(500); a = pg.evaluate(sig)
+    pg.hover('[data-act=edrill] >> nth=2'); pg.wait_for_timeout(500); b2 = pg.evaluate(sig)
+    check('endgames: hovering a drill puts its position on the board', bool(a) and a != b2, (a[:60], b2[:60]))
+    pg.hover('[data-act=edrill] >> nth=0'); pg.wait_for_timeout(400)
+    check('endgames: moving off a row restores the other position', pg.evaluate(sig) == a)
+    pg.click('header [data-act=settings]'); pg.wait_for_timeout(800)
+    check('settings: a live board shows appearance, pieces and coordinates', pg.locator('#setprev.cg-wrap').count() == 1)
+    check('settings: the preview really has a position on it', pg.eval_on_selector_all('#setprev piece', 'e => e.length') >= 20,
+          pg.eval_on_selector_all('#setprev piece', 'e => e.length'))
+    pg.click('#set [data-act=closedlg]'); pg.wait_for_timeout(200)
     print('console/page errors:', errs or 'none'); b.close()
 print(sum(1 for r in results if r[1]), '/', len(results))

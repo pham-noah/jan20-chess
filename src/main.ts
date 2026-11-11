@@ -9,6 +9,7 @@ import { Chess } from 'chessops/chess';
 import type { Color } from 'chessops/types';
 import { parseFen, makeFen } from 'chessops/fen';
 import { parseSquare, makeUci, parseUci, makeSquare } from 'chessops/util';
+import { attacks } from 'chessops/attacks';
 import { makeSan, parseSan } from 'chessops/san';
 import { parsePgn, startingPosition } from 'chessops/pgn';
 import { chessgroundDests } from 'chessops/compat';
@@ -204,7 +205,8 @@ const cg: any = Chessground($('#board'), {
   drawable: { brushes: { green: { key: 'g', color: '#15781B', opacity: 1, lineWidth: 10 }, red: { key: 'r', color: '#882020', opacity: 1, lineWidth: 10 }, blue: { key: 'b', color: '#003088', opacity: 1, lineWidth: 10 }, yellow: { key: 'y', color: '#e68f00', opacity: 1, lineWidth: 10 }, hint: { key: 'h', color: '#e3b653', opacity: 0.92, lineWidth: 11 },
         move: { key: 'm', color: '#2f8f5b', opacity: 0.85, lineWidth: 10 },
         reply: { key: 'p', color: '#5b6472', opacity: 0.8, lineWidth: 9 },
-        gap: { key: 'x', color: '#c0392b', opacity: 0.8, lineWidth: 9 } } } as any,
+        gap: { key: 'x', color: '#c0392b', opacity: 0.8, lineWidth: 9 },
+        fork: { key: 'f', color: '#7c5cff', opacity: 0.9, lineWidth: 10 } } } as any,
   movable: { free: false, events: { after: (o: string, d: string) => onMove(o, d) } },
 });
 
@@ -232,6 +234,7 @@ async function nativeInit() {
 function applySettings() {
   f = fsrs({ request_retention: S.retention });
   const de = document.documentElement; de.dataset.theme = S.theme; de.dataset.appearance = S.appearance; de.dataset.pieces = S.pieces;
+  if (prevCg) renderPreview();
   const light = S.appearance === 'light' || (S.appearance === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
   $('#themecolor')?.setAttribute('content', light ? '#f3efe6' : '#0e161c');
   if (S.pieces !== 'cburnett' && !piecesLoaded) { piecesLoaded = true; import('./pieces.css'); }
@@ -1200,6 +1203,9 @@ function reviewNext() {
   updateDue();
   const done = total - queue.length;
   $('#bar').hidden = !total; $('#bar i').style.width = total ? `${Math.max(0, (total - queue.length) / total) * 100}%` : '0';
+  ($('#bar') as HTMLElement).style.backgroundImage = total > 1 && total <= 40     // a notch per card
+    ? `repeating-linear-gradient(to right, transparent 0, transparent calc(100% / ${total} - 1px), var(--panel) calc(100% / ${total} - 1px), var(--panel) calc(100% / ${total}))`
+    : '';
   if (!queue.length) {
     pos = Chess.default(); line = []; last = undefined; lastKey = undefined; show([], false); showNote(''); $('#path').textContent = '';
     msg(total ? `Session done. ${total} cards reviewed.` : 'All caught up. Nothing is due.', 'ok'); return;
@@ -1373,8 +1379,24 @@ function tacticsAnswer(m: any) {
   }, 450);
 }
 const puzzleThemes = (p: Puzzle) => p.themes.filter(t => !['short', 'long', 'oneMove'].includes(t)).map(humanTheme).join(' · ');
+/** What a move actually did: arrows from the piece that landed to the enemy pieces it now attacks. */
+function motifShapes(at: Chess = pos, u: string | undefined = last): any[] {
+  if (!u) return [];
+  const m = parseUci(u) as any; if (!m) return [];
+  const pc = at.board.get(m.to); if (!pc) return [];
+  const value: Record<string, number> = { queen: 9, rook: 5, bishop: 3, knight: 3, king: 20 };
+  const hits: number[] = [];
+  for (const sq of attacks(pc, m.to, at.board.occupied) as any) {
+    const t = at.board.get(sq); if (t && t.color !== pc.color) hits.push(sq);
+  }
+  if (!hits.length) return [];
+  hits.sort((a, b) => (value[at.board.get(b)!.role] ?? 0) - (value[at.board.get(a)!.role] ?? 0));
+  return hits.slice(0, 2).map(sq => ({ orig: makeSquare(m.to), dest: makeSquare(sq), brush: 'fork' }));
+}
 function finishPuzzle() {
   const p = tRun!.p; gradePuzzle(tHinted ? 'hint' : 'solve'); locked = true;
+  const why = motifShapes();
+  if (why.length) show(why, false);
   showNote(`Why this one: ${puzzleThemes(p) || 'tactics'}.`);
   msg(tFailed ? 'Solved, but it counts as a miss.' : tHinted ? 'Solved with a hint.' : 'Solved!', tFailed ? '' : 'ok');
   $('#path').textContent = `Puzzle ${p.rating} · ${p.themes.filter(t => !['short', 'long', 'oneMove'].includes(t)).map(humanTheme).join(', ')}`;
@@ -1391,7 +1413,10 @@ function showSolution() {
   showNote(`Why this one: ${puzzleThemes(run.p) || 'tactics'}.`);
   const rest = run.p.moves.slice(run.i);
   msg(`Solution: ${sanLine(fenOf(run.pos), rest)} — counted as a miss.`);
-  show(rest.length ? [arrow(rest[0])] : [], false);
+  const base = rest.length ? [arrow(rest[0])] : [];
+  let motif: any[] = [];
+  if (rest.length) { const copy = run.pos.clone(); const m: any = parseUci(rest[0]); if (m) { copy.play(m); motif = motifShapes(copy, rest[0]); } }
+  show([...base, ...motif], false);
   $('#act').innerHTML = `<div class="row"><button data-act="tnext" class="primary">Next puzzle</button></div>`;
 }
 
@@ -1410,8 +1435,8 @@ function endgamesInit() {
   msg('Pick an endgame. You play against Stockfish.');
   $('#path').textContent = `${practised} of ${defs.length} practised · mistakes are taken back so you can try again`;
   showNote(next.blurb ? `Next up — ${next.name}: ${next.blurb}` : '');
-  $('#act').innerHTML = `<div class="row"><button data-act="enext" class="primary">Next drill: ${esc(next.name)}</button><button data-act="ecustom">Practise a FEN</button></div>` +
-    groups.map(g => `<h3>${esc(g)}</h3><div class="list">${defs.filter(d => d.group === g).map(d => `<button class="item" data-act="edrill" data-u="${d.id}"><span>${esc(d.name)}</span><span class="pill ${d.goal}">${d.goal === 'win' ? 'win' : 'hold'}</span><span class="stat ${grade(d) === '✕' ? 'due' : ''}">${grade(d) ? `<b title="last result">${grade(d)}</b> ` : ''}${status(d)}${bestOfDrill(d) ? `<b class="best" title="best run"> ${bestOfDrill(d)}</b>` : ''}</span></button>`).join('')}</div>`).join('');
+  $('#act').innerHTML = `<div class="row"><button data-act="enext" data-prev="${next.fen}" class="primary">Next drill: ${esc(next.name)}</button><button data-act="ecustom">Practise a FEN</button></div>` +
+    groups.map(g => `<h3>${esc(g)}</h3><div class="list">${defs.filter(d => d.group === g).map(d => `<button class="item" data-act="edrill" data-u="${d.id}" data-prev="${d.fen}"><span>${esc(d.name)}</span><span class="pill ${d.goal}">${d.goal === 'win' ? 'win' : 'hold'}</span><span class="stat ${grade(d) === '✕' ? 'due' : ''}">${grade(d) ? `<b title="last result">${grade(d)}</b> ` : ''}${status(d)}${bestOfDrill(d) ? `<b class="best" title="best run"> ${bestOfDrill(d)}</b>` : ''}</span></button>`).join('')}</div>`).join('');
   updateDue();
 }
 function nextDrill() {
@@ -1569,6 +1594,31 @@ function showFileState() {
   if (un) un.hidden = !(f.kind === 'browser' && f.path);
 }
 
+let prevCg: any;
+const PREV_FEN = 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQ1RK1 w - - 0 1';
+/** The settings board: appearance, piece set and coordinates are shown, not named. */
+function renderPreview() {
+  const el = $('#setprev'); if (!el) return;
+  const conf: any = {
+    fen: PREV_FEN, orientation: 'white', coordinates: S.coords, viewOnly: true,
+    animation: { enabled: S.anim, duration: 200 }, drawable: { enabled: false },
+    movable: { free: false, color: undefined }, premovable: { enabled: false },
+  };
+  if (!prevCg) prevCg = Chessground(el, conf); else prevCg.set(conf);
+}
+
+/** Hovering a drill in the list puts its position on the board, so it can be recognised before it is started. */
+let previewFen: string | null = null;
+function previewFrom(target: EventTarget | null) {
+  const b = (target as HTMLElement | null)?.closest?.('[data-prev]') as HTMLElement | null;
+  if (!b || mode !== 'endgames' || eRun) return;
+  const fen = b.dataset.prev!;
+  if (fen === previewFen) return;
+  previewFen = fen;
+  try { pos = Chess.fromSetup(parseFen(fen).unwrap()).unwrap(); } catch { return; }
+  last = null; show([], false);
+}
+
 function openSettings() {
   $('#s-new').value = S.newCap; $('#s-ret').value = String(S.retention); $('#s-theme').value = S.theme; $('#s-delay').value = String(S.learnDelay);
   $('#s-san').checked = S.san; $('#s-install').hidden = !deferredInstall; $('#s-expl').checked = S.explain; $('#s-app').value = S.appearance; $('#s-pieces').value = S.pieces; $('#s-sound').checked = S.sound;
@@ -1578,6 +1628,7 @@ function openSettings() {
   $('#s-build').textContent = `Build ${__BUILD__}`;
   $('#s-info').textContent = `${reps.length} repertoires · ${reps.reduce((a, r) => a + Object.keys(r.cards).length, 0)} cards scheduled. Data stays on this device.`;
   showFileState();
+  renderPreview();
   $('#set').showModal();
 }
 $('#set').addEventListener('change', () => {
@@ -1610,6 +1661,8 @@ function enter(m0: Mode) {
   updateDue();
 }
 
+document.addEventListener('pointerover', e => previewFrom(e.target));
+document.addEventListener('focusin', e => previewFrom(e.target));
 document.addEventListener('click', e => {
   const t = e.target as HTMLElement;
   const tab = t.closest('[data-m]') as HTMLElement | null;
