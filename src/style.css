@@ -173,7 +173,7 @@ textarea{width:100%;min-height:96px;resize:vertical}
 .tseg .tsan.opp{font-weight:500;color:var(--dim)}
 .tseg.on .tsan.opp{color:color-mix(in srgb, var(--accent) 70%, var(--dim))}
 .tseg .tsan .n{color:var(--dim);font-weight:400;margin-right:2px;font-variant-numeric:tabular-nums;font-size:.8rem}
-.tseg .x{display:inline;min-height:0;background:none;border:0;box-shadow:none;padding:0 1px;border-radius:3px;font-size:.6rem;line-height:1;color:var(--dim);opacity:.25}
+.tseg .x{display:inline;min-height:0;background:none;border:0;box-shadow:none;padding:0 1px;border-radius:3px;font-size:.6rem;line-height:1;color:var(--dim);opacity:.32}
 .tseg:hover .x{opacity:.85}
 .tseg .x:hover{color:#c0392b}
 .tseg .cnt{float:right;color:var(--dim);font-size:.72rem;margin-left:8px;white-space:nowrap}
@@ -232,6 +232,15 @@ dialog .row{justify-content:flex-end}
 /* ---------- App feel ---------- */
 body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 textarea,input,#msg,#note,#path,.pack p,dialog p,dialog li,dialog dd{-webkit-user-select:text;user-select:text}
+/* Review: the task and its controls come before the note text, which used to outrank them */
+body[data-mode=review] #panel{display:flex;flex-direction:column}
+body[data-mode=review] #msg{order:1}
+body[data-mode=review] #path{order:2}
+body[data-mode=review] #sanform{order:3}
+body[data-mode=review] #act{order:4}
+body[data-mode=review] #note{order:5;margin-top:4px}
+body[data-mode=review] #panel .reviewmeta{order:6;margin-top:auto}
+.reviewmeta{display:grid;gap:2px;font-size:.78rem;color:var(--dim);padding-top:10px;border-top:1px solid var(--line)}
 #panel.fade>*{animation:rise .22s ease-out both}
 #panel.fade>*:nth-child(2){animation-delay:.03s}#panel.fade>*:nth-child(3){animation-delay:.06s}#panel.fade>*:nth-child(n+4){animation-delay:.09s}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}

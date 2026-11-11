@@ -640,12 +640,13 @@ function renderBuild() {
   const through = lines.filter(l => line.every((u, i) => l[i] === u)).length;
   const below = leavesUnder(here);
   const others = reps.filter(r => r.id !== cur!.id);
+  const plain = lhtml.map(h => h.replace(/<[^>]*>/g, ''));
   const rows = lines.map((l, i) =>
-    `<div class="rowline ${i === 0 ? 'first' : ''}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lhtml[i]}</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
+    `<div class="rowline ${i === 0 ? 'first' : ''}" data-line="${esc(plain[i].toLowerCase())}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lhtml[i]}</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
   const lineList = `<div class="linehead"><div class="seg viewseg" role="tablist"><button data-act="viewtree" class="${treeView ? 'on' : ''}">Tree</button><button data-act="viewlines" class="${treeView ? '' : 'on'}">Lines (${lines.length})</button></div><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
     ${treeView
       ? `<div class="tree">${treeMarkup()}</div><p class="dim kbdhint">Click a move to jump there · ▾ folds · ✕ cuts that move and what only it reached · ↑ makes that branch first</p>`
-      : `<div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
+      : `${lines.length > 6 ? `<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>` : ''}<div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
     ${lines.length ? `<div class="row mini"><button data-act="selall">${picked.size ? 'Clear selection' : 'Select all'}</button><button data-act="delpick" class="danger" ${picked.size ? '' : 'disabled'}>Delete selected</button>${others.length ? `<select id="copytarget" aria-label="Copy the selected lines into another pack"><option value="">Copy to…</option>${others.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><button data-act="copypick" ${picked.size ? '' : 'disabled'}>Copy</button>` : ''}</div>` : ''}`}`;
   $('#act').innerHTML = `<div class="chips">${chips || '<span class="dim">No saved moves from this position yet.</span>'}</div>
     ${editor}
@@ -1079,8 +1080,13 @@ function reviewNext() {
   const k = queue[0], e = parent.get(k); pos = fromKey(k); line = pathTo(k); last = e?.uci; lastKey = e?.from;
   $('#path').textContent = pathText(line); showNote(noteOf(lastKey, last)); show();
   msg(`You play ${cur!.color === 'white' ? 'White' : 'Black'} here. Find your move.`);
+  const allLines = walkLines();
+  const ln = allLines.findIndex(l => l.length >= line.length && line.every((u, i) => l[i] === u));
+  const c0 = cur!.cards[k];
   $('#act').innerHTML = `<div class="row"><span class="hintline">Card ${done + 1} of ${total} · ${queue.length} to go</span></div>
-    <div class="row"><button data-act="hint">Hint</button><button data-act="reveal">Show me</button></div>`;
+    <div class="row"><button data-act="hint">Hint</button><button data-act="reveal">Show me</button></div>
+    <div class="reviewmeta"><span>${esc(cur!.name)} · ${ln >= 0 ? `line ${ln + 1} of ${allLines.length}` : 'a branch that is not a full line'}</span>
+    <span>${c0 ? `last seen ${c0.last_review ? rel(new Date(c0.last_review)) : 'never'} · next due ${rel(new Date(c0.due))}` : 'first time'}</span></div>`;
 }
 function reviewAnswer(u: string, k: string) {
   locked = true;
@@ -1159,7 +1165,7 @@ function tacticsAnswer(m: any) {
   const run = tRun; if (!run) return;
   const san = (() => { try { return makeSan(run.pos, m); } catch { return '?'; } })();
   const u = toEngine(run.pos, m), r = run.try(u, m);
-  if (r === 'wrong') { buzz(); sfx('bad'); markMove(san, false, makeUci(m)); gradePuzzle('fail'); msg('Not that one. Try again.', 'bad'); show(); return; }
+  if (r === 'wrong') { buzz(); sfx('bad'); markMove(san, false, makeUci(m)); gradePuzzle('fail'); msg('Not that one. Try again.', 'bad'); showNote(`Looking for: ${puzzleThemes(run.p) || 'the best move'}.`); show(); return; }
   markMove(san, true, makeUci(m));
   pos = run.pos; last = u; show([], false);
   if (r === 'solved') { sfx('done'); flash('ok'); return finishPuzzle(); }
@@ -1171,8 +1177,10 @@ function tacticsAnswer(m: any) {
     show(); msg('Find the next move.');
   }, 450);
 }
+const puzzleThemes = (p: Puzzle) => p.themes.filter(t => !['short', 'long', 'oneMove'].includes(t)).map(humanTheme).join(' · ');
 function finishPuzzle() {
   const p = tRun!.p; gradePuzzle(tHinted ? 'hint' : 'solve'); locked = true;
+  showNote(`Why this one: ${puzzleThemes(p) || 'tactics'}.`);
   msg(tFailed ? 'Solved, but it counts as a miss.' : tHinted ? 'Solved with a hint.' : 'Solved!', tFailed ? '' : 'ok');
   $('#path').textContent = `Puzzle ${p.rating} · ${p.themes.filter(t => !['short', 'long', 'oneMove'].includes(t)).map(humanTheme).join(', ')}`;
   $('#act').innerHTML = `${tTiles()}<div class="row"><button data-act="tnext" class="primary">Next puzzle</button></div>`;
@@ -1185,6 +1193,7 @@ function tacticsAdvance(skip = false) {
 }
 function showSolution() {
   const run = tRun; if (!run) return; gradePuzzle('fail'); locked = true;
+  showNote(`Why this one: ${puzzleThemes(run.p) || 'tactics'}.`);
   const rest = run.p.moves.slice(run.i);
   msg(`Solution: ${sanLine(fenOf(run.pos), rest)}`, 'bad');
   show(rest.length ? [arrow(rest[0])] : [], false);
@@ -1204,6 +1213,7 @@ function endgamesInit() {
   const next = nextDrill();
   msg('Pick an endgame. You play against Stockfish.');
   $('#path').textContent = `${practised} of ${defs.length} practised · mistakes are taken back so you can try again`;
+  showNote(next.blurb ? `Next up — ${next.name}: ${next.blurb}` : '');
   $('#act').innerHTML = `<div class="row"><button data-act="enext" class="primary">Next drill: ${esc(next.name)}</button><button data-act="ecustom">Practise a FEN</button></div>` +
     groups.map(g => `<h3>${esc(g)}</h3><div class="list">${defs.filter(d => d.group === g).map(d => `<button class="item" data-act="edrill" data-u="${d.id}"><span>${esc(d.name)}</span><span class="pill ${d.goal}">${d.goal === 'win' ? 'win' : 'hold'}</span><span class="stat ${grade(d) === '✕' ? 'due' : ''}">${grade(d) ? `<b title="last result">${grade(d)}</b> ` : ''}${status(d)}</span></button>`).join('')}</div>`).join('');
   updateDue();
@@ -1382,6 +1392,7 @@ function enter(m0: Mode) {
   cg.cancelPremove(); clearMark();
   $('#bar').hidden = true; showNote('');
   document.querySelectorAll('[data-m]').forEach((b: any) => { b.classList.toggle('on', b.dataset.m === m); b.setAttribute('aria-current', b.dataset.m === m ? 'page' : 'false'); });
+  document.body.dataset.mode = m;                     // lets CSS put the task above the notes in Review
   $('#sanform').hidden = !S.san; kvSet('ui', { mode: m });
   const panel = $('#panel'); panel.classList.remove('fade'); void panel.offsetWidth; panel.classList.add('fade');
   const op = opening(m);
@@ -1575,6 +1586,14 @@ document.addEventListener('drop', e => {
 let noteSnapKey = '';
 document.addEventListener('input', e => {
   const el = e.target as HTMLTextAreaElement;
+  if (el.id === 'linefilter') {                       // filter the numbered lines in place, without a re-render
+    const q = el.value.trim().toLowerCase();
+    const rows = [...document.querySelectorAll('#act .rowline')] as HTMLElement[];
+    let shown = 0;
+    rows.forEach(r => { const hit = !q || (r.dataset.line ?? '').includes(q); r.hidden = !hit; if (hit) shown++; });
+    const c = document.querySelector('#linecount'); if (c) c.textContent = q ? `${shown} of ${rows.length} lines` : '';
+    return;
+  }
   if (el.id !== 'note-ed' || !cur || !last || !lastKey) return;
   cur.notes ??= {}; const nk = lastKey + '|' + last;
   if (noteSnapKey !== nk) { noteSnapKey = nk; snapNow(); }

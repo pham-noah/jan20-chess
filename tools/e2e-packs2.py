@@ -70,6 +70,12 @@ with sync_playwright() as p:
         pg.eval_on_selector('[data-act=tfold]', 'e => e.click()'); pg.wait_for_timeout(500)
         pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)
         check('Lines view still lists them', pg.locator('.rowline').count() > 0, str(pg.locator('.rowline').count()))
+        if pg.locator('#linefilter').count():
+            total = pg.locator('.rowline').count()
+            pg.fill('#linefilter', 'Nf3'); pg.wait_for_timeout(500)
+            vis = pg.eval_on_selector_all('.rowline', 'e => e.filter(r => !r.hidden).length')
+            check('the line filter narrows the list', 0 < vis < total, f'{vis} of {total}')
+            pg.fill('#linefilter', ''); pg.wait_for_timeout(300)
         pg.click('[data-act=viewtree]'); pg.wait_for_timeout(300)
     print('console/page errors:', errs or 'none'); b.close()
 print(sum(1 for r in results if r[1]), '/', len(results))

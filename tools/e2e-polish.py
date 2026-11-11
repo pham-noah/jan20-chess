@@ -48,6 +48,11 @@ with sync_playwright() as p:
     # remembers last tab
     pg.click('[data-m=tactics]'); pg.wait_for_timeout(1200); pg.reload(); pg.wait_for_timeout(1200)
     check('reopening returns to the last tab', pg.get_attribute('[data-m=tactics]', 'aria-current') == 'page')
+    pg.wait_for_timeout(1400)
+    tp = pg.inner_text('#path')
+    check('tactics says where you are in the set', 'Puzzle' in tp and ' of ' in tp, tp[:50])
+    pg.click('[data-act=tsolution]'); pg.wait_for_timeout(900)
+    check('a finished puzzle says what it was teaching', 'Why this one' in pg.inner_text('#note'), pg.inner_text('#note')[:44])
     # pieces css loads lazily when selected
     n0 = sum('pieces-' in u for u in reqs)
     pg.click('header [data-act=settings]'); pg.select_option('#s-pieces', 'merida'); pg.wait_for_timeout(700)

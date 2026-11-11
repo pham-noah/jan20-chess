@@ -123,6 +123,16 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+UX PASS 2 (v13, continued) — the gaps the first pass listed are closed
+- Review's controls now sit above the note text (a note used to outrank the thing you were supposed to do), and the
+  space under the short panel carries state: "Italian Game · line 5 of 33" and "last seen … · next due …".
+- Tactics teaches: a solved puzzle, a revealed solution and a wrong move all say what the puzzle was — "Why this one:
+  Fork · Middlegame".
+- The numbered Lines view has a filter: type a move (Bb5) and it narrows to the lines that contain it, with "2 of 33
+  lines" beside it. No re-render, so the caret stays in the box.
+- Endgames fills its empty column with the next drill's idea instead of blank space.
+- The tree's delete cross is a touch more visible (32%) without turning the tree into a wall of crosses.
+
 UX PASS: ONE TASK PER SCREEN, AND PROGRESS YOU CAN SEE (v13)
 Scored the five modes as a designer before touching anything (5.3/10) and fixed what the score was paying for:
 - Review said only "Find your move. 15 left." It now says whose move it is ("You play White here"), counts the card
