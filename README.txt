@@ -128,8 +128,9 @@ MARKS EVERYWHERE, AND THE ENDING ON THE BOARD (v17)
   other place that prints moves (the editor's flat line list, the line under the message, Walk/Learn, the Review card)
   went through one function that printed bare SAN. That function now emits the glyph too: `1.e4 e5 2.Nf3!` reads the
   same wherever the line is shown.
-- **Checkmate is drawn on the king.** The mated king gets the same corner badge used for move feedback (red ×, and a
-  grey ½ for stalemate) from a separate overlay layer, so the transient move badge clearing does not wipe it. The panel
+- **Checkmate is drawn on the king.** The mated king gets a corner badge from a separate overlay layer (so the
+  transient move badge clearing does not wipe it): a black disc with a white **#** — the way a scoresheet writes mate —
+  with a grey ½ for stalemate. Chessground's own red check glow stays underneath. The panel
   says "Checkmate." instead of inviting another move, and the dashed "＋ add a move here" slot disappears once the
   position is over.
 - Engine deltas no longer print a mate score as "+99.3 worse": past 18 pawns it says "a forced mate".

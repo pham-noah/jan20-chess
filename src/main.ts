@@ -206,10 +206,10 @@ function renderEndMark() {
   const sq = [...kingSq][0];
   const black = orient() === 'black', f = sq & 7, r = sq >> 3;
   const d = document.createElement('div');
-  d.className = 'mm ' + (mate ? 'bad' : 'stale') + ' dest';
+  d.className = 'mm ' + (mate ? 'mate' : 'stale') + ' dest';
   d.style.left = `${(black ? 7 - f : f) * 12.5}%`;
   d.style.top = `${(black ? r : 7 - r) * 12.5}%`;
-  d.innerHTML = `<span class="g" aria-hidden="true">${mate ? '✕' : '½'}</span>`;
+  d.innerHTML = `<span class="g" aria-hidden="true">${mate ? '#' : '½'}</span>`;
   d.title = mate ? 'Checkmate' : 'Stalemate';
   layer.appendChild(d);
 }

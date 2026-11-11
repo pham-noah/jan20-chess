@@ -139,7 +139,10 @@ with sync_playwright() as p:
     pg.click('header [data-act=new]'); pg.fill('#dn', 'Fool'); pg.click('#dok'); pg.wait_for_timeout(400)
     play(pg, ['f2f3', 'e7e5', 'g2g4', 'd8h4']); pg.wait_for_timeout(700)
     check('checkmate puts a mark on the mated king', pg.locator('#endmark .mm').count() == 1, str(pg.locator('#endmark .mm').count()))
-    check('the mark is a cross on the king square', '✕' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
+    check('the mark is a hash, the way chess writes mate', '#' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
+    check('the hash sits on a black disc', '#101010' in pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).backgroundColor') or
+          'rgb(16, 16, 16)' in pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).backgroundColor'),
+          pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).backgroundColor'))
     check('the message says checkmate', msg(pg).startswith('Checkmate'), msg(pg))
     print('console/page errors:', errs or 'none'); b.close()
 
