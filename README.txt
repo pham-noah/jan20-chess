@@ -127,8 +127,11 @@ MARKS ON THE SQUARE, AND THE RIGHT KING (v18)
 - **The mate badge was on the wrong king.** `board.king` in chessops is a SquareSet holding both kings, and the code took
   the first one — so mating Black put the hash on your own king. It now picks the king of the side to move, the side
   that has no move. Verified both ways: 1.f3 e5 2.g4 Qh4# marks e1, 1.e4 f6 2.d4 g5 3.Qh5# marks e8.
-- **The mate mark is colour-independent**: a black hash with a white halo, no disc and no square tint, so it reads on a
-  white king, a black king, a light board or a dark one.
+- **The mate mark is colour-independent**: a white tile with a black hash, so it reads on a white king, a black king, a
+  light board or a dark one.
+- **Everything on the board speaks one language now**: a tinted *box* on the square (inset ring, the same as the move
+  ✓/✕ mark) plus a small *square* tile on its corner — white tile with a black `#` for mate, coloured tile with a white
+  glyph for annotations. No pills, no floating glyphs.
 - **The board badge is toned like chess.com's annotations**: `!` and `!?` green, `?!` amber, `?` and `??` red, our trap flag
   purple — the same disc-with-white-ring language as the move ✓/✕ badge, sized to the glyph so `??` still fits.
 - **A marked move now carries its badge on the board.** The annotation of the move you are looking at is drawn on the

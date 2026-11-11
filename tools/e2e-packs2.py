@@ -99,6 +99,9 @@ with sync_playwright() as p:
         check('the board badge carries the glyph', '!' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
         check('the badge is toned by the annotation (good = green, chess.com style)',
               pg.locator('#endmark .tagmark.good').count() == 1, pg.eval_on_selector('#endmark .mm', 'e => e.className'))
+        check('the annotation badge is a square tile, not a pill',
+              pg.eval_on_selector('#endmark .tagmark .g', 'e => getComputedStyle(e).borderTopLeftRadius') == '3px',
+              pg.eval_on_selector('#endmark .tagmark .g', 'e => getComputedStyle(e).borderTopLeftRadius'))
         pg.click('[data-act=mprev]'); pg.wait_for_timeout(400)
         if not pg.locator('[data-act=viewlines]').is_visible():
             pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(400)
@@ -151,8 +154,14 @@ with sync_playwright() as p:
     check('checkmate puts a mark on the board', white != 'none', white)
     check('the mark lands on the mated king (white: e1)', white.startswith('50% 87.5%'), white)
     check('the mark is a hash, the way chess writes mate', '#' in pg.inner_text('#endmark'), pg.inner_text('#endmark'))
-    check('the hash is black', 'rgb(5, 5, 5)' in pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).color'),
-          pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).color'))
+    check('the mated king also gets a box on its square, like the move marks',
+          'rgba(20, 20, 20' in pg.eval_on_selector('#endmark .mm.mate', 'e => getComputedStyle(e).backgroundColor'),
+          pg.eval_on_selector('#endmark .mm.mate', 'e => getComputedStyle(e).backgroundColor'))
+    check('the hash sits on a square tile too',
+          pg.eval_on_selector('#endmark .mm.mate .g', 'e => getComputedStyle(e).borderTopLeftRadius') == '3px',
+          pg.eval_on_selector('#endmark .mm.mate .g', 'e => getComputedStyle(e).borderTopLeftRadius'))
+    ink = pg.eval_on_selector('#endmark .g', 'e => getComputedStyle(e).color')
+    check('the hash is black', all(int(n) < 40 for n in ink.replace('rgb(', '').replace(')', '').split(',')), ink)
     check('the message says checkmate', msg(pg).startswith('Checkmate'), msg(pg))
     black = mate_line('Fool black', ['e2e4', 'f7f6', 'd2d4', 'g7g5', 'd1h5'])
     check('it also lands on a mated black king (e8)', black.startswith('50% 0%'), black)
