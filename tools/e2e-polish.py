@@ -81,6 +81,26 @@ with sync_playwright() as p:
     ctx.close()
     # layouts
 
+    # the web build writes a real file after one click, with no export (File System Access API)
+    wctx = b.new_context(viewport={'width': 1100, 'height': 800}, service_workers='block')
+    wctx.add_init_script("""
+      window.__writes = []; window.__last = '';
+      window.showSaveFilePicker = async () => ({ kind: 'file', name: 'jan20-repertoire.json',
+        queryPermission: async () => 'granted', requestPermission: async () => 'granted',
+        createWritable: async () => ({ write: async (t) => { window.__writes.push(1); window.__last = t; }, close: async () => {} }) });
+    """)
+    wq = wctx.new_page(); goto_app(wq); wq.wait_for_timeout(700)
+    if wq.locator('#welcome[open]').count(): wq.click('#welcome [data-act=closedlg]'); wq.wait_for_timeout(250)
+    wq.click('header [data-act=settings]'); wq.wait_for_timeout(400)
+    check('web: a file can be linked instead of exporting', wq.locator('#s-link').is_visible())
+    wq.click('#s-link'); wq.wait_for_timeout(500)
+    check('web: once linked it says it is writing to the file', 'Writing to jan20-repertoire.json' in wq.inner_text('#s-file'), wq.inner_text('#s-file')[:60])
+    wq.click('#set [data-act=closedlg]'); wq.wait_for_timeout(300)
+    wq.click('header [data-act=new]'); wq.fill('#dn', 'File test'); wq.click('#dok'); wq.wait_for_timeout(400)
+    drag(wq, 'e2e4'); wq.wait_for_timeout(1200)
+    payload = wq.evaluate("() => window.__last || ''")
+    check('web: an edit is written into the linked file with no export', '"File test"' in payload and '"moves"' in payload, f'{len(payload)} bytes')
+    wctx.close()
     for name, vp, mob in (('landscape', {'width': 844, 'height': 390}, True), ('tiny', {'width': 320, 'height': 568}, True), ('tablet', {'width': 768, 'height': 1024}, True)):
         c = b.new_context(viewport=vp, is_mobile=mob, has_touch=True, device_scale_factor=2, service_workers='block'); q = c.new_page()
         goto_app(q); q.click('text=Add starter lines'); q.click('[data-u=evans]'); q.wait_for_timeout(700)

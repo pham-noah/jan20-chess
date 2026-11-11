@@ -123,6 +123,14 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+NO EXPORT ON THE WEB EITHER (v20)
+- The web build can write a **real file on disk**: Settings → "Link a file…" (once), pick `jan20-repertoire.json`, and
+  from then on every change is written into it — same as the desktop app. This needs the File System Access API, i.e.
+  Chrome or Edge; **Firefox cannot do it** and the settings text now says so instead of showing a dead button.
+- After a browser restart the file is remembered but its permission has lapsed, so a "Start writing again" button appears
+  and re-grants it in one click (previously that state was a dead end with no way to resume).
+- Verified with a stubbed picker: linking, then playing one move, produces a JSON payload containing the repertoire.
+
 CASTLING AND THE EDGES (v19)
 - **Castling marks were one file out.** A castle is stored king-takes-rook (`e1h1`), and the badge went to the square
   the move was *written* with, i.e. h1 — where the rook used to be — instead of g1. The landing square is now computed

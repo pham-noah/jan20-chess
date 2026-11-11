@@ -15,7 +15,7 @@ import { parsePgn, startingPosition } from 'chessops/pgn';
 import { chessgroundDests } from 'chessops/compat';
 import { fsrs, createEmptyCard, Rating } from 'ts-fsrs';
 import { engine } from './engine';
-import { initFile, readFile, writeSoon, writeNow, fileState, linkFile, unlinkFile, filePicking, fileNative } from './localfile';
+import { initFile, readFile, writeSoon, writeNow, fileState, linkFile, resumeFile, unlinkFile, filePicking, fileNeedsPermission, fileNative } from './localfile';
 import { toEngine, fenOf, fromFen, fromEngine } from './uci';
 import { PuzzleRun, parseCsvLine, humanTheme, sanLine, type Puzzle } from './puzzle';
 import { DrillRun, type DrillDef, type DrillEnd } from './drill';
@@ -1672,8 +1672,10 @@ function showFileState() {
     ? `Every change is written straight to ${f.path}${when}.${f.note ? ' ' + f.note + '.' : ''}`
     : f.kind === 'browser'
       ? f.path ? `Writing to ${f.path}${when}.${f.note ? ' ' + f.note + '.' : ''}` : 'Pick a file once — after that every change is written into it, no export.'
-      : 'This browser cannot write files. Use the desktop app, or Export backup.';
+      : 'This browser cannot write files (Firefox has no file access). Use the desktop app, or Chrome/Edge for the web build.';
   if (link) link.hidden = !filePicking() || !!(f.kind === 'browser' && f.path);
+  const res = $('#s-resume') as HTMLElement | null;
+  if (res) res.hidden = !(f.kind === 'browser' && !!f.path && fileNeedsPermission());
   if (un) un.hidden = !(f.kind === 'browser' && f.path);
 }
 
@@ -1839,6 +1841,7 @@ document.addEventListener('click', e => {
   else if (a === 'exportpgn') exportPgn();
   else if (a === 'exportall') exportAll();
   else if (a === 'linkfile') void linkFile({ kvGet, kvSet }).then(() => { showFileState(); void writeNow(stateJson()); }).catch(() => toast('No file chosen.', { ms: 2000 }));
+  else if (a === 'resume') void resumeFile({ kvGet, kvSet }).then(() => { showFileState(); if (fileState().kind === 'browser' && !fileNeedsPermission()) void writeNow(stateJson()); });
   else if (a === 'unlinkfile') void unlinkFile({ kvGet, kvSet }).then(showFileState);
   else if (a === 'savefile') void writeNow(stateJson()).then(ok => toast(ok ? 'Written to the file.' : 'There is no file to write to yet.', { ms: 2400 }));
   else if (a === 'import-merge') pickFile('merge');

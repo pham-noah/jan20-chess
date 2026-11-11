@@ -12,11 +12,14 @@ const tauri = () => (window as any).__TAURI__;
 const canPick = () => typeof (window as any).showSaveFilePicker === 'function';
 
 let handle: any;
+let stored: any;                     // the remembered handle, kept even while its permission has lapsed
 let state: FileState = { kind: 'none' };
 let pending: any;
 
 export const fileState = () => state;
 export const filePicking = canPick;
+/** True when a file is remembered but the browser needs a click before it can be written again. */
+export const fileNeedsPermission = () => !!stored && !handle;
 export const fileNative = () => !!tauri();
 
 /** Called once at start-up. Returns the path (desktop) or file name (browser) when one is already linked. */
@@ -29,9 +32,10 @@ export async function initFile(ctx: Ctx): Promise<FileState> {
   if (canPick()) {
     const saved = await ctx.kvGet(HANDLE_KEY);
     if (saved?.name) {
+      stored = saved;
       const perm = await saved.queryPermission?.({ mode: 'readwrite' }).catch(() => 'prompt');
       handle = perm === 'granted' ? saved : undefined;
-      state = { kind: 'browser', path: saved.name, note: perm === 'granted' ? undefined : 'permission needed — reopen it' };
+      state = { kind: 'browser', path: saved.name, note: perm === 'granted' ? undefined : 'permission needed — one click to resume' };
     } else state = { kind: 'browser' };
     return state;
   }
@@ -69,6 +73,19 @@ export async function linkFile(ctx: Ctx, suggested = 'jan20-repertoire.json'): P
   return state;
 }
 
+/** Re-grant a remembered file after a browser restart. Needs a user gesture. */
+export async function resumeFile(ctx: Ctx): Promise<FileState> {
+  if (!stored) return state;
+  let perm: string = 'denied';
+  try { perm = await stored.requestPermission({ mode: 'readwrite' }); } catch { /* older browsers */ }
+  if (perm === 'granted') {
+    handle = stored;
+    state = { kind: 'browser', path: stored.name };
+    await ctx.kvSet(HANDLE_KEY, stored);
+    if (pending) void writeNow(pending);
+  } else state = { ...state, note: 'permission refused — pick the file again' };
+  return state;
+}
 export async function unlinkFile(ctx: Ctx): Promise<FileState> {
   handle = undefined;
   await ctx.kvSet(HANDLE_KEY, undefined);
