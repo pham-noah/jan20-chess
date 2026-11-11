@@ -201,7 +201,10 @@ const cg: any = Chessground($('#board'), {
   animation: { duration: 200 },
   premovable: { enabled: false, showDests: true, castle: true },
   draggable: { distance: 4 },
-  drawable: { brushes: { green: { key: 'g', color: '#15781B', opacity: 1, lineWidth: 10 }, red: { key: 'r', color: '#882020', opacity: 1, lineWidth: 10 }, blue: { key: 'b', color: '#003088', opacity: 1, lineWidth: 10 }, yellow: { key: 'y', color: '#e68f00', opacity: 1, lineWidth: 10 }, hint: { key: 'h', color: '#e3b653', opacity: 0.92, lineWidth: 11 } } } as any,
+  drawable: { brushes: { green: { key: 'g', color: '#15781B', opacity: 1, lineWidth: 10 }, red: { key: 'r', color: '#882020', opacity: 1, lineWidth: 10 }, blue: { key: 'b', color: '#003088', opacity: 1, lineWidth: 10 }, yellow: { key: 'y', color: '#e68f00', opacity: 1, lineWidth: 10 }, hint: { key: 'h', color: '#e3b653', opacity: 0.92, lineWidth: 11 },
+        move: { key: 'm', color: '#2f8f5b', opacity: 0.85, lineWidth: 10 },
+        reply: { key: 'p', color: '#5b6472', opacity: 0.8, lineWidth: 9 },
+        gap: { key: 'x', color: '#c0392b', opacity: 0.8, lineWidth: 9 } } } as any,
   movable: { free: false, events: { after: (o: string, d: string) => onMove(o, d) } },
 });
 
@@ -632,9 +635,9 @@ async function findGaps() {
       rows.push({ u, san, open: !Object.keys(cur!.moves[key(p)] || {}).length });
     }
     const gaps = rows.filter(x => x.open);
+    if (gaps.length) show(gaps.map(x => ({ ...arrow(x.u), brush: 'gap' })));
     if (out) out.innerHTML = gaps.length
-      ? `<p class="dim">No answer prepared for ${gaps.length} of the ${rows.length} moves the engine likes here. Tap one to work on it:</p>
-         <div class="row mini">${gaps.map(x => `<button data-act="gapadd" data-u="${x.u}">${esc(x.san)}</button>`).join('')}</div>`
+      ? `<div class="row mini">${gaps.map(x => `<button data-act="gapadd" data-u="${x.u}">${esc(x.san)}</button>`).join('')}</div>`
       : '<p class="dim">Every move the engine likes here already has an answer prepared.</p>';
     msg(gaps.length ? `${gaps.length} gap${gaps.length === 1 ? '' : 's'} here.` : 'No gaps here.');
   } catch { msg('The engine did not answer.', 'bad'); }
@@ -700,6 +703,9 @@ function renderBuild() {
   msg(pos.turn === cur!.color ? 'Play a move to save it.' : 'Prepare a reply.');
   $('#path').textContent = pathText(line);
   const here = key(pos), isMine = pos.turn === cur!.color;
+  // the saved moves at this position are drawn on the board, not just written under it
+  const saved = Object.keys(mv);
+  if (saved.length) show(saved.map(u => ({ ...arrow(u), brush: isMine ? 'move' : 'reply' })));
   const chips = Object.entries(mv).map(([u, s], i) => {
     const dot = noteOf(here, u) ? '<b class="dot" title="This move has a note">•</b>' : '';
     const bad = cur!.bad?.[here + '|' + u];
@@ -722,7 +728,7 @@ function renderBuild() {
       ? `<div class="tree">${treeMarkup()}</div>`
       : `${lines.length > 6 ? `<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>` : ''}<div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
     ${lines.length ? `<div class="row mini"><button data-act="selall">${picked.size ? 'Clear selection' : 'Select all'}</button><button data-act="delpick" class="danger" ${picked.size ? '' : 'disabled'}>Delete selected</button>${others.length ? `<select id="copytarget" aria-label="Copy the selected lines into another pack"><option value="">Copy to…</option>${others.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><button data-act="copypick" ${picked.size ? '' : 'disabled'}>Copy</button>` : ''}</div>` : ''}`}`;
-  $('#act').innerHTML = `<div class="chips">${chips || '<span class="dim">No saved moves from this position yet.</span>'}</div>
+  $('#act').innerHTML = `<div class="chips">${chips || '<span class="chip slot" title="Play a move to save it here" aria-label="No moves saved here yet">＋</span>'}</div>
     ${editor}
     <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
     <p class="stats">here: ${Object.keys(mv).length} saved move${Object.keys(mv).length === 1 ? '' : 's'} · ${through} line${through === 1 ? '' : 's'} through · ${below} ends below</p>
@@ -732,7 +738,7 @@ function renderBuild() {
       <div class="row mini"><button data-act="paste" class="primary">Add from here</button><button data-act="copyline">Copy this line</button></div>
     </details>
     ${bad && bad.length ? `<details class="weak"><summary>Weak spots (${bad.length})</summary>
-      <p class="dim">Moves of yours the engine rates well below its own choice. Click one to go there.</p>
+      
       <div class="list">${bad.map(w => `<div class="rowline weakrow"><span class="delta">−${(w.delta / 100).toFixed(1)}</span><button class="walk" data-act="wjump" data-u="${esc(w.k)}" title="Go to this move">${esc(w.san)}</button><span class="dim">${esc(pathText(w.line).slice(-28))}</span><button data-act="unflag" data-u="${esc(w.nk)}" aria-label="Clear this flag">✕</button></div>`).join('')}</div>
       <div class="row mini"><button data-act="checkline">Re-check the line you are on</button></div></details>` : ''}
     <details><summary>Gaps and engine</summary>
@@ -1004,7 +1010,7 @@ function walkPanel() {
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
     <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="wnotes" class="${wNotes ? 'on' : ''}" title="Show every note in this line">Notes</button><span class="grow"></span><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
-    <p class="dim kbdhint">Drag or type a move · ? shortcuts</p>
+    
     <h3>All lines (${wLines.length})</h3>
     ${wLines.length > 8 ? '<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>' : ''}
     <div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div>`;

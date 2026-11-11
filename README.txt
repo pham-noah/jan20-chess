@@ -123,6 +123,18 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+SHOW, DON'T TELL (v15)
+The rule now applied where the app was talking instead of drawing:
+- **The board shows the repertoire.** Every move saved at the position you are on is drawn on the board as an arrow
+  (green for yours, grey for the opponent's replies), instead of only appearing as chips in the panel. The gap finder
+  draws the moves it found no answer for in red on the board as well, so "3 gaps" is something you can see.
+- **An empty position offers a slot**, not a sentence: a dashed ＋ where a move could go, rather than "No saved moves
+  from this position yet."
+- **Deleted the standing instructions**: the Learn key hint and the weak-spot explainer are gone (the keys live in the
+  ? sheet, the pawn costs are a column of numbers).
+- Chessground dims its whole shape layer to 0.6 by default, which made every arrow look like a smudge; the layer is
+  painted at full strength now and the brushes were tuned (10/0.85 mine, 9/0.8 replies, 9/0.8 gaps).
+
 TEXT PASS (v15)
 - Cut the standing instruction paragraphs and the duplicated counts. The Editor said its position and line counts twice
   (once as a paragraph, once in the status strip) and kept a 20-word tree tutorial permanently on screen; both are gone,
