@@ -71,9 +71,21 @@ fn local_path_hint(app: tauri::AppHandle) -> Result<String, String> {
     Ok(local_path(&app)?.display().to_string())
 }
 
+/// The desktop app has no use for a service worker, and one left in the webview profile serves a stale frontend
+/// forever (it cannot be unregistered by the new code because the old page is the one running). Delete its store
+/// on every start — it only costs the worker, never the app's own IndexedDB.
+fn drop_service_worker(app: &tauri::AppHandle) {
+    let Ok(base) = app.path().app_local_data_dir() else { return };
+    let store = base.join("EBWebView").join("Default").join("Service Worker");
+    if store.exists() {
+        let _ = std::fs::remove_dir_all(&store);
+    }
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .manage(LastState(Mutex::new(String::new())))
+        .setup(|app| { drop_service_worker(&app.handle()); Ok(()) })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![save_local, load_local, local_path_hint, backup_local])

@@ -123,6 +123,14 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+IF THE LIVE FILE IS DAMAGED (v15)
+- A live file that cannot be parsed is never overwritten. It is renamed to `jan20-repertoire.broken-<unix>.json` first,
+  the app carries on from what it has stored, and it says so in a toast. Your old data is then still on disk, unlike
+  before, where a startup save would have replaced it with whatever the app happened to have in memory.
+- The desktop shell also deletes the webview's service-worker store on every start. That store can keep serving an old
+  frontend for ever — the new code cannot unregister it because the stale page is the one running — and that is how the
+  desktop app silently showed a months-old build twice.
+
 FEATURES (v15)
 - **Move annotations**: !, !?, ?!, ?, ?? and a ⚑ "trap" mark on any move, chosen from a palette under the note box,
   drawn as a glyph on the chip, in the tree and in the line list, and exported to PGN as real NAGs ($1, $5, $6, $2,
