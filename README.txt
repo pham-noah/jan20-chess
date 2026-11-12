@@ -123,6 +123,16 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)
+- **Lessons** is a new tab between Tactics and Endgames: 33 lessons — 22 tactical ideas and 11 endgames — each with a
+  one-line definition, a "what to look for" line, and a door into the thing that practises it. A tactical lesson sets the
+  Tactics theme to that idea and starts a set; an endgame lesson starts that drill. Progress shows per lesson ("12/20
+  solved", "done", "practised") so the list doubles as a syllabus.
+- **The Endgames tab no longer asks which one.** It deals a position immediately — a due drill first, then one never
+  tried, else any — and you have to play it perfectly. "Another position" re-deals, "All endgames" still opens the old
+  list with the hover previews.
+- Six tabs needed a rail that does not wrap: the icons drop out below 1240 px so the labels stay on one row.
+
 TACTICS: 1,245 PUZZLES FROM LICHESS, AND ARROWS THAT MATCH THE CATEGORY (v21)
 - **The tactical set comes from the Lichess puzzle database** (CC0, 6.19 M puzzles). 1,245 were curated to a balanced
   mix across 28 themes — fork, pin, skewer, discovered attack, deflection, attraction, clearance, sacrifice, double

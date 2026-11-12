@@ -63,6 +63,22 @@ with sync_playwright() as p:
     pg.screenshot(path='/tmp/shots/arena-end.png')
     print('   arena result:', txt, '|', pg.inner_text('#path'), '|', pg.inner_text('#note')[:120].replace('\n', ' '))
 
+    # Lessons: a catalogue that explains, and opens the thing that practises it
+    pg.click('[data-m=lessons]'); pg.wait_for_timeout(800)
+    check('lessons: the tab lists ideas with instructions', pg.locator('.lesson').count() >= 20, str(pg.locator('.lesson').count()))
+    check('lessons: each one says what to look for', pg.locator('.lesson .llook').count() >= 20, str(pg.locator('.lesson .llook').count()))
+    check('lessons: endgames are taught here too', pg.locator('.lesson:has-text("Lucena")').count() == 1)
+    pg.click('.lesson:has-text("Fork")'); pg.wait_for_timeout(1500)
+    check('lessons: a tactic lesson opens that theme', 'Fork' in pg.inner_text('#path'), pg.inner_text('#path')[:60])
+    pg.click('[data-m=lessons]'); pg.wait_for_timeout(600)
+    pg.click('.lesson:has-text("Lucena")'); pg.wait_for_timeout(2200)
+    check('lessons: an endgame lesson starts its drill', 'Lucena' in pg.inner_text('#path'), pg.inner_text('#path')[:40])
+    # Endgames deals a position instead of asking
+    pg.click('[data-m=learn]'); pg.wait_for_timeout(500)
+    pg.click('[data-m=endgames]'); pg.wait_for_timeout(2600)
+    check('endgames: the tab deals a position by itself', pg.locator('#act [data-act=erandom]').count() == 1, ' '.join(pg.inner_text('#act').split())[:50])
+    check('endgames: a position is on the board', pg.eval_on_selector_all('#board piece', 'e => e.length') >= 3,
+          pg.eval_on_selector_all('#board piece', 'e => e.length'))
     # --- show, don't tell: the board carries the information the copy used to
     pg.click('[data-m=endgames]'); pg.wait_for_timeout(900)
     if pg.locator('[data-act=elist]').count(): pg.click('[data-act=elist]'); pg.wait_for_timeout(700)
