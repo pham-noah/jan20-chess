@@ -3,6 +3,7 @@ const { createSF, score } = require('./sf.cjs');
 const fs = require('fs');
 const { PuzzleRun } = require('./.build/puzzle.cjs');
 const { LESSONS, puzzleFor } = require('./.build/lessons.cjs');
+const { isKnightHop, knightPath } = require('./.build/arrows.cjs');
 const { fromFen } = require('./.build/uci.cjs');       // chessops is ESM; use the bundled wrapper
 const { nextPlayable, premoveLinkAllowed } = require('./.build/premove.cjs');
 const { DrillRun } = require('./.build/drill.cjs');
@@ -56,6 +57,24 @@ const only = process.argv[2];
       if (got !== want) { console.log(`FAIL premove destination: ${what} (got ${got}, want ${want})`); bad++; }
     }
     if (!bad) console.log('ok   premove destinations allow reach but never a king');
+  }
+  {
+    // a knight's arrow is an L: two squares one way, then one the other, with a head
+    const sq = (n) => (n.charCodeAt(0) - 97) + (Number(n[1]) - 1) * 8;
+    const hops = [['g1', 'f3'], ['b1', 'c3'], ['d5', 'e7'], ['a1', 'b3'], ['h8', 'g6'], ['c4', 'd6']];
+    const flats = [['e2', 'e4'], ['a1', 'h8'], ['d1', 'd8'], ['c1', 'g5'], ['e1', 'h1'], ['a2', 'h2']];
+    let ok = hops.every(([a, b]) => isKnightHop(sq(a), sq(b)));
+    ok = ok && flats.every(([a, b]) => !isKnightHop(sq(a), sq(b)));
+    // the path bends exactly once, starts near the origin centre and ends at the destination
+    const p = knightPath(6.5, 7.5, 5.5, 5.5);              // g1 -> f3, drawn from the top left
+    ok = ok && (p.d.match(/Q/g) || []).length === 1;
+    ok = ok && /\.5 7\.5/.test(p.d) === false && p.d.startsWith('M6.5 7.36');
+    ok = ok && p.head.split(' ')[0] === '5.5,5.5';
+    // a horse that goes two files across turns the other way
+    const wide = knightPath(0.5, 7.5, 2.5, 6.5);
+    ok = ok && (wide.d.match(/L/g) || []).length === 2 && wide.head.split(' ')[0] === '2.5,6.5';
+    console.log(ok ? 'ok   a knight arrow hops: one bend, head on the destination' : 'FAIL knight arrow geometry');
+    if (!ok) bad++;
   }
   {
     // every lesson is a chapter of three steps, and every step has a position to show

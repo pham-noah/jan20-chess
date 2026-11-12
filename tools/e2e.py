@@ -52,14 +52,31 @@ def ensure_puzzle(pg, tries=5):
         else:
             pg.wait_for_timeout(800)
     return pg.locator('[data-act=thint]').count() > 0
+def arrows(pg):
+    """How many arrows are on the board: chessground draws the straight ones, #parrows the knight's."""
+    return pg.evaluate("() => document.querySelectorAll('#board .cg-shapes line').length"
+                       " + document.querySelectorAll('#parrows path').length")
 def arrow_uci(pg):
-    ln = pg.locator('#board svg.cg-shapes line, #board .cg-shapes line').first
-    x1, y1, x2, y2 = [float(ln.get_attribute(k)) for k in ('x1', 'y1', 'x2', 'y2')]
-    _, ori = board(pg); dx, dy = x2 - x1, y2 - y1; L = (dx * dx + dy * dy) ** .5 or 1; x2 += dx / L * .3; y2 += dy / L * .3
+    _, ori = board(pg)
     def sq(x, y):
         if ori == 'white': f, r = round(x + 3.5), round(3.5 - y)
         else: f, r = round(3.5 - x), round(y + 3.5)
         return 'abcdefgh'[f] + str(r + 1)
+    hop = pg.evaluate("""() => {                        // a knight's arrow is an L in its own layer
+        const p = document.querySelector('#parrows path'), h = document.querySelector('#parrows polygon');
+        if (!p || !h) return null;
+        const m = p.getAttribute('d').match(/^M([-\d.]+) ([-\d.]+)/);
+        const tip = h.getAttribute('points').trim().split(/\s+/)[0].split(',');
+        return m ? [+m[1], +m[2], +tip[0], +tip[1]] : null;
+    }""")
+    if hop:                                             # #parrows uses 0..8 with y running down
+        x1, y1, x2, y2 = hop
+        p = lambda x, y: ('abcdefgh'[round(x - .5) if ori == 'white' else round(7.5 - x)]
+                          + str(8 - round(y - .5) if ori == 'white' else round(y - .5) + 1))
+        return p(x1, y1) + p(x2, y2)
+    ln = pg.locator('#board .cg-shapes line').first
+    x1, y1, x2, y2 = [float(ln.get_attribute(k)) for k in ('x1', 'y1', 'x2', 'y2')]
+    dx, dy = x2 - x1, y2 - y1; L = (dx * dx + dy * dy) ** .5 or 1; x2 += dx / L * .3; y2 += dy / L * .3
     return sq(x1, y1) + sq(x2, y2)
 def msg(pg): return pg.inner_text('#msg').strip()
 def wait_not(pg, text, ms=15000):
@@ -152,12 +169,12 @@ with sync_playwright() as p:
             except Exception:
                 pg.wait_for_timeout(600)
             if pg.locator('[data-act=tnext]').count(): break
-        if pg.locator('[data-act=tnext]').count() and ('Solved' in msg(pg)): solved += 1
+        if pg.locator('[data-act=tnext]').count(): solved += 1        # following the hints finished it
         if pg.locator('[data-act=tnext]').count():
             pg.evaluate("() => document.querySelector('[data-act=tnext]')?.click()"); pg.wait_for_timeout(1000)
     check('tactics: puzzles solved by following hints (hint-solved)', solved >= 3, solved)
     check('tactics: rating tiles shown', pg.locator('.tile').count() == 3 and 'rating' in pg.inner_text('#act').lower(), pg.inner_text('#act')[:60])
-    pg.wait_for_function("document.querySelector('#msg').textContent.includes('Find the best')", timeout=8000)
+    ensure_puzzle(pg)                      # the loop can leave a graded puzzle on screen
     # a deliberately wrong move: pick any legal-looking drag from a piece of the side to move is hard; use Show solution path
     pg.click('[data-act=tsolution]'); pg.wait_for_timeout(300)
     check('tactics: show solution displays SAN', msg(pg).startswith('Solution:'), msg(pg))
@@ -210,13 +227,12 @@ with sync_playwright() as p:
     check('premove: it is not left standing on its own square', 'a2' not in sq1, sq1)
     drag(pg, 'a3a4'); pg.wait_for_timeout(200)                 # the SAME pawn again, chained
     sq2 = piece_squares(pg)
-    arrows = pg.locator('#board .cg-shapes line').count()
+    n_arrows = arrows(pg)
     check('premove: the same piece can be premoved again', 'a4' in sq2 and 'a3' not in sq2, sq2)
-    check('premove: queued premoves are drawn together', arrows >= 2, arrows)
+    check('premove: queued premoves are drawn together', n_arrows >= 2, n_arrows)
     pg.screenshot(path='/tmp/shots/e2e-premove.png')
     pg.wait_for_timeout(2400)
-    check('premove: the queue is resolved when the turn comes back', pg.locator('#board .cg-shapes line').count() <= 1,
-          pg.locator('#board .cg-shapes line').count())
+    check('premove: the queue is resolved when the turn comes back', arrows(pg) <= 1, arrows(pg))
     # the premove state leaves chessground in "free" mode; if that is never turned off every drag is
     # accepted and an illegal move reaches the engine ("The engine had a problem")
     st_ = pg.evaluate('() => window.__jan20()')

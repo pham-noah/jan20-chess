@@ -170,7 +170,15 @@ LESSONS ARE CHAPTERS (v26)
   opens the five-puzzle set only once you have read it. The tactical steps are drawn from the puzzle database by theme
   (the easiest instance, the hardest, and one from a real game — Lichess tags master games); the endgame chapters point
   at their drill. Content lives in `src/lessons.ts`, and `test:logic` checks every lesson has three steps, each with a
-  position that parses and a solution that exists. chessground's own drag ghost is disabled,
+  position that parses and a solution that exists.
+
+KNIGHT ARROWS (v27)
+  A knight's move is no longer drawn as a straight line, which claimed the piece slid across whatever stood in the way.
+  It is an L now — the two-square leg first, then the one into the destination, with a rounded corner and a head — drawn
+  in its own overlay (`#parrows`) because chessground only knows straight arrows. Every arrow in the app goes through
+  the same pass, so saved moves, gap arrows, hints, premoves, motif arrows and the lesson walkthroughs all hop properly;
+  straight moves still use chessground. Geometry lives in `src/arrows.ts` and is unit-tested (one bend, head on the
+  destination). chessground's own drag ghost is disabled,
   because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)

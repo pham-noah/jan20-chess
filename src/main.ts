@@ -27,6 +27,7 @@ import { explain, fmtScore } from './explain';
 import { ArenaRun, type ArenaEnd } from './arena';
 import STARTER from './tactics/starter.json';
 import { LESSONS, puzzleFor, type Lesson, type LessonStep } from './lessons';
+import { isKnightHop, knightPath } from './arrows';
 import TRAPS from './tactics/traps.json';
 import LICHESS from './tactics/lichess.json';
 
@@ -279,15 +280,53 @@ function renderBoardMarks() {
 const gapText = (cp: number) => (cp >= 1800 ? 'a forced mate' : `about ${(cp / 100).toFixed(1)} pawns`);
 const sanAt = (k: string, u: string) => { try { return makeSan(fromKey(k), parseUci(u)!); } catch { return u; } };
 
+/** One table of arrow colours: chessground draws the straight ones, we draw the knight's. */
+const BRUSHES: any = {
+  green: { key: 'g', color: '#15781B', opacity: 1, lineWidth: 10 },
+  red: { key: 'r', color: '#882020', opacity: 1, lineWidth: 10 },
+  blue: { key: 'b', color: '#003088', opacity: 1, lineWidth: 10 },
+  yellow: { key: 'y', color: '#e68f00', opacity: 1, lineWidth: 10 },
+  hint: { key: 'h', color: '#e3b653', opacity: 0.92, lineWidth: 11 },
+  move: { key: 'm', color: '#2f8f5b', opacity: 0.85, lineWidth: 10 },
+  reply: { key: 'p', color: '#5b6472', opacity: 0.8, lineWidth: 9 },
+  gap: { key: 'x', color: '#c0392b', opacity: 0.8, lineWidth: 9 },
+  fork: { key: 'f', color: '#7c5cff', opacity: 0.9, lineWidth: 10 },
+};
+/** A knight's move drawn as the jump it is: an L with a rounded corner and a head, instead of a
+ *  diagonal line that says the piece slid across the board. Chessground only draws straight arrows,
+ *  so the knight's go in this overlay. */
+const knightArrow = (a: number, b: number) => {
+  const black = orient() === 'black';
+  const xy = (sq: number) => {
+    const f = sq & 7, r = sq >> 3;
+    return black ? [7 - f + 0.5, r + 0.5] as const : [f + 0.5, 7 - r + 0.5] as const;
+  };
+  const [x1, y1] = xy(a), [x2, y2] = xy(b);
+  return knightPath(x1, y1, x2, y2);
+};
+const hopOf = (s: any): [number, number] | undefined => {
+  const a = parseSquare(s.orig), b = parseSquare(s.dest);
+  return a !== undefined && b !== undefined && isKnightHop(a, b) ? [a, b] : undefined;
+};
+function setArrows(shapes: any[]) {
+  const hops = shapes.map(s => [s, hopOf(s)] as const);
+  const rest = hops.filter(([, h]) => !h).map(([s]) => s);
+  cg.setAutoShapes(rest);
+  const svg = $('#parrows'); if (!svg) return;
+  const black = orient() === 'black';
+  svg.innerHTML = hops.filter(([, h]) => h).map(([s, h]) => {
+    const br = BRUSHES[s.brush] ?? BRUSHES.hint;
+    const { d, head } = knightArrow(h![0], h![1]);
+    return `<path d="${d}" stroke="${br.color}" stroke-width="${(br.lineWidth / 100) * 1.15}" fill="none"
+      stroke-linecap="round" opacity="${br.opacity}"/><polygon points="${head}" fill="${br.color}" opacity="${br.opacity}"/>`;
+  }).join('');
+  svg.style.setProperty('--flip', black ? '1' : '0');
+}
 const cg: any = Chessground($('#board'), {
   animation: { duration: 200 },
   premovable: { enabled: false, showDests: true, castle: true },
   draggable: { distance: 4, showGhost: false },
-  drawable: { brushes: { green: { key: 'g', color: '#15781B', opacity: 1, lineWidth: 10 }, red: { key: 'r', color: '#882020', opacity: 1, lineWidth: 10 }, blue: { key: 'b', color: '#003088', opacity: 1, lineWidth: 10 }, yellow: { key: 'y', color: '#e68f00', opacity: 1, lineWidth: 10 }, hint: { key: 'h', color: '#e3b653', opacity: 0.92, lineWidth: 11 },
-        move: { key: 'm', color: '#2f8f5b', opacity: 0.85, lineWidth: 10 },
-        reply: { key: 'p', color: '#5b6472', opacity: 0.8, lineWidth: 9 },
-        gap: { key: 'x', color: '#c0392b', opacity: 0.8, lineWidth: 9 },
-        fork: { key: 'f', color: '#7c5cff', opacity: 0.9, lineWidth: 10 } } } as any,
+  drawable: { brushes: BRUSHES } as any,
   movable: { free: false, events: { after: (o: string, d: string) => onMove(o, d) } },
 });
 
@@ -348,7 +387,7 @@ function premoveAllowed(): boolean {
 let premoveQ: QueuedPremove[] = [];
 let harvesting = false;
 let lastShapes: any[] = [];
-const refreshShapes = () => { lastShapes && cg.setAutoShapes(premoveQ.length ? [...lastShapes, ...premoveArrows()] : lastShapes); };
+const refreshShapes = () => { if (lastShapes) setArrows(premoveQ.length ? [...lastShapes, ...premoveArrows()] : lastShapes); };
 const premoveArrows = () => premoveQ.map(q => ({ orig: q.from, dest: q.to, brush: 'reply' }));
 function harvestPremove(from: string, to: string) {
   if (harvesting || !premoveAllowed()) return;
@@ -478,7 +517,7 @@ function show(shapes: any[] = [], can = true) {
       : { color: can ? pos.turn : pm ? premoveColor() : undefined, free: false, dests: can ? chessgroundDests(pos) : new Map() },
   });
   lastShapes = shapes;
-  cg.setAutoShapes(premoveQ.length ? [...shapes, ...premoveArrows()] : shapes);
+  setArrows(premoveQ.length ? [...shapes, ...premoveArrows()] : shapes);
   if (look) { const l = $('#endmark'); if (l) l.textContent = ''; } else renderBoardMarks();
   renderPremoveGhost();
 }

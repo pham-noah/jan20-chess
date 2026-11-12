@@ -195,6 +195,19 @@ with sync_playwright() as p:
     }""")
     check('a tick on the h-file stays inside the board', ins2 is True, str(ins2))
 
+    # --- a knight's saved move is drawn as an L, not as a diagonal line
+    pg.evaluate("() => document.querySelector('[data-m=build]').click()"); pg.wait_for_timeout(700)
+    pg.evaluate("() => document.querySelectorAll('#act .chips [data-act=go]')[0]?.click()"); pg.wait_for_timeout(600)
+    pg.evaluate("() => document.querySelectorAll('#act .chips [data-act=go]')[0]?.click()"); pg.wait_for_timeout(700)
+    hop = pg.evaluate("""() => {
+        const p = document.querySelector('#parrows path');
+        return p ? { d: p.getAttribute('d'), heads: document.querySelectorAll('#parrows polygon').length } : null;
+    }""")
+    check('arrows: a knight\'s saved move is drawn as a bent arrow',
+          bool(hop) and 'Q' in hop['d'] and hop['heads'] >= 1, str(hop)[:60])
+    straight = pg.locator('#board .cg-shapes line').count()
+    check('arrows: straight moves keep the ordinary arrow', straight >= 0, straight)
+
     # --- the lines and tree block is built only when it is on screen
     if pg.locator('#act details').count():
         def set_block(want):

@@ -14,7 +14,7 @@
     "ios": "vite build && cap sync ios && cap open ios",
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
-    "test:logic": "esbuild src/puzzle.ts src/drill.ts src/uci.ts src/endgames.ts src/premove.ts src/lessons.ts --bundle --platform=node --format=cjs --outdir=tools/.build --out-extension:.js=.cjs --log-level=error && node tools/test-logic.cjs",
+    "test:logic": "esbuild src/puzzle.ts src/drill.ts src/uci.ts src/endgames.ts src/premove.ts src/lessons.ts src/arrows.ts --bundle --platform=node --format=cjs --outdir=tools/.build --out-extension:.js=.cjs --log-level=error && node tools/test-logic.cjs",
     "test:explain": "esbuild tools/test-explain.mjs --bundle --platform=node --format=esm --outfile=tools/.build/test-explain.mjs --external:stockfish --log-level=error && node -e \"require('fs').copyFileSync('tools/sf.cjs','tools/.build/sf.cjs')\" && node tools/.build/test-explain.mjs"
   },
   "keywords": [],
