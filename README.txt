@@ -155,7 +155,13 @@ DRILL PLAYS WHOLE LINES (v24)
   one: it opens with the shortest line in the repertoire, and every clean line buys a longer one (three plies at a
   time, up to the longest line there is). A wrong move restarts the line you are on — from move one, with the run
   reset — and keeps you in the drill, so a slip costs you a repeat, not the session. Picking Drill starts it straight
-  away; there is no Start button, only Stop. chessground's own drag ghost is disabled,
+  away; there is no Start button, only Stop.
+
+ARROWS ON EVERY BOARD (v25)
+  ← and → step through the moves already played on any board — Arena, Time, Drill, Tactics, Endgames, Review, Lessons
+  and a lesson's drill — showing the position as it was, with its last move highlighted and the board locked so a past
+  position cannot be played on. → walks back to the live game and the state is never touched. The Editor and Walk keep
+  their own stepping (a line being edited / the line being walked). chessground's own drag ghost is disabled,
   because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)

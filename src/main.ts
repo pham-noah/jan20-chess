@@ -409,23 +409,68 @@ function consumePremove(): boolean {
   return true;
 }
 
+/* Looking back on any board: ← and → walk the positions already played, without touching the game.
+   The trail is the live position after every change; a new puzzle, card or line bumps `session`, which
+   starts a fresh trail. */
+let hist: string[] = [];
+let histSession = -1;
+let viewBack = 0;                        // plies behind the live position
+function histTrack() {
+  const k = key(pos);
+  if (session !== histSession) { histSession = session; hist = [k]; viewBack = 0; return; }
+  if (!hist.length) { hist = [k]; return; }
+  if (hist[hist.length - 1] === k) return;
+  hist.push(k); viewBack = 0;                    // a new live position means we are watching live again
+  if (hist.length > 400) hist.shift();
+}
+/** The move between two positions, so a looked-back ply can carry its highlight. */
+function uciBetween(a: string, b: string): string | undefined {
+  try {
+    const p = fromKey(a);
+    for (const [from, dests] of p.allDests()) for (const to of dests) {
+      const m: any = { from, to };
+      if (!p.isLegal(m)) continue;
+      const q = p.clone(); q.play(m);
+      if (key(q) === b) return makeUci(m);
+    }
+  } catch { /* the two positions are not one move apart */ }
+  return undefined;
+}
+function viewed(): { fen: string; uci?: string } | undefined {
+  if (viewBack <= 0) return undefined;
+  if (viewBack > hist.length - 1) { viewBack = 0; return undefined; }
+  const i = hist.length - 1 - viewBack;
+  return { fen: hist[i], uci: i > 0 ? uciBetween(hist[i - 1], hist[i]) : undefined };
+}
+function lookStep(dir: number) {                 // dir +1 is forward (→), -1 is back (←)
+  histTrack();
+  const want = Math.max(0, Math.min(hist.length - 1, viewBack - dir));
+  if (want === viewBack) return;
+  viewBack = want;
+  show([], false);
+}
 function show(shapes: any[] = [], can = true) {
+  histTrack();
+  const look = viewed();
+  document.body.dataset.looking = look ? '1' : '';        // the cue follows what is actually on the board
   canNow = can;
-  const pm = !can && premoveAllowed();
+  const pm = !look && !can && premoveAllowed();
   if (!pm) { if (cg.state.premovable.current) cg.cancelPremove(); if (premoveQ.length) premoveQ = []; }
-  const queued = premoveQ.length > 0;
+  const queued = !look && premoveQ.length > 0;
   const shown = queued ? premovePreview() : pos;
   cg.set({
-    fen: makeFen(shown.toSetup()), orientation: orient(),
-    turnColor: queued ? premoveColor() : pos.turn,          // the previewed board is your turn again
-    check: !queued && pos.isCheck() ? pos.turn : false,
-    animation: { enabled: queued ? false : S.anim, duration: 200 },
-    lastMove: last ? lastPair(last) : undefined,
-    premovable: { enabled: !queued && pm, events: {
+    fen: look ? look.fen : makeFen(shown.toSetup()), orientation: orient(),
+    turnColor: look ? (look.fen.split(' ')[1] === 'w' ? 'white' : 'black') : queued ? premoveColor() : pos.turn,
+    check: look ? false : !queued && pos.isCheck() ? pos.turn : false,
+    animation: { enabled: look || queued ? false : S.anim, duration: 200 },
+    lastMove: look ? (look.uci ? lastPair(look.uci) : undefined) : last ? lastPair(last) : undefined,
+    premovable: { enabled: !look && !queued && pm, events: {
       set: (o: string, d: string) => harvestPremove(o, d),
       unset: () => { if (harvesting) harvesting = false; else clearPremoves(); renderPremoveGhost(); },
     } },
-    movable: queued
+    movable: look
+      ? { color: undefined, free: false, dests: new Map() }          // a past position is for looking at
+      : queued
       ? { color: premoveColor(), free: true, dests: undefined }      // the chain continues from the previewed board
       // free must be turned back OFF: chessground keeps a key it is not told about, so after the first
       // premove every drag stayed free and illegal moves reached the engine.
@@ -433,7 +478,7 @@ function show(shapes: any[] = [], can = true) {
   });
   lastShapes = shapes;
   cg.setAutoShapes(premoveQ.length ? [...shapes, ...premoveArrows()] : shapes);
-  renderBoardMarks();
+  if (look) { const l = $('#endmark'); if (l) l.textContent = ''; } else renderBoardMarks();
   renderPremoveGhost();
 }
 
@@ -525,6 +570,7 @@ function pathTo(k: string) {
 (window as any).__jan20 = () => ({
   mode, turn: pos.turn, solver: premoveColor(), queue: premoveQ.map(q => q.from + q.to),
   canPremove: premoveAllowed(), fen: makeFen(pos.toSetup()).split(' ')[0],
+  boardFen: cg.state.fen.split(' ').slice(0, 4).join(' '), back: viewBack,
   free: (cg.state.movable as any).free === true, inCheck: pos.isCheck(),
   preview: premoveQ.length ? makeFen(premovePreview().toSetup()).split(' ')[0] : null,
   drill: S.lmode === 'drill'
@@ -2345,11 +2391,12 @@ document.addEventListener('keydown', e => {
   if (e.key === '?') return void $('#keys').showModal();
   if (!cur && opening(mode)) return;
   if (e.key === 'Escape') { if (noteEditId) { noteEditId = undefined; renderBuild(); return; } cg.cancelPremove(); return; }
-  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && mode === 'build') {
-    e.preventDefault(); buildStep(e.key === 'ArrowRight' ? 1 : -1);
-  }
-  else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && mode === 'learn' && S.lmode === 'walk') {
-    e.preventDefault(); walkStep(e.key === 'ArrowRight' ? 1 : -1);
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    e.preventDefault();
+    const dir = e.key === 'ArrowRight' ? 1 : -1;
+    if (mode === 'build') buildStep(dir);
+    else if (mode === 'learn' && S.lmode === 'walk') walkStep(dir);
+    else lookStep(dir);                     // every other board: step back and forth through the game
   }
   else if (e.key === 'Backspace' && mode === 'build' && line.length) { e.preventDefault(); line.pop(); renderBuild(); }
   else if (e.key === 'h' && mode !== 'build') $('[data-act=hint]')?.click();

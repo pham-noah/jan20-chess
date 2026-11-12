@@ -46,6 +46,22 @@ with sync_playwright() as p:
           f"active {d1['active']}, at {d1['at']}")
     check('drill: the run is reset but the drill goes on', d1['streak'] == 0 and d1['clean'] == 0
           and pg.locator('[data-act=dstop]').count() == 1)
+
+    # --- arrows look back on any board (here: a drill, after the line has advanced)
+    d2 = pg.evaluate("() => window.__jan20().drill")
+    drag(pg, d2['line'].split()[0]); pg.wait_for_timeout(900)
+    live = pg.evaluate("() => window.__jan20()")
+    pg.keyboard.press('ArrowLeft'); pg.wait_for_timeout(300)
+    back = pg.evaluate("() => window.__jan20()")
+    check('arrows: left shows the previous position', back['boardFen'] != live['boardFen'] and back['back'] >= 1,
+          f"back {back['back']}")
+    check('arrows: looking back does not touch the game', back['fen'] == live['fen'] and back['drill']['at'] == live['drill']['at'])
+    locked = pg.evaluate("""() => { const d = document.querySelector('#board .move-dest'); return !d; }""")
+    pg.keyboard.press('ArrowRight'); pg.wait_for_timeout(300)
+    home = pg.evaluate("() => window.__jan20()")
+    check('arrows: right returns to the live position', home['boardFen'] == live['boardFen'] and home['back'] == 0,
+          home['back'])
+    check('arrows: the past position cannot be played on', locked is True)
     # --- Time trial: starts, clock runs, can be stopped, score saved
     pg.click('[data-act=lmode][data-u=time]'); pg.wait_for_timeout(300); pg.click('[data-act=tstart]'); pg.wait_for_timeout(1000)
     t1 = pg.inner_text('#path'); pg.wait_for_timeout(1500); t2 = pg.inner_text('#path')
