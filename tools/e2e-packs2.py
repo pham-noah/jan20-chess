@@ -208,6 +208,23 @@ with sync_playwright() as p:
     straight = pg.locator('#board .cg-shapes line').count()
     check('arrows: straight moves keep the ordinary arrow', straight >= 0, straight)
 
+    # an arrow the player draws by hand: right-drag from a knight must bend as well
+    def hand_draw(a, d):
+        x1, y1 = sq_xy(pg, a); x2, y2 = sq_xy(pg, d)
+        pg.mouse.move(x1, y1); pg.mouse.down(button='right')
+        pg.mouse.move((x1 + x2) / 2, (y1 + y2) / 2, steps=5)
+        pg.mouse.move(x2, y2, steps=5); pg.mouse.up(button='right'); pg.wait_for_timeout(450)
+    before = pg.locator('#board .cg-shapes line').count()
+    hops_before = pg.locator('#parrows path').count()
+    hand_draw('b1', 'c3')
+    check('arrows: a hand-drawn knight arrow is an L too', pg.locator('#parrows path').count() == hops_before + 1,
+          f"knight arrows {pg.locator('#parrows path').count()}")
+    check('arrows: it is not also drawn as a straight line',
+          pg.locator('#board .cg-shapes line').count() == before, pg.locator('#board .cg-shapes line').count())
+    hand_draw('b1', 'c3')
+    check('arrows: drawing it again takes it away', pg.locator('#parrows path').count() == hops_before,
+          f"knight arrows {pg.locator('#parrows path').count()}")
+
     # --- the lines and tree block is built only when it is on screen
     if pg.locator('#act details').count():
         def set_block(want):

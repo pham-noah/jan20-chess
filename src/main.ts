@@ -308,20 +308,53 @@ const hopOf = (s: any): [number, number] | undefined => {
   const a = parseSquare(s.orig), b = parseSquare(s.dest);
   return a !== undefined && b !== undefined && isKnightHop(a, b) ? [a, b] : undefined;
 };
-function setArrows(shapes: any[]) {
-  const hops = shapes.map(s => [s, hopOf(s)] as const);
-  const rest = hops.filter(([, h]) => !h).map(([s]) => s);
-  cg.setAutoShapes(rest);
+let autoHops: any[] = [];              // knight arrows the app asked for
+let userHops: any[] = [];              // knight arrows the player drew with the mouse
+/** Paint every knight arrow — ours and the player's — into the overlay. */
+function paintArrows() {
   const svg = $('#parrows'); if (!svg) return;
-  const black = orient() === 'black';
-  svg.innerHTML = hops.filter(([, h]) => h).map(([s, h]) => {
+  const all = [
+    ...autoHops,
+    ...userHops.map(s => ({ ...s, hop: hopOf(s)! })).filter(s => s.hop),
+  ];
+  svg.innerHTML = all.map(s => {
     const br = BRUSHES[s.brush] ?? BRUSHES.hint;
-    const { d, head } = knightArrow(h![0], h![1]);
+    const { d, head } = knightArrow(s.hop![0], s.hop![1]);
     return `<path d="${d}" stroke="${br.color}" stroke-width="${(br.lineWidth / 100) * 1.15}" fill="none"
       stroke-linecap="round" opacity="${br.opacity}"/><polygon points="${head}" fill="${br.color}" opacity="${br.opacity}"/>`;
   }).join('');
-  svg.style.setProperty('--flip', black ? '1' : '0');
 }
+function setArrows(shapes: any[]) {
+  const hops = shapes.map(s => [s, hopOf(s)] as const);
+  cg.setAutoShapes(hops.filter(([, h]) => !h).map(([s]) => s));
+  autoHops = hops.filter(([, h]) => h).map(([s, h]) => ({ orig: s.orig, dest: s.dest, brush: s.brush, hop: h! }));
+  paintArrows();
+}
+/** A knight arrow drawn by hand goes into the overlay too: chessground keeps its own shapes in its
+ *  own list and would draw the hop as a straight line. */
+function syncUserShapes() {
+  const list: any[] = (cg.state.drawable?.shapes ?? []).slice();
+  const hops = list.filter(s => hopOf(s));
+  if (hops.length) {
+    for (const h of hops) {
+      const i = userHops.findIndex(u => u.orig === h.orig && u.dest === h.dest);
+      if (i >= 0) userHops.splice(i, 1);                     // drawn again: it takes the arrow away
+      else userHops.push({ orig: h.orig, dest: h.dest, brush: h.brush ?? 'hint' });
+    }
+    cg.setShapes(list.filter(s => !hopOf(s)));               // chessground keeps the straight ones
+  } else if (!list.length) {
+    userHops = [];                                           // a click on the board clears annotations
+  }
+  paintArrows();
+}
+document.addEventListener('mouseup', (e) => {
+  const t = e.target as HTMLElement | null;
+  if (!t?.closest?.('#board')) return;
+  const right = (e as MouseEvent).button === 2, shifted = (e as MouseEvent).shiftKey;
+  if (!right && !shifted) { if (!(cg.state.drawable?.shapes ?? []).length) userHops = []; }  // erase-all click
+  setTimeout(() => { syncUserShapes(); if (!right && !shifted) paintArrows(); }, 0);
+}, true);
+document.addEventListener('contextmenu', (e) => { if ((e.target as HTMLElement)?.closest?.('#board')) e.preventDefault(); });
 const cg: any = Chessground($('#board'), {
   animation: { duration: 200 },
   premovable: { enabled: false, showDests: true, castle: true },
@@ -2275,7 +2308,7 @@ document.addEventListener('click', e => {
   }
   else if (a === 'undo') { line.pop(); renderBuild(); }
   else if (a === 'reset') { line = []; renderBuild(); }
-  else if (a === 'flip') { flipped = !flipped; cg.set({ orientation: orient() }); }
+  else if (a === 'flip') { flipped = !flipped; cg.set({ orientation: orient() }); paintArrows(); }   // the L must mirror with the board
   else if (a === 'pgn') importPgn($('#pgn').value);
   else if (a === 'exportpgn') exportPgn();
   else if (a === 'exportall') exportAll();

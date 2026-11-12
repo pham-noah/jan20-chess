@@ -178,8 +178,9 @@ KNIGHT ARROWS (v27)
   in its own overlay (`#parrows`) because chessground only knows straight arrows. Every arrow in the app goes through
   the same pass, so saved moves, gap arrows, hints, premoves, motif arrows and the lesson walkthroughs all hop properly;
   straight moves still use chessground. Geometry lives in `src/arrows.ts` and is unit-tested (one bend, head on the
-  destination). chessground's own drag ghost is disabled,
-  because it lingered at 30% opacity after a premove drag and looked like a second piece.
+  destination). Arrows you draw yourself (right-drag) behave the same way: a knight's hop is taken out of chessground's
+  own shape list and drawn as an L, drawing it again removes it, and flipping the board mirrors it. chessground's own
+  drag ghost is disabled, because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)
 - **Lessons** is a new tab between Tactics and Endgames: 33 lessons — 22 tactical ideas and 11 endgames — each with a
