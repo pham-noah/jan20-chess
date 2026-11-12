@@ -228,22 +228,23 @@ const markMove = (san: string, ok: boolean, uci?: string) => {
 function renderPremoveGhost() {
   const layer = $('#endmark'); if (!layer) return;
   layer.querySelectorAll('.premove-ghost').forEach(el => el.remove());
-  // whatever was hidden last time shows again
   document.querySelectorAll<HTMLElement>('#board piece[data-premove-hidden]').forEach(el => { el.style.visibility = ''; delete el.dataset.premoveHidden; });
-  const pre = (cg.state.premovable as any).current as [string, string] | undefined;
-  if (!pre) return;
-  const [from, to] = pre;
-  const el = [...document.querySelectorAll('#board piece')].find((p: any) => p.cgKey === from) as HTMLElement | undefined;
+  const pieceAt = (sq: string) => [...document.querySelectorAll('#board piece')].find((p: any) => p.cgKey === sq) as HTMLElement | undefined;
+  const put = (to: string, bg: string) => {
+    const sq = parseSquare(to); if (sq === undefined) return;
+    const black = orient() === 'black', f = sq & 7, r = sq >> 3;
+    const d = document.createElement('div');
+    d.className = 'premove-ghost';
+    d.style.cssText = `left:${(black ? 7 - f : f) * 12.5}%;top:${(black ? r : 7 - r) * 12.5}%;background-image:${bg}`;
+    layer.appendChild(d);
+  };
+  // a queued premove chain: each one waits on its own destination, the first piece leaves its square
+  const first = premoveQ[0]; if (!first) return;
+  const el = pieceAt(first.from);
   const bg = el ? getComputedStyle(el).backgroundImage : '';
   if (!bg || bg === 'none') return;
-  // chess.com moves the piece: it is no longer on its square, it waits on the destination
-  el!.style.visibility = 'hidden'; el!.dataset.premoveHidden = '1';
-  const sq = parseSquare(to); if (sq === undefined) return;
-  const black = orient() === 'black', f = sq & 7, r = sq >> 3;
-  const d = document.createElement('div');
-  d.className = 'premove-ghost';
-  d.style.cssText = `left:${(black ? 7 - f : f) * 12.5}%;top:${(black ? r : 7 - r) * 12.5}%;background-image:${bg}`;
-  layer.appendChild(d);
+  put(first.to, bg);
+  el!.style.visibility = 'hidden'; el!.dataset.premoveHidden = '1';   // the rest of the chain is arrows
 }
 /** Marks that belong to the position rather than to a move attempt: the ending, and the
     annotation of the move you are looking at. Drawn from their own layer so the transient
@@ -351,16 +352,31 @@ function premoveAllowed(): boolean {
   if (mode === 'tactics') return !!tRun && !tGraded;
   return S.lmode === 'arena' ? !!aRun && !aRun.ended : !!cur;
 }
-function takePremove(): any | undefined {
-  const at: [string, string] | undefined = cg.state.premovable.current;
-  if (!at) return undefined;
-  cg.cancelPremove();
-  if (!pos.board.get(parseSquare(at[0]) ?? 64)) return undefined;
-  return toMove(at[0], at[1]);            // same normalisation as a real move (castling, promotion)
+/* Premoves are a QUEUE, not a single slot: chess.com lets you tap out a whole idea while the
+   opponent thinks. chessground validates each drag against the empty-board rule for us; we take
+   the move it produced, keep it here, and clear its own slot so the next drag starts fresh. */
+let premoveQ: { from: string; to: string }[] = [];
+let harvesting = false;
+let lastShapes: any[] = [];
+const refreshShapes = () => { lastShapes && cg.setAutoShapes(premoveQ.length ? [...lastShapes, ...premoveArrows()] : lastShapes); };
+const premoveArrows = () => premoveQ.map(q => ({ orig: q.from, dest: q.to, brush: 'reply' }));
+function harvestPremove(from: string, to: string) {
+  if (harvesting || !premoveAllowed()) return;
+  harvesting = true;
+  const dup = premoveQ.findIndex(q => q.from === from && q.to === to);
+  if (dup >= 0) premoveQ.splice(dup, 1); else premoveQ.push({ from, to });
+  cg.cancelPremove();                    // our queue owns the drawing from here
+  renderBoardMarks(); renderPremoveGhost(); refreshShapes();   // 'harvesting' is consumed by the unset handler
+  sfx('move');
 }
+function clearPremoves() { if (!premoveQ.length) return; premoveQ = []; renderBoardMarks(); renderPremoveGhost(); refreshShapes(); }
 function consumePremove(): boolean {
-  const m = takePremove(); if (!m) return false;
-  if (!pos.isLegal(m)) { sfx('bad'); return false; }   // the reply blocked it: say so, then drop it
+  if (!premoveQ.length) return false;
+  const q = premoveQ[0];
+  const m = toMove(q.from, q.to);        // same normalisation as a real move (castling, promotion)
+  if (!m || !pos.isLegal(m)) { premoveQ = []; sfx('bad'); renderPremoveGhost(); return false; }
+  premoveQ.shift();
+  if (!pos.board.get(parseSquare(q.from) ?? 64)) { premoveQ = []; return false; }
   commit(m);
   return true;
 }
@@ -368,15 +384,19 @@ function consumePremove(): boolean {
 function show(shapes: any[] = [], can = true) {
   canNow = can;
   const pm = !can && premoveAllowed();
-  if (!pm && cg.state.premovable.current) cg.cancelPremove();
+  if (!pm) { if (cg.state.premovable.current) cg.cancelPremove(); if (premoveQ.length) premoveQ = []; }
   cg.set({
     fen: makeFen(pos.toSetup()), orientation: orient(), turnColor: pos.turn,
     check: pos.isCheck() ? pos.turn : false,
     lastMove: last ? lastPair(last) : undefined,
-    premovable: { enabled: pm, events: { set: () => renderPremoveGhost(), unset: () => renderPremoveGhost() } },
+    premovable: { enabled: pm, events: {
+      set: (o: string, d: string) => harvestPremove(o, d),
+      unset: () => { if (harvesting) harvesting = false; else clearPremoves(); renderPremoveGhost(); },
+    } },
     movable: { color: can ? pos.turn : pm ? premoveColor() : undefined, dests: can ? chessgroundDests(pos) : new Map() },
   });
-  cg.setAutoShapes(shapes);
+  lastShapes = shapes;
+  cg.setAutoShapes(premoveQ.length ? [...shapes, ...premoveArrows()] : shapes);
   renderBoardMarks();
   renderPremoveGhost();
 }

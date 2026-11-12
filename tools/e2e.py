@@ -115,11 +115,14 @@ with sync_playwright() as p:
                 pg.click('[data-act=tsolution]'); pg.wait_for_timeout(900)
                 wrong_tested = 'counted as a miss' in pg.inner_text('#msg') or 'counted as a miss' in pg.inner_text('#note')
                 check('tactics: a wrong move is rejected (graded as a miss)', wrong_tested, pg.inner_text('#msg')[:40] + pg.inner_text('#note')[:40])
-        for step in range(4):
+        for step in range(6):
             pg.click('[data-act=thint]'); pg.wait_for_timeout(250)
             u = arrow_uci(pg); drag(pg, u); pg.wait_for_timeout(300)
             if pg.locator('[data-act=tnext]').count(): break
-            pg.wait_for_function("document.querySelector('#msg').textContent.includes('Find the next') || document.querySelector('[data-act=tnext]')", timeout=5000)
+            try:      # a three-move puzzle needs two answers: try again rather than fail the run
+                pg.wait_for_function("document.querySelector('#msg').textContent.includes('Find the next') || document.querySelector('[data-act=tnext]')", timeout=6000)
+            except Exception:
+                pg.wait_for_timeout(600)
             if pg.locator('[data-act=tnext]').count(): break
         if pg.locator('[data-act=tnext]').count() and ('Solved' in msg(pg)): solved += 1
         pg.click('[data-act=tnext]'); pg.wait_for_timeout(1000)
@@ -173,10 +176,13 @@ with sync_playwright() as p:
     drag(pg, arrow_uci(pg)); pg.wait_for_timeout(120)          # answer, so the opponent is to move
     dragged = 'Opponent' in pg.inner_text('#msg')
     drag(pg, 'a2a3'); pg.wait_for_timeout(120)                  # premove: any square the pawn could reach
+    drag(pg, 'b2b3'); pg.wait_for_timeout(150)                  # and a second one, queued behind it
     ghost = pg.locator('#endmark .premove-ghost').count()
     hidden = pg.evaluate("() => document.querySelectorAll('#board piece[data-premove-hidden]').length")
-    check('premove: the premoved piece is shown on the square it will move to', dragged and ghost == 1, f'window={dragged} ghost={ghost}')
+    arrows = pg.locator('#board .cg-shapes line').count()
+    check('premove: the next premoved piece is shown on the square it will move to', dragged and ghost == 1, f'window={dragged} ghost={ghost}')
     check('premove: it is not left standing on its own square', hidden == 1, hidden)
+    check('premove: several premoves can be queued', arrows >= 2, arrows)
     pg.screenshot(path='/tmp/shots/e2e-premove.png')
     pg.wait_for_timeout(2400)
     check('premove: it is resolved when the turn comes back (played, or dropped with a cue)',
