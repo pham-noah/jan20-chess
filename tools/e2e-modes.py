@@ -22,23 +22,35 @@ with sync_playwright() as p:
     except Exception: got = False
     check('walk: engine explanation appears for the mistake', got, pg.inner_text('#note')[:160])
     print('   explanation:', pg.inner_text('#note')[:200].replace('\n', ' '))
-    # --- Drill: streak ends on a mistake, best saved
-    pg.click('[data-act=lmode][data-u=drill]'); pg.wait_for_timeout(300); pg.click('[data-act=dstart]'); pg.wait_for_timeout(900)
-    def correct():  # the right answer depends on which position was drawn: start position -> e4, after 1.e4 e5 -> Nf3
-        return 'e2e4' if not pg.inner_text('#path').startswith('1.') else 'g1f3'
-    drag(pg, correct()); pg.wait_for_timeout(1400)
-    check('drill: a correct move scores', 'Streak 1' in pg.inner_text('#path') or 'lines' in pg.inner_text('#path'), pg.inner_text('#path'))
-    # make sure it is my move, then play something wrong
-    pg.wait_for_function("document.querySelector('#msg').textContent.startsWith('Your move')||document.querySelector('#msg').textContent.startsWith('Line complete')", timeout=8000); pg.wait_for_timeout(1200)
-    pg.wait_for_function("document.querySelector('#msg').textContent.startsWith('Your move')", timeout=8000)
-    drag(pg, 'h2h3'); pg.wait_for_timeout(500)
-    check('drill: a mistake ends the streak', msg(pg).startswith('Streak over'), msg(pg))
-    check('drill: Again button offered', pg.locator('[data-act=dstart]').count() == 1)
+    # --- Drill: whole lines, short first, a miss restarts the line without leaving the drill
+    pg.click('[data-act=lmode][data-u=drill]'); pg.wait_for_timeout(900)
+    check('drill: starts by itself, with no start button', pg.locator('[data-act=dstart]').count() == 0
+          and pg.locator('[data-act=dstop]').count() == 1)
+    d0 = pg.evaluate("() => window.__jan20().drill")
+    check('drill: the first line is the shortest one available',
+          len(d0['line'].split()) == d0['cap'], f"line {len(d0['line'].split())} plies, cap {d0['cap']}")
+    check('drill: the line starts at move one', d0['at'] == 0 and d0['line'].split()[0] == 'e2e4', d0['line'][:20])
+    moves = d0['line'].split()
+    for i in range(0, min(len(moves), 6), 2):          # play up to three of my moves
+        drag(pg, moves[i]); pg.wait_for_timeout(900)
+    prog = pg.evaluate("() => window.__jan20().drill")
+    check('drill: playing the line on scores it', prog['streak'] >= 1 or prog['clean'] >= 1, pg.inner_text('#path'))
+    pg.wait_for_timeout(900)
+    same = pg.evaluate("() => window.__jan20().drill")['line']
+    drag(pg, 'd2d4' if not same.startswith('d2d4') else 'h2h3'); pg.wait_for_timeout(500)   # legal, not in the book
+    check('drill: a wrong move restarts the line, it does not end the drill',
+          'Starting the line again' in msg(pg), msg(pg)[:60])
+    pg.wait_for_timeout(2400)
+    d1 = pg.evaluate("() => window.__jan20().drill")
+    check('drill: it restarts the same line from move one', d1['active'] and d1['at'] == 0 and d1['line'] == same,
+          f"active {d1['active']}, at {d1['at']}")
+    check('drill: the run is reset but the drill goes on', d1['streak'] == 0 and d1['clean'] == 0
+          and pg.locator('[data-act=dstop]').count() == 1)
     # --- Time trial: starts, clock runs, can be stopped, score saved
     pg.click('[data-act=lmode][data-u=time]'); pg.wait_for_timeout(300); pg.click('[data-act=tstart]'); pg.wait_for_timeout(1000)
     t1 = pg.inner_text('#path'); pg.wait_for_timeout(1500); t2 = pg.inner_text('#path')
     check('time trial: the clock runs', t1 != t2 and 's ·' in t2, f'{t1} -> {t2}')
-    pg.wait_for_function("document.querySelector('#msg').textContent.startsWith('Your move')", timeout=8000); drag(pg, correct()); pg.wait_for_timeout(1500)
+    pg.wait_for_timeout(1200)                 # let the clock run a moment longer
     pg.click('[data-act=dstop]'); pg.wait_for_timeout(400)
     check('time trial: stop ends the run and reports the score', msg(pg).startswith('Time!'), msg(pg))
     # --- Arena: follow the book, then play on; Stockfish judges

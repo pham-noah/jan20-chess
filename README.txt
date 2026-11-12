@@ -148,7 +148,14 @@ PERFORMANCE (v23)
   the "where does this move lead" lookup are cached (walking re-parsed a FEN per position), tree rows tell the browser
   to skip layout and paint for rows that are off screen (content-visibility), and a tree row stores its path once
   instead of once per move inside it (1.15 MB of markup became 0.69 MB). Measured on the Evans repertoire
-  (676 positions): a move in the Editor went from ~120 ms to ~20 ms, and with the tree open from ~150 ms to ~65 ms. chessground's own drag ghost is disabled,
+  (676 positions): a move in the Editor went from ~120 ms to ~20 ms, and with the tree open from ~150 ms to ~65 ms.
+
+DRILL PLAYS WHOLE LINES (v24)
+  Drill used to drop you into a random position and end the streak on one miss. It now plays a whole line from move
+  one: it opens with the shortest line in the repertoire, and every clean line buys a longer one (three plies at a
+  time, up to the longest line there is). A wrong move restarts the line you are on — from move one, with the run
+  reset — and keeps you in the drill, so a slip costs you a repeat, not the session. Picking Drill starts it straight
+  away; there is no Start button, only Stop. chessground's own drag ghost is disabled,
   because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)

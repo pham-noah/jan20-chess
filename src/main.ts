@@ -527,6 +527,9 @@ function pathTo(k: string) {
   canPremove: premoveAllowed(), fen: makeFen(pos.toSetup()).split(' ')[0],
   free: (cg.state.movable as any).free === true, inCheck: pos.isCheck(),
   preview: premoveQ.length ? makeFen(premovePreview().toSetup()).split(' ')[0] : null,
+  drill: S.lmode === 'drill'
+    ? { line: dLine.join(' '), at: line.length, active: dActive, cap: drillCap(), clean: dLines, streak: dScore }
+    : null,
 });
 function onMove(o: string, d: string) {
   if (opening(mode) && !cur) return;
@@ -1259,9 +1262,10 @@ function learnStep() {
   }
   if (pos.turn !== cur!.color) {
     show([], false); msg('Opponent plays…');
-    // Walk follows the numbered line; Drill and Time stay random.
-    const want = walk ? wLines[wIdx]?.[line.length] : undefined;
-    const u = want && us.includes(want) ? want : walk ? us[0] : pick(us);
+    // Walk follows the numbered line, and so does a drill (it is playing one line from move one);
+    // Time stays random on purpose.
+    const want = walk ? wLines[wIdx]?.[line.length] : S.lmode === 'drill' && dActive ? dLine[line.length] : undefined;
+    const u = want && us.includes(want) ? want : walk || (S.lmode === 'drill' && dActive) ? us[0] : pick(us);
     setTimeout(() => { if (tok === session) { play(u); learnStep(); } }, fast() ? Math.min(S.learnDelay, 250) : S.learnDelay);
     return;
   }
@@ -1282,40 +1286,72 @@ function learnAnswer(u: string, k: string) {
     return learnStep();
   }
   buzz(); sfx('bad'); markMove(sanAt(k, u), false, u);
-  if (S.lmode === 'drill' && dActive) return drillOver(k, u);
+  if (S.lmode === 'drill' && dActive) return drillMiss(k, u);
   if (S.lmode === 'time' && dActive) return timeMiss(k);
   msg(`Not in your repertoire. You prepared ${Object.values(mv).join(' or ')}.`, 'bad'); show();
   explainWrong(k, u);
 }
 const runLine = () => (S.lmode === 'time' ? `Score ${dScore} · lines ${dLines} · best ${bestOf('time')}` : `Streak ${dScore} · lines ${dLines} · best ${bestOf('drill')}`);
 
-/* Drill: a streak across random lines. One mistake ends it. */
+/* Drill: play whole lines from move one. It opens with short ones and hands out longer ones as clean
+   lines add up; a miss restarts the line you are on, so you stay in the drill and learn the line. */
+let dLine: string[] = [];               // the line being played, move by move
 function drillInit() {
-  show([], false); showNote(''); msg('Drill: play your lines with no mistakes. One miss ends the streak.');
-  $('#path').textContent = `Best streak: ${bestOf('drill')}`;
-  $('#act').innerHTML = `${lmodeBar()}<div class="row"><button data-act="dstart" class="primary">Start</button></div>`;
+  show([], false); showNote('');
+  dScore = 0; dLines = 0; dActive = true;
+  $('#act').innerHTML = `${lmodeBar()}<div class="row"><button data-act="dstop">Stop</button></div>`;
+  drillLine();
+}
+/** Longest line the drill will deal right now: it starts at the shortest line in the repertoire and
+ *  grows by three plies with every clean line, so the drill gets longer only as you keep it clean. */
+function drillCap(): number {
+  const lens = walkLines().map(l => l.length).filter(n => n > 0);
+  if (!lens.length) return 0;
+  return Math.min(Math.max(...lens), Math.min(...lens) + dLines * 3);
+}
+/** Short lines first: among the ones that fit the current cap, take from the longer end. */
+function drillPick(): string[] {
+  const lines = walkLines().filter(l => l.length > 0);
+  if (!lines.length) return [];
+  const cap = drillCap();
+  const fit = lines.filter(l => l.length <= cap);
+  // nothing that short exists yet: take the shortest line there is
+  const pool = fit.length ? fit : [lines.reduce((a, b) => (a.length <= b.length ? a : b))];
+  const byLen = [...pool].sort((a, b) => b.length - a.length);
+  return pick(byLen.slice(0, Math.max(1, Math.ceil(byLen.length / 3))));
+}
+function drillLine(same?: string[]) {
+  session++; const tok = session;
+  dLine = same ?? drillPick(); line = []; pos = Chess.default(); last = undefined; lastKey = undefined;
+  $('#path').textContent = runLine();
+  if (!dLine.length) { dActive = false; msg('Nothing to drill yet. ' + addHint()); return; }
+  locked = false; msg('Your move.');
+  if (tok === session) learnStep();
 }
 function drillNextLine() {
   const ks = ownKeys(); if (!ks.length) { dActive = false; msg('Nothing to drill yet. ' + addHint()); return; }
   buildIndex(); const k = pick(ks); const e = parent.get(k);
   pos = fromKey(k); line = pathTo(k); last = e?.uci; lastKey = e?.from; learnStep();
 }
-function drillStart() {
-  session++; dActive = true; dScore = 0; dLines = 0;
-  $('#act').innerHTML = `${lmodeBar()}<div class="row"><button data-act="dstop">Stop</button></div>`; drillNextLine();
-}
 function lineDone() {
   dLines++; if (S.lmode === 'time') ttEnd += 8000;
   sfx('ok'); flash('ok'); msg('Line complete.', 'ok'); locked = true; const tok = session;
-  setTimeout(() => { if (tok === session && dActive) { locked = false; drillNextLine(); } }, 500);
+  setTimeout(() => {
+    if (tok !== session || !dActive) return;
+    locked = false;
+    if (S.lmode === 'drill') drillLine(); else drillNextLine();
+  }, 500);
 }
-function drillOver(k: string, u: string) {
-  dActive = false; locked = true; const mv = cur!.moves[k];
-  const nb = setBest('drill', dScore); show(Object.keys(mv).map(arrow), false);
-  msg(`Streak over: ${dScore}.${nb && dScore ? ' New best!' : ''}`, 'bad');
-  $('#path').textContent = `You prepared ${Object.values(mv).join(' or ')} here. Best streak ${bestOf('drill')}.`;
-  $('#act').innerHTML = `${lmodeBar()}<div class="row"><button data-act="dstart" class="primary">Again</button></div>`;
+function drillMiss(k: string, u: string) {
+  const mv = cur!.moves[k], line_ = dLine;
+  setBest('drill', dScore);
+  locked = true; show(Object.keys(mv).map(arrow), false);
+  msg(`Not in your repertoire. You prepared ${Object.values(mv).join(' or ')}. Starting the line again.`, 'bad');
+  $('#path').textContent = runLine();
+  dScore = 0; dLines = 0;                       // a miss resets the run, not the drill
   explainWrong(k, u);
+  const tok = session;
+  setTimeout(() => { if (tok === session && dActive) drillLine(line_); }, 1500);
 }
 
 /* Time Trial: 60 seconds, clean lines add time, mistakes cost time. */
@@ -2168,7 +2204,7 @@ document.addEventListener('click', e => {
     $('#act').innerHTML = `<div class="row"><button data-act="next" class="primary">Next card ›</button></div>`;
   }
   else if (a === 'lmode') { S.lmode = u as LMode; save(); learnInit(); }
-  else if (a === 'dstart') drillStart();
+  else if (a === 'dstart') { dLines = 0; dScore = 0; drillInit(); }
   else if (a === 'tstart') timeStart();
   else if (a === 'dstop') { if (S.lmode === 'time') timeOver(); else { dActive = false; const nb = setBest('drill', dScore); msg(`Stopped. Streak ${dScore}.${nb && dScore ? ' New best!' : ''}`, 'ok'); $('#act').innerHTML = `${lmodeBar()}<div class="row"><button data-act="dstart" class="primary">Again</button></div>`; locked = true; session++; } }
   else if (a === 'astart') arenaStart();
