@@ -133,8 +133,11 @@ LESSON CHAPTERS, AND A PREMOVE THAT LOOKS LIKE CHESS.COM'S (v23)
   own pieces, only while the opponent is to move. Several can be **queued**: chessground validates each drag, the app
   takes the move and clears its own slot, so the next drag starts a new link in the chain. The chain is drawn as arrows
   with the next piece **standing on the square it will land on** (so it can be picked up again for the next link — the
-  same piece can be premoved twice, e.g. a pawn a2-a3-a4); each link fires as the turn comes back and the whole queue is
-  dropped — with the error sound — the moment one of them is no longer legal. chessground's own drag ghost is disabled,
+  same piece can be premoved twice, e.g. a pawn a2-a3-a4). Each link fires as the turn comes back. If the reply makes a
+  link impossible, **that link alone is dropped** (with the error sound) and the chain carries on from whatever is still
+  playable, rather than the whole queue collapsing. A drag that could never be a move — onto a king, onto your own
+  piece, or somewhere that piece does not go — never enters the queue in the first place, so the board never shows an
+  impossible capture. chessground's own drag ghost is disabled,
   because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)

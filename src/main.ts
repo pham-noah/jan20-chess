@@ -11,6 +11,7 @@ import { parseFen, makeFen } from 'chessops/fen';
 import { parseSquare, makeUci, parseUci, makeSquare } from 'chessops/util';
 import { attacks } from 'chessops/attacks';
 import { SquareSet } from 'chessops/squareSet';
+import { nextPlayable, premoveLinkAllowed, type QueuedPremove } from './premove';
 import type { Piece } from 'chessops/types';
 import { makeSan, parseSan } from 'chessops/san';
 import { parsePgn, startingPosition } from 'chessops/pgn';
@@ -343,13 +344,19 @@ function premoveAllowed(): boolean {
 /* Premoves are a QUEUE, not a single slot: chess.com lets you tap out a whole idea while the
    opponent thinks. chessground validates each drag against the empty-board rule for us; we take
    the move it produced, keep it here, and clear its own slot so the next drag starts fresh. */
-let premoveQ: { from: string; to: string }[] = [];
+let premoveQ: QueuedPremove[] = [];
 let harvesting = false;
 let lastShapes: any[] = [];
 const refreshShapes = () => { lastShapes && cg.setAutoShapes(premoveQ.length ? [...lastShapes, ...premoveArrows()] : lastShapes); };
 const premoveArrows = () => premoveQ.map(q => ({ orig: q.from, dest: q.to, brush: 'reply' }));
 function harvestPremove(from: string, to: string) {
   if (harvesting || !premoveAllowed()) return;
+  const f = parseSquare(from), t = parseSquare(to);
+  const base = premoveQ.length ? premovePreview() : pos;
+  if (f === undefined || t === undefined || !premoveLinkAllowed(base.board, f, t, premoveColor())) {
+    harvesting = true; cg.cancelPremove(); show([], false);      // not a move: throw the attempt away
+    return;
+  }
   harvesting = true;
   const dup = premoveQ.findIndex(q => q.from === from && q.to === to);
   if (dup >= 0) premoveQ.splice(dup, 1); else premoveQ.push({ from, to });
@@ -378,36 +385,26 @@ function premovePreview(): Chess {
   }
   return q;
 }
-/** chess.com's rule: a premove may go anywhere the piece could reach on an empty board. */
-function reachableOnEmpty(pc: Piece, from: number, to: number): boolean {
-  if (to === from) return false;
-  const df = (to & 7) - (from & 7), dr = (to >> 3) - (from >> 3);
-  if (pc.role === 'pawn') {
-    const fwd = pc.color === 'white' ? 1 : -1, start = pc.color === 'white' ? 1 : 6;
-    if (df === 0 && dr === fwd) return true;
-    if (df === 0 && dr === 2 * fwd && (from >> 3) === start) return true;
-    return Math.abs(df) === 1 && dr === fwd;                                 // a capture may appear there
-  }
-  for (const sq of attacks(pc, from, SquareSet.empty())) if (sq === to) return true;
-  return false;
-}
 function queuePremove(from: string, to: string) {
   const board = premoveQ.length ? premovePreview() : pos;
   const f = parseSquare(from), t = parseSquare(to);
   if (f === undefined || t === undefined) return;
-  const pc = board.board.get(f);
-  if (!pc || pc.color !== premoveColor()) return;
-  if (!reachableOnEmpty(pc, f, t)) return;
+  if (!premoveLinkAllowed(board.board, f, t, premoveColor())) return;
   premoveQ.push({ from, to });
   refreshShapes(); show([], false); sfx('move');
 }
 function consumePremove(): boolean {
   if (!premoveQ.length) return false;
-  const q = premoveQ[0];
-  const m = toMove(q.from, q.to);        // same normalisation as a real move (castling, promotion)
-  if (!m || !pos.isLegal(m)) { premoveQ = []; sfx('bad'); renderPremoveGhost(); return false; }
+  // A link the reply has made impossible is dropped on its own; the rest of the chain still runs.
+  const legalMove = (q: QueuedPremove) => {
+    const m = toMove(q.from, q.to);       // same normalisation as a real move (castling, promotion)
+    return m && pos.isLegal(m) ? m : undefined;
+  };
+  const { next, skipped } = nextPlayable(premoveQ, (q) => !!legalMove(q));
+  if (skipped) sfx('bad');               // say that something in the chain was lost
+  if (!next) { show([], false); return false; }
+  const m = legalMove(next)!;
   premoveQ.shift();
-  if (!pos.board.get(parseSquare(q.from) ?? 64)) { premoveQ = []; return false; }
   commit(m);
   return true;
 }

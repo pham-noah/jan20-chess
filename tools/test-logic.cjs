@@ -2,6 +2,7 @@
 const { createSF, score } = require('./sf.cjs');
 const fs = require('fs');
 const { PuzzleRun } = require('./.build/puzzle.cjs');
+const { nextPlayable, premoveLinkAllowed } = require('./.build/premove.cjs');
 const { DrillRun } = require('./.build/drill.cjs');
 const { fromEngine } = require('./.build/uci.cjs');
 const load = (f) => JSON.parse(fs.readFileSync('src/tactics/' + f, 'utf8'));
@@ -12,6 +13,48 @@ const drills = require('./.build/endgames.cjs').DRILLS;
 const only = process.argv[2];
 (async () => {
   let bad = 0;
+  {
+    // premove chains: a link the reply made impossible is dropped on its own, the rest still runs
+    const q = (a, b) => ({ from: a, to: b });
+    let queue = [q('a2', 'a3'), q('a3', 'a4')];
+    let r = nextPlayable(queue, (x) => x.from === 'a3');        // first link impossible
+    let ok = r.next === queue[0] && r.skipped === 1 && queue.length === 1;
+    queue = [q('a2', 'a3'), q('a3', 'a4')];
+    r = nextPlayable(queue, () => true);
+    ok = ok && r.next?.from === 'a2' && r.skipped === 0 && queue.length === 2;
+    queue = [q('a2', 'a3')];
+    r = nextPlayable(queue, () => false);
+    ok = ok && r.next === undefined && r.skipped === 1 && queue.length === 0;
+    console.log(ok ? 'ok   premove chain drops only the impossible link' : 'FAIL premove chain skip logic');
+    if (!ok) bad++;
+  }
+  {
+    // premove destinations: whole empty-board reach, but never a king
+    const sq = (n) => (n.charCodeAt(0) - 97) + (Number(n[1]) - 1) * 8;
+    const cells = {
+      [sq('c7')]: { role: 'pawn', color: 'white' },
+      [sq('d8')]: { role: 'king', color: 'black' },          // a pawn next to the enemy king
+      [sq('e5')]: { role: 'pawn', color: 'white' },
+      [sq('e6')]: { role: 'king', color: 'black' },          // a king straight in front of a pawn
+      [sq('g1')]: { role: 'knight', color: 'white' },
+      [sq('d1')]: { role: 'queen', color: 'white' },
+    };
+    const b = { get: (s) => cells[s] };                      // premoveLinkAllowed only asks board.get
+    const cases = [
+      ['pawn capturing the king', premoveLinkAllowed(b, sq('c7'), sq('d8'), 'white'), false],
+      ['pawn pushing onto the king', premoveLinkAllowed(b, sq('e5'), sq('e6'), 'white'), false],
+      ['knight jumping two up', premoveLinkAllowed(b, sq('g1'), sq('g3'), 'white'), false],
+      ['knight to f3', premoveLinkAllowed(b, sq('g1'), sq('f3'), 'white'), true],
+      ['queen through pieces', premoveLinkAllowed(b, sq('d1'), sq('h5'), 'white'), true],
+      ['the opponent\'s piece', premoveLinkAllowed(b, sq('g1'), sq('f3'), 'black'), false],
+      ['a square holding your own piece', premoveLinkAllowed(
+        { get: (s) => (s === sq('f1') ? { role: 'rook', color: 'white' } : cells[s]) }, sq('d1'), sq('f1'), 'white'), false],
+    ];
+    for (const [what, got, want] of cases) {
+      if (got !== want) { console.log(`FAIL premove destination: ${what} (got ${got}, want ${want})`); bad++; }
+    }
+    if (!bad) console.log('ok   premove destinations allow reach but never a king');
+  }
   if (!only || only === 'puzzles') {
     for (const p of [...starter, ...traps, ...lichess]) {
       // some lines end on the opponent's reply, some on ours: playing every stored move without a
