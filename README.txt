@@ -123,6 +123,20 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+TACTICS: 1,245 PUZZLES FROM LICHESS, AND ARROWS THAT MATCH THE CATEGORY (v21)
+- **The tactical set comes from the Lichess puzzle database** (CC0, 6.19 M puzzles). 1,245 were curated to a balanced
+  mix across 28 themes — fork, pin, skewer, discovered attack, deflection, attraction, clearance, sacrifice, double
+  check, promotion, trapped piece, x-ray, interference, zugzwang, quiet move, exposed king, capturing the defender,
+  back-rank mate, mate in 1-4, endgame/opening/middlegame — filtered to popularity >= 90 and >= 800 plays, ratings
+  700-2500. `tools/gen-puzzles.mjs` can also mine puzzles out of our own lines with Stockfish, but the database is
+  better material, so it is not shipped.
+- **The arrows now draw the category's idea, not a generic "attacks" figure.** Mate draws nothing (the mated king
+  carries the `#` badge), a pin points along the line at the king, a skewer at the piece in front, a fork fans out to
+  both victims, a plain check points at the king. When the move does not actually perform the motif its label claims,
+  nothing extra is drawn — no invented arrows. That was the complaint: every category showed the same figure.
+- `test:logic` now replays **all 1,452** puzzles (167 starter + 40 repertoire traps + 1,245 Lichess) and requires every
+  stored move to be legal; it also tolerates lines that end on the opponent's reply.
+
 NO EXPORT ON THE WEB EITHER (v20)
 - The web build can write a **real file on disk**: Settings → "Link a file…" (once), pick `jan20-repertoire.json`, and
   from then on every change is written into it — same as the desktop app. This needs the File System Access API, i.e.

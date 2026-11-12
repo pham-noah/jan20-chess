@@ -24,6 +24,7 @@ import { explain, fmtScore } from './explain';
 import { ArenaRun, type ArenaEnd } from './arena';
 import STARTER from './tactics/starter.json';
 import TRAPS from './tactics/traps.json';
+import LICHESS from './tactics/lichess.json';
 
 type Rep = { id: string; name: string; color: 'white' | 'black'; moves: Record<string, Record<string, string>>; cards: Record<string, any>; notes?: Record<string, string>; bad?: Record<string, number>; tags?: Record<string, string>; lineNames?: Record<string, string>; hist?: Record<string, number>; src?: string; best?: { drill?: number; time?: number }; arena?: { rating: number; games: number }; walk?: number; seen?: Record<string, true> };
 type Mode = 'build' | 'learn' | 'review' | 'tactics' | 'endgames';
@@ -1350,7 +1351,7 @@ function reviewAnswer(u: string, k: string) {
 }
 
 /* ---------- Tactics ---------- */
-const allPuzzles = () => (STARTER as Puzzle[]).concat(TRAPS as Puzzle[], imported);
+const allPuzzles = () => (STARTER as Puzzle[]).concat(TRAPS as Puzzle[], LICHESS as Puzzle[], imported);
 let pmapCache: Map<string, Puzzle> | undefined;
 const pmap = () => (pmapCache ??= new Map(allPuzzles().map(p => [p.id, p])));
 const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
@@ -1462,23 +1463,76 @@ function tacticsAnswer(m: any) {
   }, 450);
 }
 const puzzleThemes = (p: Puzzle) => p.themes.filter(t => !['short', 'long', 'oneMove'].includes(t)).map(humanTheme).join(' · ');
-/** What a move actually did: arrows from the piece that landed to the enemy pieces it now attacks. */
-function motifShapes(at: Chess = pos, u: string | undefined = last): any[] {
+const ROLE_VALUE: Record<string, number> = { queen: 9, rook: 5, bishop: 3, knight: 3, pawn: 1, king: 20 };
+/** The first two pieces along a slider's ray. */
+function rayPieces(at: Chess, from: number, role: string) {
+  const straight = role === 'rook' || role === 'queen', diag = role === 'bishop' || role === 'queen';
+  const out: { sq: number; piece: any }[][] = [];
+  const f0 = from & 7, r0 = from >> 3;
+  for (const [df, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    if (!((df === 0 || dr === 0) ? straight : diag)) continue;
+    let f = f0 + df, r = r0 + dr; const hits: any[] = [];
+    while (f >= 0 && f < 8 && r >= 0 && r < 8) {
+      const sq = r * 8 + f, pc = at.board.get(sq);
+      if (pc) { hits.push({ sq, piece: pc }); if (hits.length === 2) break; }
+      f += df; r += dr;
+    }
+    if (hits.length === 2) out.push(hits);
+  }
+  return out;
+}
+/** What the move actually did — drawn as the motif its category names, not as a generic "attacks".
+ *  Mate shows no arrows (the king carries the badge), a pin points at the king, a fork fans out to
+ *  both victims, and when nothing specific applies the solution arrow stands alone. */
+function motifShapes(at: Chess = pos, u: string | undefined = last, themes: string[] = []): any[] {
   if (!u) return [];
   const m = parseUci(u) as any; if (!m) return [];
-  const pc = at.board.get(m.to); if (!pc) return [];
-  const value: Record<string, number> = { queen: 9, rook: 5, bishop: 3, knight: 3, king: 20 };
+  // callers hand us either the position before the move or the one after it
+  const pre = at.isLegal(m);
+  const q = at.clone(); if (pre) q.play(m);
+  const moverColor: Color | undefined = q.board.get(m.to)?.color;
+  if (!moverColor) return [];
+  const enemy: Color = moverColor === 'white' ? 'black' : 'white';
+  const king = [...q.board.pieces(enemy, 'king')][0];
+  if (king === undefined) return [];
+  const A = (from: number, to: number, brush: string) => ({ orig: makeSquare(from), dest: makeSquare(to), brush });
+  if (q.isCheckmate()) return [];                                  // the # badge says it
+
+  // fork: the piece that landed now hits two of them
   const hits: number[] = [];
-  for (const sq of attacks(pc, m.to, at.board.occupied) as any) {
-    const t = at.board.get(sq); if (t && t.color !== pc.color) hits.push(sq);
+  const landed = q.board.get(m.to);
+  if (landed) for (const s of attacks(landed, m.to, q.board.occupied) as any) {
+    const t = q.board.get(s);
+    if (t && t.color === enemy && t.role !== 'king') hits.push(s);
   }
-  if (!hits.length) return [];
-  hits.sort((a, b) => (value[at.board.get(b)!.role] ?? 0) - (value[at.board.get(a)!.role] ?? 0));
-  return hits.slice(0, 2).map(sq => ({ orig: makeSquare(m.to), dest: makeSquare(sq), brush: 'fork' }));
+  hits.sort((a, b) => (ROLE_VALUE[q.board.get(b)!.role] ?? 0) - (ROLE_VALUE[q.board.get(a)!.role] ?? 0));
+  const wantsFork = themes.includes('fork') || themes.includes('hangingPiece') || hits.length >= 2;
+
+  // a pin or a skewer is the most specific thing a move can do, so it wins: one line, drawn to the
+  // piece that is stuck (the king for a pin, the piece in front for a skewer)
+  let pinArrow: any[] | undefined, skewerArrow: any[] | undefined;
+  for (const from of [...q.board.pieces(moverColor, 'bishop'), ...q.board.pieces(moverColor, 'rook'), ...q.board.pieces(moverColor, 'queen')]) {
+    const pc = q.board.get(from); if (!pc) continue;
+    for (const [near, far] of rayPieces(q, from, pc.role)) {
+      if (near.piece.color !== enemy || far.piece.color !== enemy) continue;
+      if (far.piece.role === 'king' && near.piece.role !== 'king' && !pinArrow) pinArrow = [A(from, far.sq, 'hint')];
+      if (['queen', 'rook'].includes(far.piece.role) && (ROLE_VALUE[near.piece.role] ?? 0) < (ROLE_VALUE[far.piece.role] ?? 0) && !skewerArrow) skewerArrow = [A(from, near.sq, 'hint')];
+    }
+  }
+  const wantsPin = themes.includes('pin'), wantsSkewer = themes.includes('skewer');
+  if (wantsPin && pinArrow) return pinArrow;
+  if (wantsSkewer && skewerArrow) return skewerArrow;
+  if (wantsPin || wantsSkewer) return [];                          // that category, but not on this move
+  if (hits.length >= 2) return hits.slice(0, 2).map(s => A(m.to, s, 'fork'));
+  if (pinArrow) return pinArrow;
+  if (skewerArrow) return skewerArrow;
+  if (q.isCheck()) return [A(m.to, king, 'hint')];
+  if (hits.length === 1 && (ROLE_VALUE[q.board.get(hits[0])!.role] ?? 0) >= 5) return [A(m.to, hits[0], 'fork')];
+  return [];                                                       // nothing specific: no invented arrows
 }
 function finishPuzzle() {
   const p = tRun!.p; gradePuzzle(tHinted ? 'hint' : 'solve'); locked = true;
-  const why = motifShapes();
+  const why = motifShapes(pos, last, p.themes);
   if (why.length) show(why, false);
   showNote(`Why this one: ${puzzleThemes(p) || 'tactics'}.`);
   msg(tFailed ? 'Solved, but it counts as a miss.' : tHinted ? 'Solved with a hint.' : 'Solved!', tFailed ? '' : 'ok');
@@ -1498,7 +1552,7 @@ function showSolution() {
   msg(`Solution: ${sanLine(fenOf(run.pos), rest)} — counted as a miss.`);
   const base = rest.length ? [arrow(rest[0])] : [];
   let motif: any[] = [];
-  if (rest.length) { const copy = run.pos.clone(); const m: any = parseUci(rest[0]); if (m) { copy.play(m); motif = motifShapes(copy, rest[0]); } }
+  if (rest.length) { const copy = run.pos.clone(); const m: any = parseUci(rest[0]); if (m) { copy.play(m); motif = motifShapes(copy, rest[0], run.p.themes); } }
   show([...base, ...motif], false);
   $('#act').innerHTML = `<div class="row"><button data-act="tnext" class="primary">Next puzzle</button></div>`;
 }
@@ -1709,7 +1763,7 @@ function openSettings() {
   $('#s-san').checked = S.san; $('#s-install').hidden = !deferredInstall; $('#s-expl').checked = S.explain; $('#s-app').value = S.appearance; $('#s-pieces').value = S.pieces; $('#s-sound').checked = S.sound;
   $('#s-coords').checked = S.coords; $('#s-anim').checked = S.anim; $('#s-hap').checked = S.haptics;
   $('#s-ems').value = String(S.engineMs); $('#s-newp').value = S.newPuzzles; $('#s-win').value = String(S.window); $('#s-imin').value = S.importMin; $('#s-imax').value = S.importMax; $('#s-icnt').value = S.importCount;
-  $('#s-pinfo').textContent = `${STARTER.length + TRAPS.length} built in (${TRAPS.length} repertoire traps) · ${imported.length} imported · rating ${Math.round(pstats.rating)}`;
+  $('#s-pinfo').textContent = `${STARTER.length + TRAPS.length + LICHESS.length} built in (${TRAPS.length} repertoire traps, ${LICHESS.length} from the Lichess database) · ${imported.length} imported · rating ${Math.round(pstats.rating)}`;
   $('#s-build').textContent = `Build ${__BUILD__}`;
   $('#s-info').textContent = `${reps.length} repertoires · ${reps.reduce((a, r) => a + Object.keys(r.cards).length, 0)} cards scheduled. Data stays on this device.`;
   showFileState();

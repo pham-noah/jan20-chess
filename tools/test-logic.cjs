@@ -4,22 +4,30 @@ const fs = require('fs');
 const { PuzzleRun } = require('./.build/puzzle.cjs');
 const { DrillRun } = require('./.build/drill.cjs');
 const { fromEngine } = require('./.build/uci.cjs');
-const starter = JSON.parse(fs.readFileSync('src/tactics/starter.json', 'utf8'));
+const load = (f) => JSON.parse(fs.readFileSync('src/tactics/' + f, 'utf8'));
+const starter = load('starter.json');
+const traps = load('traps.json');
+const lichess = load('lichess.json');
 const drills = require('./.build/endgames.cjs').DRILLS;
 const only = process.argv[2];
 (async () => {
   let bad = 0;
   if (!only || only === 'puzzles') {
-    for (const p of starter) {
-      const run = new PuzzleRun(p); run.setupMove(); let res = '';
+    for (const p of [...starter, ...traps, ...lichess]) {
+      // some lines end on the opponent's reply, some on ours: playing every stored move without a
+      // wrong answer is what "sound" means here.
+      const run = new PuzzleRun(p); run.setupMove(); let ok = true;
       while (run.i < p.moves.length) {
-        const u = run.expected(); const m = fromEngine(run.pos, u); res = run.try(u, m);
-        if (res === 'wrong') { console.log('PUZZLE FAIL', p.id, u); bad++; break; }
-        if (res === 'correct') run.reply();
+        const u = run.expected(); const m = fromEngine(run.pos, u);
+        if (!m) { console.log('PUZZLE ILLEGAL MOVE', p.id, u); ok = false; break; }
+        const res = run.try(u, m);
+        if (res === 'wrong') { console.log('PUZZLE FAIL', p.id, u); ok = false; break; }
+        if (res === 'solved') break;
+        run.reply();
       }
-      if (res !== 'solved') { console.log('PUZZLE NOT SOLVED', p.id); bad++; }
+      if (!ok) bad++;
     }
-    console.log('puzzles checked:', starter.length);
+    console.log(`puzzles checked: ${starter.length} starter + ${traps.length} traps + ${lichess.length} lichess = ${starter.length + traps.length + lichess.length}`);
   }
   if (!only || only === 'drills') {
     const sf = createSF(); await sf.init();
