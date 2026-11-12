@@ -2,6 +2,8 @@
 const { createSF, score } = require('./sf.cjs');
 const fs = require('fs');
 const { PuzzleRun } = require('./.build/puzzle.cjs');
+const { LESSONS, puzzleFor } = require('./.build/lessons.cjs');
+const { fromFen } = require('./.build/uci.cjs');       // chessops is ESM; use the bundled wrapper
 const { nextPlayable, premoveLinkAllowed } = require('./.build/premove.cjs');
 const { DrillRun } = require('./.build/drill.cjs');
 const { fromEngine } = require('./.build/uci.cjs');
@@ -54,6 +56,34 @@ const only = process.argv[2];
       if (got !== want) { console.log(`FAIL premove destination: ${what} (got ${got}, want ${want})`); bad++; }
     }
     if (!bad) console.log('ok   premove destinations allow reach but never a king');
+  }
+  {
+    // every lesson is a chapter of three steps, and every step has a position to show
+    const puzzles = [
+      ...require('../src/tactics/starter.json'),
+      ...require('../src/tactics/traps.json'),
+      ...require('../src/tactics/lichess.json'),
+    ];
+    const drills = require('./.build/endgames.cjs').DRILLS;
+    let ok = LESSONS.length >= 33;
+    const problems = [];
+    for (const l of LESSONS) {
+      if (l.steps.length !== 3) problems.push(`${l.id}: ${l.steps.length} steps`);
+      const tiers = l.steps.map(s => s.tier).join(',');
+      if (tiers !== 'basic,advanced,game') problems.push(`${l.id}: tiers ${tiers}`);
+      for (const s of l.steps) {
+        const p = puzzleFor(s, puzzles);
+        const fen = p?.fen ?? drills.find(d => d.id === s.drill)?.fen;
+        if (!fen) { problems.push(`${l.id}/${s.tier}: no position`); continue; }
+        try { fromFen(fen); } catch { problems.push(`${l.id}/${s.tier}: fen does not parse`); }
+        if (p && !(p.moves || []).length) problems.push(`${l.id}/${s.tier}: puzzle has no solution`);
+        if (!s.text || s.text.length < 30) problems.push(`${l.id}/${s.tier}: text too thin`);
+      }
+    }
+    ok = ok && !problems.length;
+    console.log(ok ? `ok   ${LESSONS.length} lessons, 3 steps each, every step has a position`
+                  : `FAIL lessons: ${problems.slice(0, 4).join('; ')}`);
+    if (!ok) bad++;
   }
   {
     // an impossible move must be refused by the drill itself — never handed to the engine, which is

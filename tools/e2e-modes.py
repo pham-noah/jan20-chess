@@ -96,15 +96,32 @@ with sync_playwright() as p:
     check('lessons: the tab lists ideas with instructions', pg.locator('.lesson').count() >= 20, str(pg.locator('.lesson').count()))
     check('lessons: each one says what to look for', pg.locator('.lesson .llook').count() >= 20, str(pg.locator('.lesson .llook').count()))
     check('lessons: endgames are taught here too', pg.locator('.lesson:has-text("Lucena")').count() == 1)
-    pg.click('[data-u=fork]'); pg.wait_for_timeout(1600)
-    check('lessons: a lesson is a chapter in this tab, not a jump to Tactics',
-          pg.get_attribute('[data-m=lessons]', 'aria-current') == 'page' and 'of 5' in pg.inner_text('#path'),
-          pg.inner_text('#path')[:44])
-    check('lessons: the chapter shows the idea and what to look for', 'fork most often' in pg.inner_text('#note'), pg.inner_text('#note')[:44])
+    pg.click('[data-u=fork]'); pg.wait_for_timeout(900)
+    check('lessons: a lesson opens as a chapter in this tab, not a jump to Tactics',
+          pg.get_attribute('[data-m=lessons]', 'aria-current') == 'page' and pg.locator('#act .lstep').count() == 3,
+          pg.locator('#act .lstep').count())
+    tiers = pg.eval_on_selector_all('#act .lstep .tier', 'e => e.map(x => x.textContent.trim())')
+    check('lessons: the chapter goes from basics to advanced to a real game',
+          tiers == ['Basics', 'Advanced', 'Real game'], tiers)
+    fens = pg.eval_on_selector_all('#act .lstep', 'e => e.map(x => x.dataset.prev || "")')
+    check('lessons: every step carries its own position', all(fens) and len(set(fens)) == 3, len(set(fens)))
+    start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
+    first = pg.evaluate("() => window.__jan20().fen")
+    check('lessons: the chapter opens showing the first step', first != start, first[:30])
+    pg.hover('#act .lstep >> nth=2'); pg.wait_for_timeout(400)
+    third = pg.evaluate("() => window.__jan20().fen")
+    check('lessons: hovering the real-game step puts it on the board', third != first, third[:30])
+    pg.evaluate("() => document.querySelectorAll('#act .lstep')[2].click()"); pg.wait_for_timeout(1400)
+    played = pg.evaluate("() => window.__jan20().fen")
+    check("lessons: showing a step walks its solution on the board", played != third, played[:30])
     check('lessons: the chapter has a way back', pg.locator('[data-act=lback]').count() == 1)
-    pg.click('[data-act=lback]'); pg.wait_for_timeout(700)
+    pg.evaluate("() => document.querySelector('[data-act=lstart]').click()"); pg.wait_for_timeout(1600)
+    check('lessons: practising opens a short set of that idea',
+          'Find the best' in msg(pg) and pg.locator('[data-act=lback]').count() == 1, msg(pg)[:40])
+    pg.evaluate("() => document.querySelector('[data-act=lback]').click()"); pg.wait_for_timeout(700)
     check('lessons: back returns to the list', pg.locator('.lesson').count() >= 20, str(pg.locator('.lesson').count()))
-    pg.click('.lesson:has-text("Lucena")'); pg.wait_for_timeout(2400)
+    pg.click('.lesson:has-text("Lucena")'); pg.wait_for_timeout(900)
+    pg.evaluate("() => document.querySelector('[data-act=lstart]').click()"); pg.wait_for_timeout(2600)
     check('lessons: an endgame lesson runs its drill inside the chapter',
           'Lucena' in pg.inner_text('#path') and pg.get_attribute('[data-m=lessons]', 'aria-current') == 'page',
           pg.inner_text('#path')[:40])

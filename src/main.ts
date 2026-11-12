@@ -26,6 +26,7 @@ import { DRILLS } from './endgames';
 import { explain, fmtScore } from './explain';
 import { ArenaRun, type ArenaEnd } from './arena';
 import STARTER from './tactics/starter.json';
+import { LESSONS, puzzleFor, type Lesson, type LessonStep } from './lessons';
 import TRAPS from './tactics/traps.json';
 import LICHESS from './tactics/lichess.json';
 
@@ -573,6 +574,8 @@ function pathTo(k: string) {
   boardFen: cg.state.fen.split(' ').slice(0, 4).join(' '), back: viewBack,
   free: (cg.state.movable as any).free === true, inCheck: pos.isCheck(),
   preview: premoveQ.length ? makeFen(premovePreview().toSetup()).split(' ')[0] : null,
+  lesson: lCtx ? { id: lCtx.lesson.id, practising: !!lCtx.practising, steps: lCtx.lesson.steps.length,
+                   onBoard: lCtx.lesson.steps.findIndex(() => false) } : null,
   drill: S.lmode === 'drill'
     ? { line: dLine.join(' '), at: line.length, active: dActive, cap: drillCap(), clean: dLines, streak: dScore }
     : null,
@@ -1550,7 +1553,7 @@ const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
 
 let setSize: number | undefined;          // a lesson asks for a short set without touching the setting
 /** The lesson you are inside, if any: its chapter stays in the Lessons tab. */
-let lCtx: { lesson: Lesson } | undefined;
+let lCtx: { lesson: Lesson; practising?: boolean } | undefined;
 function puzzleQueue(extra = 0) {
   const all = allPuzzles(); const ok = (p: Puzzle) => S.ptheme === 'all' || p.themes.includes(S.ptheme);
   const due = shuffle(all.filter(p => pcards[p.id] && isDue(pcards[p.id]) && ok(p)).map(p => p.id));
@@ -1765,43 +1768,7 @@ const allDrills = () => DRILLS.concat(egCustom);
 /* ---------- Lessons ----------
    One page per idea: what it is, what to look for, and a door into a short set that practises it.
    Tactical lessons are a theme filter over the puzzle set; endgame lessons are the drills. */
-type Lesson = { id: string; group: string; name: string; idea: string; look: string; theme?: string; drill?: string };
-const LESSONS: Lesson[] = [
-  { id: 'fork', group: 'Tactics', theme: 'fork', name: 'Fork', idea: 'One piece attacks two things at once, and only one can be saved.', look: 'Knights fork most often — check every knight hop for two targets, especially king and queen.' },
-  { id: 'pin', group: 'Tactics', theme: 'pin', name: 'Pin', idea: 'A piece cannot move because something more valuable stands behind it.', look: 'Bishops, rooks and queens on the same line as the king: the piece in front is frozen.' },
-  { id: 'skewer', group: 'Tactics', theme: 'skewer', name: 'Skewer', idea: 'A pin the other way round: the valuable piece is in front and must move, losing what is behind.', look: 'King or queen in front of something on the same line — attack the front piece.' },
-  { id: 'discoveredAttack', group: 'Tactics', theme: 'discoveredAttack', name: 'Discovered attack', idea: 'Moving one piece uncovers the attack of another.', look: 'Two of your pieces on one line with the enemy behind: the front one can step aside with tempo.' },
-  { id: 'doubleCheck', group: 'Tactics', theme: 'doubleCheck', name: 'Double check', idea: 'Two pieces give check at once, so no single reply can answer both — the king must move.', look: 'After a discovered check, ask whether the moving piece also checks.' },
-  { id: 'deflection', group: 'Tactics', theme: 'deflection', name: 'Deflection', idea: 'A defender is lured or driven away from the square it has to guard.', look: 'Ask what each defender is guarding, then whether you can attack it with tempo.' },
-  { id: 'attraction', group: 'Tactics', theme: 'attraction', name: 'Attraction', idea: 'A sacrifice drags the king or a piece onto a square where a tactic works.', look: 'A sacrifice next to the king is usually pulling it into a fork or a mate net.' },
-  { id: 'clearance', group: 'Tactics', theme: 'clearance', name: 'Clearance', idea: 'A piece steps out of the way, or is sacrificed, so a line becomes usable.', look: 'Your own piece blocking your rook, bishop or queen: can it move with tempo?' },
-  { id: 'interference', group: 'Tactics', theme: 'interference', name: 'Interference', idea: 'A piece is planted between a defender and what it defends.', look: 'A defender on a line with the piece it guards — can something land in between?' },
-  { id: 'xRayAttack', group: 'Tactics', theme: 'xRayAttack', name: 'X-ray attack', idea: 'A piece attacks through another to a square behind it.', look: 'A defender in front of the king: the piece behind can often still be won.' },
-  { id: 'hangingPiece', group: 'Tactics', theme: 'hangingPiece', name: 'Hanging piece', idea: 'Something is simply undefended, and the game is about who notices first.', look: 'Before every move, scan what is attacked and what defends it — both colours.' },
-  { id: 'trappedPiece', group: 'Tactics', theme: 'trappedPiece', name: 'Trapped piece', idea: 'A piece has no safe square, so it can be hunted rather than captured at once.', look: 'A knight or bishop deep in enemy space with few squares: count its exits.' },
-  { id: 'backRankMate', group: 'Tactics', theme: 'backRankMate', name: 'Back-rank mate', idea: 'A castled king with no escape square is mated along the last rank.', look: 'Empty squares in front of the king. One rook or queen reaching the back rank is enough.' },
-  { id: 'mateIn1', group: 'Tactics', theme: 'mateIn1', name: 'Mate in one', idea: 'Every legal reply must be check, and every check must be mate.', look: 'List every check, then for each one ask what the king can do.' },
-  { id: 'mateIn2', group: 'Tactics', theme: 'mateIn2', name: 'Mate in two', idea: 'A sacrifice or a quiet move leaves the king with no good reply, then mate follows.', look: 'Look for a forcing first move: check or capture that narrows the king to one square.' },
-  { id: 'mateIn3', group: 'Tactics', theme: 'mateIn3', name: 'Mate in three', idea: 'A longer forcing sequence where each move keeps the king boxed in.', look: 'Work backwards: what is the mating position, then what forces it?' },
-  { id: 'promotion', group: 'Tactics', theme: 'promotion', name: 'Promotion', idea: 'A pawn reaching the last rank decides the game.', look: 'Passed pawns with a clear run, and pawns that can promote with check.' },
-  { id: 'quietMove', group: 'Tactics', theme: 'quietMove', name: 'Quiet move', idea: 'The winning move checks nothing and captures nothing — it takes away the last escape.', look: 'When every forcing move fails, ask what square the king or piece needs taken away.' },
-  { id: 'zugzwang', group: 'Tactics', theme: 'zugzwang', name: 'Zugzwang', idea: 'The opponent is fine where they are, but every move they make loses.', look: 'Endgames where both sides are frozen: whose turn is it?' },
-  { id: 'exposedKing', group: 'Tactics', theme: 'exposedKing', name: 'Exposed king', idea: 'A king that has lost its pawn cover is a target on its own.', look: 'King in the centre or with a broken pawn shield: count the checks available.' },
-  { id: 'capturingDefender', group: 'Tactics', theme: 'capturingDefender', name: 'Remove the defender', idea: 'Trade or take the piece that holds the position together.', look: 'Which enemy piece is doing the most defending? Can you attack it first?' },
-  { id: 'sacrifice', group: 'Tactics', theme: 'sacrifice', name: 'Sacrifice', idea: 'Material is given up for something that matters more: mate, promotion, or a winning endgame.', look: 'When a capture looks free, check whether giving it up opens a line or a square.' },
-
-  { id: 'l-kqk', group: 'Endgames', drill: 'kqk', name: 'King and queen vs king', idea: 'Mate with the queen shrunken box and your own king walking up.', look: 'Keep the queen a knight\'s move from the king; check every move for stalemate.' },
-  { id: 'l-krk', group: 'Endgames', drill: 'krk', name: 'King and rook vs king', idea: 'Cut the king off with the rook, then bring your king to the right side.', look: 'Rook on the third rank or the file, never a square the king can attack.' },
-  { id: 'l-kbbk', group: 'Endgames', drill: 'kbbk', name: 'Two bishops vs king', idea: 'The bishops make a wall and the king pushes the enemy king into a corner.', look: 'Bishops side by side in the centre, king in front — never let the king slip past.' },
-  { id: 'l-kpk', group: 'Endgames', drill: 'kpk-w1', name: 'King and pawn: key squares', idea: 'A king in front of its pawn wins if it reaches the key square two ranks ahead.', look: 'Count the squares in front of the pawn: they, not the pawn, decide the result.' },
-  { id: 'l-opp', group: 'Endgames', drill: 'kpk-w2', name: 'Opposition', idea: 'King facing king with one square between them: the side not to move is winning.', look: 'Count spare tempo moves — sometimes the pawn makes the difference.' },
-  { id: 'l-square', group: 'Endgames', drill: 'kpk-w3', name: 'Rule of the square', idea: 'Draw a square from the pawn to its promotion square: if the king is inside, it catches it.', look: 'Straight-line distance, one diagonal step per move.' },
-  { id: 'l-hold', group: 'Endgames', drill: 'kpk-h1', name: 'Defending king and pawn', idea: 'Run to the right square, and know when the pawn is already dead.', look: 'Get in front of the pawn, not behind it.' },
-  { id: 'l-break', group: 'Endgames', drill: 'breakthrough', name: 'Pawn breakthrough', idea: 'Three pawns against three can force one through with a sacrifice.', look: 'Count the pawn race: give one up to create a passer.' },
-  { id: 'l-lucena', group: 'Endgames', drill: 'lucena', name: 'Lucena position', idea: 'The classic rook ending win: build a bridge with the rook to shield the king.', look: 'King on the promotion square, rook one rank behind: rook to the fourth rank, then bridge.' },
-  { id: 'l-philidor', group: 'Endgames', drill: 'philidor', name: 'Philidor position', idea: 'The classic rook ending draw: rook on the third rank until the king arrives.', look: 'Keep checking from behind once the king comes forward.' },
-  { id: 'l-wrong', group: 'Endgames', drill: 'wrong-bishop', name: 'Wrong bishop draw', idea: 'Bishop and rook pawn with the wrong-coloured bishop is a draw — hold it.', look: 'Corner square colour against the bishop colour.' },
-];
+/* The chapters themselves live in ./lessons: the plain idea, the way it goes wrong, then a real game. */
 /** Open one lesson as a chapter inside this tab: idea, what to look for, then five of its puzzles. */
 function lessonOpen(l: Lesson) {
   lCtx = { lesson: l };
@@ -1810,6 +1777,67 @@ function lessonOpen(l: Lesson) {
   locked = false; eEnded = false; $('#bar').hidden = true;
   document.querySelectorAll('[data-m]').forEach((b: any) => { b.classList.toggle('on', b.dataset.m === 'lessons'); b.setAttribute('aria-current', b.dataset.m === 'lessons' ? 'page' : 'false'); });
   document.body.dataset.mode = 'lessons';
+  lessonChapter();
+}
+/** The chapter itself: the idea, then three steps from the plain case to a real game. */
+function lessonChapter() {
+  const l = lCtx?.lesson; if (!l) return;
+  lCtx!.practising = false;
+  session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default();
+  $('#bar').hidden = true; showNote('');
+  msg(l.idea);
+  $('#path').textContent = l.look;
+  const cards = l.steps.map((s, i) => {
+    const p = lessonPuzzle(s), fen = p?.fen ?? lessonFen(s);
+    return `<button class="lstep${i === 0 ? ' on' : ''}" data-act="lstep" data-u="${i}"${fen ? ` data-prev="${esc(fen)}"` : ''}>
+      <span class="tier t-${s.tier}">${TIERS[s.tier]}</span>
+      <span class="stitle">${esc(s.title)}</span>
+      <span class="stext">${esc(s.text)}</span>
+      <span class="sshow">Show me</span>
+    </button>`;
+  }).join('');
+  $('#act').innerHTML = `<div class="row"><button data-act="lback">‹ Lessons</button></div>
+    <div class="lsteps">${cards}</div>
+    <div class="row"><button data-act="lstart" class="primary">${l.drill ? 'Practise this endgame' : 'Practise this idea'}</button></div>`;
+  showLessonStep(0);
+}
+const TIERS: Record<string, string> = { basic: 'Basics', advanced: 'Advanced', game: 'Real game' };
+const lessonPuzzle = (s: LessonStep) => puzzleFor(s, allPuzzles());
+function lessonFen(s: LessonStep): string | undefined {
+  const p = lessonPuzzle(s); if (p) return p.fen;
+  const d = s.drill ? allDrills().find(x => x.id === s.drill) : undefined;
+  return d?.fen;
+}
+/** Put a step's position on the board; with `play`, walk its solution through too. */
+let lessonTok = 0;
+function showLessonStep(i: number, play = false) {
+  const s = lCtx?.lesson.steps[i]; if (!s) return;
+  const p = lessonPuzzle(s), fen = p?.fen ?? lessonFen(s);
+  const tok = ++lessonTok;
+  document.querySelectorAll('#act .lstep').forEach((b: any) => b.classList.toggle('on', +b.dataset.u === i));
+  if (!fen) return;
+  try { pos = Chess.fromSetup(parseFen(fen).unwrap()).unwrap(); } catch { return; }   // a full FEN, not a key
+  line = []; last = undefined; lastKey = undefined; show([], false);
+  if (!play || !p || !p.moves?.length) return;
+  const moves = p.moves; let k = 0;
+  const next = () => {
+    if (tok !== lessonTok || lCtx?.practising || mode !== 'lessons' || k >= moves.length) {
+      if (tok === lessonTok) msg(s.text); return;
+    }
+    const u = moves[k++], m = parseUci(u); if (!m) return;
+    const before = pos.clone();
+    lastKey = key(pos); last = u; pos.play(m);
+    show(motifShapes(before, u, p.themes), false);
+    try { msg(`${k}. ${makeSan(before, m)} — ${s.text}`); } catch { msg(s.text); }
+    setTimeout(next, 900);
+  };
+  setTimeout(next, 320);
+}
+/** The practice door: five positions of the theme, or the drill itself. */
+function lessonPractise() {
+  const l = lCtx?.lesson; if (!l) return;
+  lessonTok++;                                  // stop walking a step's solution over the practice set
+  lCtx!.practising = true;
   lessonChrome(true);
   if (l.drill) {
     const d = allDrills().find(x => x.id === l.drill);
@@ -1821,7 +1849,7 @@ function lessonOpen(l: Lesson) {
 }
 /** The chapter's own chrome: the idea above the board, and a way back to the list. */
 function lessonChrome(force = false) {
-  if (mode !== 'lessons' || !lCtx) return;
+  if (mode !== 'lessons' || !lCtx?.practising) return;      // the chapter screen writes its own chrome
   const act = $('#act'); if (!act) return;
   if (!force && act.querySelector('[data-act=lback]')) return;
   const row = document.createElement('div');
@@ -1833,7 +1861,7 @@ function lessonChrome(force = false) {
   if (note.textContent !== text) { note.textContent = text; note.hidden = false; }
 }
 function lessonsInit() {
-  lCtx = undefined; setSize = undefined;
+  lessonTok++; lCtx = undefined; setSize = undefined;
   mode = 'lessons'; session++; line = []; last = undefined; pos = Chess.default(); show([], false);
   $('#bar').hidden = true; showNote(''); msg('Pick a lesson. Each one explains the idea, then practises it.');
   const solved = pstats.hist ?? {};
@@ -2055,7 +2083,8 @@ function renderPreview() {
 let previewFen: string | null = null;
 function previewFrom(target: EventTarget | null) {
   const b = (target as HTMLElement | null)?.closest?.('[data-prev]') as HTMLElement | null;
-  if (!b || mode !== 'endgames' || eRun) return;
+  if (!b || eRun) return;
+  if (mode === 'lessons' ? lCtx?.practising : mode !== 'endgames') return;   // only the tabs that preview
   const fen = b.dataset.prev!;
   if (fen === previewFen) return;
   previewFen = fen;
@@ -2084,6 +2113,7 @@ $('#set').addEventListener('change', () => {
 function enter(m0: Mode) {
   const m: Mode = EDIT_TABS.includes(m0) ? m0 : NATIVE ? 'learn' : 'build';
   mode = m; session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); flipped = false; promo = undefined; total = 0;
+  if (m !== 'lessons') { lessonTok++; lCtx = undefined; }
   clearInterval(ttTimer); dActive = false; aRun = undefined; aBusy = false;
   locked = false; eBusy = false; tColor = undefined; eColor = undefined; tRun = undefined; eRun = undefined;
   cg.cancelPremove(); clearMark();
@@ -2264,6 +2294,8 @@ document.addEventListener('click', e => {
   else if (a === 'tth') { S.ptheme = u; save(); tacticsInit(); }
   else if (a === 'lesson') { const l = LESSONS.find(x => x.id === u); if (l) lessonOpen(l); }
   else if (a === 'lback') { lCtx = undefined; setSize = undefined; lessonsInit(); }
+  else if (a === 'lstart') lessonPractise();
+  else if (a === 'lstep') showLessonStep(+u, true);
   else if (a === 'erandom') void startDrill(randomDrill());
   else if (a === 'edrill') void startDrill(allDrills().find(d => d.id === u)!);
   else if (a === 'enext') startDrill(nextDrill());

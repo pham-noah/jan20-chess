@@ -161,7 +161,16 @@ ARROWS ON EVERY BOARD (v25)
   ← and → step through the moves already played on any board — Arena, Time, Drill, Tactics, Endgames, Review, Lessons
   and a lesson's drill — showing the position as it was, with its last move highlighted and the board locked so a past
   position cannot be played on. → walks back to the live game and the state is never touched. The Editor and Walk keep
-  their own stepping (a line being edited / the line being walked). chessground's own drag ghost is disabled,
+  their own stepping (a line being edited / the line being walked).
+
+LESSONS ARE CHAPTERS (v26)
+  A lesson now opens on its own page instead of dropping you into a set: the idea, then three steps that take it from
+  plain to played — **Basics**, **Advanced**, **Real game**. Each step carries a position on the board: hovering one
+  previews it, "Show me" walks its solution through move by move (with the motif's arrows), and "Practise this idea"
+  opens the five-puzzle set only once you have read it. The tactical steps are drawn from the puzzle database by theme
+  (the easiest instance, the hardest, and one from a real game — Lichess tags master games); the endgame chapters point
+  at their drill. Content lives in `src/lessons.ts`, and `test:logic` checks every lesson has three steps, each with a
+  position that parses and a solution that exists. chessground's own drag ghost is disabled,
   because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)
