@@ -91,7 +91,7 @@ const flush = () => {
 const live = () => fileNative() || fileState().kind === 'browser';
 /** Write the file straight away: a debounced write would be cancelled when the window closes. */
 const writeFileNow = () => { if (live()) void writeNow(stateJson()); };
-const save = () => { clearTimeout(timer); timer = setTimeout(flush, 120); };
+const save = () => { movesRev++; clearTimeout(timer); timer = setTimeout(flush, 120); };
 addEventListener('pagehide', () => { flush(); writeFileNow(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { flush(); writeFileNow(); } });
 
@@ -669,11 +669,24 @@ function weakSpots() {
   }).sort((a, b) => b.delta - a.delta);
 }
 /** How many line-ends sit below this position: the size of the branch you would cut. */
+const childKey = new Map<string, string>();      // parent + uci -> child key, computed once ever
+function stepKey(k: string, u: string): string | undefined {
+  const ck = k + '|' + u;
+  const hit = childKey.get(ck);
+  if (hit) return hit;
+  const m = parseUci(u); if (!m) return undefined;
+  const p = fromKey(k);
+  if (!m || !p.isLegal(m)) return undefined;
+  p.play(m);
+  const nk = key(p);
+  childKey.set(ck, nk);
+  return nk;
+}
 function leavesUnder(k: string): number {
   const us = Object.keys(cur?.moves[k] || {});
   if (!us.length) return 1;
   let n = 0;
-  for (const u of us) { const p = fromKey(k); const m = parseUci(u); if (!m) continue; p.play(m); n += leavesUnder(key(p)); }
+  for (const u of us) { const nk = stepKey(k, u); if (nk) n += leavesUnder(nk); }
   return n;
 }
 const sanOfUci = (k: string, u: string): string => { const p = fromKey(k); const m = parseUci(u); return m ? makeSan(p, m) : u; };
@@ -864,8 +877,10 @@ function deleteLine(i: number, quiet = false): boolean {
   return true;
 }
 
+let listOpen = false;          // the "Lines and tree" block is collapsed by default: never build its body unseen
 function renderBuild() {
   const wasOpen = [...document.querySelectorAll('#act details')].map(d => (d as HTMLDetailsElement).open);
+  listOpen = wasOpen[0] === true;
   pos = Chess.default(); last = undefined; lastKey = undefined; lastSan = '';
   for (const u of line) { const m = parseUci(u)!; lastKey = key(pos); lastSan = makeSan(pos, m); pos.play(m); last = u; }
   show(); showNote('');
@@ -887,15 +902,16 @@ function renderBuild() {
   const editor = last ? `<label class="field">Note for ${esc(lastSan)}<textarea id="note-ed" maxlength="800" placeholder="Why this move? Plans, traps, what to remember.">${esc(noteOf(lastKey, last))}</textarea></label>
     <div class="row mini annots" role="group" aria-label="Annotation for ${esc(lastSan)}">${TAGS.map(([v, g, t]) => `<button class="tagbtn ${tagOf(lastKey, last) === v ? 'on' : ''}" data-act="tag" data-u="${v}" title="${esc(t)}" aria-pressed="${tagOf(lastKey, last) === v}">${esc(g)}</button>`).join('')}</div>` : '';
   renderBoardMarks();
-  const lines = walkLines(); const lhtml = lines.map((l, i) => lineHtml(l, lines[i - 1]));
+  const lines = listOpen ? walkLines() : [];
+  const lhtml = !listOpen || treeView ? [] : lines.map((l, i) => lineHtml(l, lines[i - 1]));
   const through = lines.filter(l => line.every((u, i) => l[i] === u)).length;
   const below = leavesUnder(here);
   const others = reps.filter(r => r.id !== cur!.id);
   const bad = weakSpots();
-  const plain = lhtml.map(h => h.replace(/<[^>]*>/g, ''));
-  const rows = lines.map((l, i) =>
+  const plain = !listOpen || treeView ? [] : lhtml.map(h => h.replace(/<[^>]*>/g, ''));
+  const rows = listOpen && !treeView && lines.map((l, i) =>
     `<div class="rowline ${i === 0 ? 'first' : ''}" data-line="${esc((plain[i] + ' ' + lineName(l)).toLowerCase())}"><input type="checkbox" class="pick" data-u="${i}" ${picked.has(i) ? 'checked' : ''} aria-label="Select line ${i + 1}"><span>${i + 1}.</span><button class="walk" data-act="goline" data-u="${i}" title="Open this line to edit it">${lineName(l) ? `<b class="lname">${esc(lineName(l))}</b> ` : ''}${lhtml[i]}</button><button data-act="nameline" data-u="${i}" title="Name this line" aria-label="Name line ${i + 1}">✎</button><button data-act="dline" data-u="${i}" aria-label="Delete line ${i + 1}">✕</button></div>`).join('');
-  const lineList = `<div class="linehead"><div class="seg viewseg" role="tablist"><button data-act="viewtree" class="${treeView ? 'on' : ''}">Tree</button><button data-act="viewlines" class="${treeView ? '' : 'on'}">Lines (${lines.length})</button></div><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
+  const lineList = !listOpen ? '' : `<div class="linehead"><div class="seg viewseg" role="tablist"><button data-act="viewtree" class="${treeView ? 'on' : ''}">Tree</button><button data-act="viewlines" class="${treeView ? '' : 'on'}">Lines (${lines.length})</button></div><span class="mini"><button data-act="bprev" aria-label="Previous line" title="Previous line">‹</button><button data-act="bnext" aria-label="Next line" title="Next line">›</button></span></div>
     ${treeView
       ? `<div class="tree">${treeMarkup()}</div>`
       : `${lines.length > 6 ? `<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>` : ''}<div class="list">${lines.length ? rows : '<p class="dim">No lines yet. Play a move to start one.</p>'}</div>
@@ -949,7 +965,11 @@ async function explainWrong(k: string, u: string, base = '') {
 }
 
 /* Walk: a numbered walkthrough of every line in the repertoire, one after another. */
+let movesRev = 0;                       // bumped by save(), so caches keyed on it can never go stale
+let walkCache: { key: string; lines: string[][] } | undefined;
 function walkLines(rep: Rep | undefined = cur): string[][] {
+  const ck = rep ? `${rep.id}:${movesRev}` : '';
+  if (rep && walkCache?.key === ck && walkCache.lines.length) return walkCache.lines;
   const out: string[][] = [];
   if (!rep) return out;
   const walk = (k: string, path: string[]) => {
@@ -957,11 +977,12 @@ function walkLines(rep: Rep | undefined = cur): string[][] {
     const us = Object.keys(rep!.moves[k] || {});
     if (!us.length) { if (path.length) out.push(path); return; }
     for (const u of us) {
-      const p = fromKey(k); p.play(parseUci(u)!);
-      walk(key(p), [...path, u]);
+      const nk = stepKey(k, u);
+      if (nk) walk(nk, [...path, u]);
     }
   };
   walk(START, []);
+  if (rep) walkCache = { key: ck, lines: out };
   return out;
 }
 /** Which numbered line does this played prefix belong to? Stays on the current line while it still matches,
@@ -1098,11 +1119,10 @@ function treeMarkup(): string {
     const isNow = onPath && seg.moves.length > 0 && (seg.moves[seg.moves.length - 1].ply === line.length);
     const run = seg.moves.map((m, i) => {
       const num = m.ply % 2 === 1 ? `<span class="n">${Math.floor(m.ply / 2) + 1}.</span>` : '';
-      const here = [...seg.path, ...seg.moves.slice(0, i + 1).map(x => x.u)];
       const note = cur?.notes?.[m.pk + '|' + m.u] ? '<b class="dot" title="Has a note">•</b>' : '';
       const bad = cur?.bad?.[m.pk + '|' + m.u];
       const warn = bad ? `<b class="warn" title="Worse than the best move here: ${gapText(bad)}">⚠</b>` : '';
-      return `<span class="mvwrap"><button class="tsan ${m.ply % 2 === 1 ? 'mine' : 'opp'}" data-act="tnode" data-u="${here.join(' ')}" title="Go to ${esc(m.san)}">${num}${esc(m.san)}${tagHtml(m.pk, m.u)}</button>${note}${warn}<button class="x" data-act="tcutm" data-u="${here.join(' ')}" title="Delete ${esc(m.san)} and everything only it reached" aria-label="Delete ${esc(m.san)}">✕</button></span>`;
+      return `<span class="mvwrap"><button class="tsan ${m.ply % 2 === 1 ? 'mine' : 'opp'}" data-act="tnode" data-i="${i}" title="Go to ${esc(m.san)}">${num}${esc(m.san)}${tagHtml(m.pk, m.u)}</button>${note}${warn}<button class="x" data-act="tcutm" data-i="${i}" title="Delete ${esc(m.san)} and everything only it reached" aria-label="Delete ${esc(m.san)}">✕</button></span>`;
     }).join(' ');
     const caret = seg.kids.length ? `<button class="caret" data-act="tfold" data-u="${seg.id}" aria-label="${folded ? 'Expand' : 'Collapse'} this branch">${folded ? '▸' : '▾'}</button>` : '<span class="caret"></span>';
     const cnt = seg.kids.length
@@ -1112,7 +1132,7 @@ function treeMarkup(): string {
     const lastMove = seg.moves[seg.moves.length - 1];
     const penId = seg.moves.length ? [...seg.path, ...seg.moves.map(m => m.u)].join(' ') : '';
     const pen = lastMove ? `<button data-act="tnote" data-u="${penId}" title="Note for ${esc(lastMove.san)}" aria-label="Edit the note for ${esc(lastMove.san)}">✎</button>` : '';
-    out.push(`<div class="tseg ${onPath ? 'on' : ''} ${isNow ? 'now' : ''}" draggable="true" data-seg="${penId}" data-par="${seg.path.join(' ')}" data-first="${seg.moves[0]?.u ?? ''}" style="--d:${Math.min(depth, 10)}">
+    out.push(`<div class="tseg ${onPath ? 'on' : ''} ${isNow ? 'now' : ''}" draggable="true" data-seg="${penId}" data-base="${seg.path.length}" data-par="${seg.path.join(' ')}" data-first="${seg.moves[0]?.u ?? ''}" style="--d:${Math.min(depth, 10)}">
       ${caret}<span class="run">${run}</span>${cnt}
       <span class="tacts">${promo}${pen}</span></div>`);
     if (noteEditId === penId && lastMove) {
@@ -2014,6 +2034,14 @@ document.addEventListener('click', e => {
   if (tab) return enter(tab.dataset.m as Mode);
   const b = t.closest('[data-act]') as HTMLElement | null; if (!b) return;
   const a = b.dataset.act, u = b.dataset.u!;
+  /** a tree row keeps its path once; a move inside it is addressed by index, not by a repeated path */
+  const rowPath = (): string[] | undefined => {
+    const i = b.dataset.i; if (i === undefined) return undefined;
+    const seg = b.closest('.tseg') as HTMLElement | null; if (!seg) return undefined;
+    const all = (seg.dataset.seg || '').split(' ').filter(Boolean);
+    const base = Number(seg.dataset.base || 0);
+    return all.slice(0, base + Number(i) + 1);
+  };
   const pickFile = (m: typeof fileMode) => { fileMode = m; $('#file').accept = m === 'pgn' ? '.pgn,.txt' : m === 'csv' ? '.csv,.txt' : '.json'; $('#file').click(); };
   if (a === 'new') openDlg('new');
   else if (a === 'settings') openSettings();
@@ -2042,10 +2070,10 @@ document.addEventListener('click', e => {
   else if (a === 'bnext') buildLine(bIdx + 1);
   else if (a === 'viewtree') { treeView = true; renderBuild(); }
   else if (a === 'viewlines') { treeView = false; renderBuild(); }
-  else if (a === 'tnode') openNode(u.split(' ').filter(Boolean));
+  else if (a === 'tnode') openNode(rowPath() ?? u.split(' ').filter(Boolean));
   else if (a === 'tfold') { if (collapsed.has(u)) collapsed.delete(u); else collapsed.add(u); renderBuild(); }
   else if (a === 'tnote') { noteEditId = noteEditId === u ? undefined : u; renderBuild(); setTimeout(() => ($('#tn-ed') as HTMLTextAreaElement | null)?.focus(), 30); }
-  else if (a === 'tcut' || a === 'tcutm') cutAt(u.split(' ').filter(Boolean));
+  else if (a === 'tcut' || a === 'tcutm') cutAt(rowPath() ?? u.split(' ').filter(Boolean));
   else if (a === 'tpromo') promoteAt(u.split(' ').filter(Boolean));
   else if (a === 'mprev') buildStep(-1);
   else if (a === 'mnext') buildStep(1);
@@ -2200,6 +2228,11 @@ document.addEventListener('dragstart', e => {
   dragSeg = { par: seg.dataset.par ?? '', first: seg.dataset.first };
   seg.classList.add('dragging');
 });
+document.addEventListener('toggle', (e) => {
+  const d = e.target as HTMLDetailsElement;
+  if (!d?.matches?.('details') || !d.closest('#act')) return;
+  if (d === document.querySelector('#act details') && d.open !== listOpen) { listOpen = d.open; renderBuild(); }
+}, true);
 document.addEventListener('dragend', () => { dragSeg = undefined; document.querySelectorAll('.tseg.dragging,.tseg.over').forEach(x => x.classList.remove('dragging', 'over')); });
 document.addEventListener('dragover', e => {
   const seg = (e.target as HTMLElement).closest?.('.tseg') as HTMLElement | null;

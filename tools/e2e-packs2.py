@@ -194,6 +194,31 @@ with sync_playwright() as p:
       return q.right <= b.right + 1 && q.left >= b.left - 1;
     }""")
     check('a tick on the h-file stays inside the board', ins2 is True, str(ins2))
+
+    # --- the lines and tree block is built only when it is on screen
+    if pg.locator('#act details').count():
+        def set_block(want):
+            for _ in range(3):
+                if pg.evaluate("() => document.querySelector('#act details').open") == want: return
+                pg.click('#act details > summary'); pg.wait_for_timeout(500)      # only the summary toggles
+        set_block(False)
+        closed_rows = pg.locator('#panel .tree .tseg').count()
+        closed_kb = pg.evaluate("() => document.querySelector('#act').innerHTML.length") / 1024
+        check('the tree is not built while its block is collapsed', closed_rows == 0,
+              f'{closed_rows} rows, {closed_kb:.0f} KB')
+        set_block(True)
+        open_rows = pg.locator('#panel .tree .tseg').count()
+        check('opening the block renders the tree', open_rows > 0, open_rows)
+        # a move inside a row is addressed by index: clicking one must walk the board there
+        if open_rows:
+            before = pg.evaluate("() => document.querySelector('#path').textContent.trim()")
+            # the first move in the tree is an early ply, so the path must shorten
+            pg.evaluate("() => { const r = document.querySelectorAll('#panel .tree .tseg [data-act=tnode]'); r[0].click(); }")
+            pg.wait_for_timeout(500)
+            after = pg.evaluate("() => document.querySelector('#path').textContent.trim()")
+            check('a move clicked in the tree walks the board to it', after != before and len(after) < len(before),
+                  f'{before} -> {after}')
+        set_block(False)
     print('console/page errors:', errs or 'none'); b.close()
 
 print(sum(1 for r in results if r[1]), '/', len(results))

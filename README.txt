@@ -139,7 +139,16 @@ LESSON CHAPTERS, AND A PREMOVE THAT LOOKS LIKE CHESS.COM'S (v23)
   piece, or somewhere that piece does not go — never enters the queue in the first place, so the board never shows an
   impossible capture. `free` is switched back off when the queue empties: chessground keeps a setting it is not told
   about, and a board left in free mode accepted illegal moves, which then went to the engine ("The engine had a
-  problem"). An illegal move is now refused on the board, and a drill refuses one itself before asking the engine. chessground's own drag ghost is disabled,
+  problem"). An illegal move is now refused on the board, and a drill refuses one itself before asking the engine.
+
+PERFORMANCE (v23)
+  The Editor used to rebuild its whole panel — including the lines-and-tree block, which is collapsed by default —
+  on every single move. At 676 positions that was ~120 ms of work for a screen nobody was looking at. Now:
+  the block's body is only built when the block is open (2 ms instead of 120 ms while collapsed), the line walk and
+  the "where does this move lead" lookup are cached (walking re-parsed a FEN per position), tree rows tell the browser
+  to skip layout and paint for rows that are off screen (content-visibility), and a tree row stores its path once
+  instead of once per move inside it (1.15 MB of markup became 0.69 MB). Measured on the Evans repertoire
+  (676 positions): a move in the Editor went from ~120 ms to ~20 ms, and with the tree open from ~150 ms to ~65 ms. chessground's own drag ghost is disabled,
   because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)

@@ -197,7 +197,7 @@ body[data-mode=lessons] #act label.field{display:none}
 @media(min-width:820px){.board-wrap{position:sticky;top:14px}}
 /* Editor: repertoire tree */
 .tree{border-top:1px solid var(--line);padding:4px 0 2px}
-.tseg{position:relative;display:block;padding:2px 28px 2px calc(var(--d, 0) * 14px + 22px);border-radius:7px;line-height:1.55}
+.tseg{content-visibility:auto;contain-intrinsic-size:auto 26px;position:relative;display:block;padding:2px 28px 2px calc(var(--d, 0) * 14px + 22px);border-radius:7px;line-height:1.55}
 .tseg:hover{background:color-mix(in srgb, var(--foreground) 6%, transparent)}
 .tseg.now{background:color-mix(in srgb, var(--accent) 15%, transparent)}
 .tseg .run{display:inline}
