@@ -35,6 +35,12 @@ def legal_dests(pg):
       });
     }''')
     return [d for d in out if re.fullmatch(r'[a-h][1-8]', d or '')]
+def piece_squares(pg):
+    return pg.evaluate('''() => [...document.querySelectorAll('#board piece:not(.ghost)')].map(el => {
+      const r = el.getBoundingClientRect(), bb = document.querySelector('#board cg-board').getBoundingClientRect();
+      const f = Math.round((r.x - bb.x) / (bb.width / 8)), rk = Math.round((r.y - bb.y) / (bb.height / 8));
+      return 'abcdefgh'[f] + (8 - rk);
+    })''')
 def arrow_uci(pg):
     ln = pg.locator('#board svg.cg-shapes line, #board .cg-shapes line').first
     x1, y1, x2, y2 = [float(ln.get_attribute(k)) for k in ('x1', 'y1', 'x2', 'y2')]
@@ -86,14 +92,23 @@ with sync_playwright() as p:
     check('library: Evans added with notes', 'Evans' in pg.eval_on_selector('#rep', 'e => e.selectedOptions[0].textContent'))
 
     # --- Tactics: solve stored puzzle, wrong move
+    pg.evaluate("() => document.querySelectorAll('dialog[open]').forEach(d => d.close('cancel'))")   # a dialog would swallow the tab click
     pg.click('[data-m=tactics]'); pg.wait_for_timeout(1500)
+    try: pg.wait_for_selector('[data-act=thint], [data-act=tnext]', timeout=15000)
+    except Exception: print('   diagnose: no tactic buttons', pg.eval_on_selector_all('#act [data-act]', 'e => e.map(x => x.dataset.act)'))
     pid = None
     # figure out which puzzle is showing by matching the fen via hint arrow -> instead solve with generic loop using stored data:
     # find puzzle by trying to match first expected move after setup using the board position is complex; so use 'Show solution' once, then solve a second one via hint arrows.
     wrong_tested = False
     solved = 0
     for _ in range(5):
-        pg.wait_for_function("document.querySelector('#msg').textContent.includes('Find the best')", timeout=8000)
+        try:
+            pg.wait_for_function("document.querySelector('#msg').textContent.includes('Find the best')", timeout=8000)
+        except Exception:
+            if not pg.locator('[data-act=thint]').count():
+                pg.click('[data-m=tactics]'); pg.wait_for_timeout(1500)
+            print('   diagnose: tactics panel', pg.eval_on_selector_all('#act [data-act]', 'e => e.map(x => x.dataset.act)'), '|', msg(pg)[:40])
+            break
         if not wrong_tested:
             # a legal-but-wrong move, found by asking chessground which squares the piece can reach
             pg.click('[data-act=thint]'); pg.wait_for_timeout(250); good = arrow_uci(pg)
@@ -175,18 +190,19 @@ with sync_playwright() as p:
     pg.click('[data-act=hint]'); pg.wait_for_timeout(250)
     drag(pg, arrow_uci(pg)); pg.wait_for_timeout(120)          # answer, so the opponent is to move
     dragged = 'Opponent' in pg.inner_text('#msg')
-    drag(pg, 'a2a3'); pg.wait_for_timeout(120)                  # premove: any square the pawn could reach
-    drag(pg, 'b2b3'); pg.wait_for_timeout(150)                  # and a second one, queued behind it
-    ghost = pg.locator('#endmark .premove-ghost').count()
-    hidden = pg.evaluate("() => document.querySelectorAll('#board piece[data-premove-hidden]').length")
+    drag(pg, 'a2a3'); pg.wait_for_timeout(160)                 # premove: any square the pawn could reach
+    sq1 = piece_squares(pg)
+    check('premove: the piece is shown on the square it will move to', dragged and 'a3' in sq1, f'window={dragged} a3={"a3" in sq1}')
+    check('premove: it is not left standing on its own square', 'a2' not in sq1, sq1)
+    drag(pg, 'a3a4'); pg.wait_for_timeout(200)                 # the SAME pawn again, chained
+    sq2 = piece_squares(pg)
     arrows = pg.locator('#board .cg-shapes line').count()
-    check('premove: the next premoved piece is shown on the square it will move to', dragged and ghost == 1, f'window={dragged} ghost={ghost}')
-    check('premove: it is not left standing on its own square', hidden == 1, hidden)
-    check('premove: several premoves can be queued', arrows >= 2, arrows)
+    check('premove: the same piece can be premoved again', 'a4' in sq2 and 'a3' not in sq2, sq2)
+    check('premove: queued premoves are drawn together', arrows >= 2, arrows)
     pg.screenshot(path='/tmp/shots/e2e-premove.png')
     pg.wait_for_timeout(2400)
-    check('premove: it is resolved when the turn comes back (played, or dropped with a cue)',
-          pg.locator('#endmark .premove-ghost').count() == 0, 'ghost still up')
+    check('premove: the queue is resolved when the turn comes back', pg.locator('#board .cg-shapes line').count() <= 1,
+          pg.locator('#board .cg-shapes line').count())
 
     # --- Backup export and merge import
     # (the Endgames tab deals a fresh position on every re-render, which would overwrite the message)

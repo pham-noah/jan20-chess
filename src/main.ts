@@ -10,6 +10,8 @@ import type { Color } from 'chessops/types';
 import { parseFen, makeFen } from 'chessops/fen';
 import { parseSquare, makeUci, parseUci, makeSquare } from 'chessops/util';
 import { attacks } from 'chessops/attacks';
+import { SquareSet } from 'chessops/squareSet';
+import type { Piece } from 'chessops/types';
 import { makeSan, parseSan } from 'chessops/san';
 import { parsePgn, startingPosition } from 'chessops/pgn';
 import { chessgroundDests } from 'chessops/compat';
@@ -226,26 +228,12 @@ const markMove = (san: string, ok: boolean, uci?: string) => {
 /** chess.com draws the premove where it lands: the piece sits on the destination, ghosted, while its
  *  origin stays highlighted. chessground only tints the two squares, so the ghost is drawn here. */
 function renderPremoveGhost() {
-  const layer = $('#endmark'); if (!layer) return;
-  layer.querySelectorAll('.premove-ghost').forEach(el => el.remove());
+  // The queue is drawn on the board itself now (the piece really stands on its destination, so the
+  // next link can be picked up again), so this only clears anything an older render left behind.
+  $('#endmark')?.querySelectorAll('.premove-ghost').forEach(el => el.remove());
   document.querySelectorAll<HTMLElement>('#board piece[data-premove-hidden]').forEach(el => { el.style.visibility = ''; delete el.dataset.premoveHidden; });
-  const pieceAt = (sq: string) => [...document.querySelectorAll('#board piece')].find((p: any) => p.cgKey === sq) as HTMLElement | undefined;
-  const put = (to: string, bg: string) => {
-    const sq = parseSquare(to); if (sq === undefined) return;
-    const black = orient() === 'black', f = sq & 7, r = sq >> 3;
-    const d = document.createElement('div');
-    d.className = 'premove-ghost';
-    d.style.cssText = `left:${(black ? 7 - f : f) * 12.5}%;top:${(black ? r : 7 - r) * 12.5}%;background-image:${bg}`;
-    layer.appendChild(d);
-  };
-  // a queued premove chain: each one waits on its own destination, the first piece leaves its square
-  const first = premoveQ[0]; if (!first) return;
-  const el = pieceAt(first.from);
-  const bg = el ? getComputedStyle(el).backgroundImage : '';
-  if (!bg || bg === 'none') return;
-  put(first.to, bg);
-  el!.style.visibility = 'hidden'; el!.dataset.premoveHidden = '1';   // the rest of the chain is arrows
 }
+
 /** Marks that belong to the position rather than to a move attempt: the ending, and the
     annotation of the move you are looking at. Drawn from their own layer so the transient
     move-feedback badge cannot wipe them. */
@@ -292,7 +280,7 @@ const sanAt = (k: string, u: string) => { try { return makeSan(fromKey(k), parse
 const cg: any = Chessground($('#board'), {
   animation: { duration: 200 },
   premovable: { enabled: false, showDests: true, castle: true },
-  draggable: { distance: 4 },
+  draggable: { distance: 4, showGhost: false },
   drawable: { brushes: { green: { key: 'g', color: '#15781B', opacity: 1, lineWidth: 10 }, red: { key: 'r', color: '#882020', opacity: 1, lineWidth: 10 }, blue: { key: 'b', color: '#003088', opacity: 1, lineWidth: 10 }, yellow: { key: 'y', color: '#e68f00', opacity: 1, lineWidth: 10 }, hint: { key: 'h', color: '#e3b653', opacity: 0.92, lineWidth: 11 },
         move: { key: 'm', color: '#2f8f5b', opacity: 0.85, lineWidth: 10 },
         reply: { key: 'p', color: '#5b6472', opacity: 0.8, lineWidth: 9 },
@@ -366,10 +354,53 @@ function harvestPremove(from: string, to: string) {
   const dup = premoveQ.findIndex(q => q.from === from && q.to === to);
   if (dup >= 0) premoveQ.splice(dup, 1); else premoveQ.push({ from, to });
   cg.cancelPremove();                    // our queue owns the drawing from here
-  renderBoardMarks(); renderPremoveGhost(); refreshShapes();   // 'harvesting' is consumed by the unset handler
+  show([], false);                       // render the preview: the piece now stands on its destination
   sfx('move');
 }
-function clearPremoves() { if (!premoveQ.length) return; premoveQ = []; renderBoardMarks(); renderPremoveGhost(); refreshShapes(); }
+function clearPremoves() { if (!premoveQ.length) return; premoveQ = []; show([], false); }
+/** pos with the queue applied to the board — the position the player is really looking at while
+ *  premoving. Applying them for real is what lets the same piece be premoved again. */
+function premovePreview(): Chess {
+  const q = pos.clone();
+  for (const p of premoveQ) {
+    const from = parseSquare(p.from), to = parseSquare(p.to);
+    if (from === undefined || to === undefined) continue;
+    const pc = q.board.get(from); if (!pc) continue;
+    q.board.take(from);
+    if (q.board.get(to)) q.board.take(to);
+    q.board.set(to, pc);
+    if (pc.role === 'king' && Math.abs((to & 7) - (from & 7)) > 1) {         // bring the rook along
+      const rank = from >> 3, right = (to & 7) > (from & 7);
+      const rFrom = rank * 8 + (right ? 7 : 0), rTo = rank * 8 + (right ? 5 : 3);
+      const rook = q.board.get(rFrom); if (rook) { q.board.take(rFrom); q.board.set(rTo, rook); }
+    }
+    if (pc.role === 'pawn' && ((to >> 3) === 7 || (to >> 3) === 0)) q.board.set(to, { role: 'queen', color: pc.color });
+  }
+  return q;
+}
+/** chess.com's rule: a premove may go anywhere the piece could reach on an empty board. */
+function reachableOnEmpty(pc: Piece, from: number, to: number): boolean {
+  if (to === from) return false;
+  const df = (to & 7) - (from & 7), dr = (to >> 3) - (from >> 3);
+  if (pc.role === 'pawn') {
+    const fwd = pc.color === 'white' ? 1 : -1, start = pc.color === 'white' ? 1 : 6;
+    if (df === 0 && dr === fwd) return true;
+    if (df === 0 && dr === 2 * fwd && (from >> 3) === start) return true;
+    return Math.abs(df) === 1 && dr === fwd;                                 // a capture may appear there
+  }
+  for (const sq of attacks(pc, from, SquareSet.empty())) if (sq === to) return true;
+  return false;
+}
+function queuePremove(from: string, to: string) {
+  const board = premoveQ.length ? premovePreview() : pos;
+  const f = parseSquare(from), t = parseSquare(to);
+  if (f === undefined || t === undefined) return;
+  const pc = board.board.get(f);
+  if (!pc || pc.color !== premoveColor()) return;
+  if (!reachableOnEmpty(pc, f, t)) return;
+  premoveQ.push({ from, to });
+  refreshShapes(); show([], false); sfx('move');
+}
 function consumePremove(): boolean {
   if (!premoveQ.length) return false;
   const q = premoveQ[0];
@@ -385,15 +416,21 @@ function show(shapes: any[] = [], can = true) {
   canNow = can;
   const pm = !can && premoveAllowed();
   if (!pm) { if (cg.state.premovable.current) cg.cancelPremove(); if (premoveQ.length) premoveQ = []; }
+  const queued = premoveQ.length > 0;
+  const shown = queued ? premovePreview() : pos;
   cg.set({
-    fen: makeFen(pos.toSetup()), orientation: orient(), turnColor: pos.turn,
-    check: pos.isCheck() ? pos.turn : false,
+    fen: makeFen(shown.toSetup()), orientation: orient(),
+    turnColor: queued ? premoveColor() : pos.turn,          // the previewed board is your turn again
+    check: !queued && pos.isCheck() ? pos.turn : false,
+    animation: { enabled: queued ? false : S.anim, duration: 200 },
     lastMove: last ? lastPair(last) : undefined,
-    premovable: { enabled: pm, events: {
+    premovable: { enabled: !queued && pm, events: {
       set: (o: string, d: string) => harvestPremove(o, d),
       unset: () => { if (harvesting) harvesting = false; else clearPremoves(); renderPremoveGhost(); },
     } },
-    movable: { color: can ? pos.turn : pm ? premoveColor() : undefined, dests: can ? chessgroundDests(pos) : new Map() },
+    movable: queued
+      ? { color: premoveColor(), free: true, dests: undefined }      // the chain continues from the previewed board
+      : { color: can ? pos.turn : pm ? premoveColor() : undefined, dests: can ? chessgroundDests(pos) : new Map() },
   });
   lastShapes = shapes;
   cg.setAutoShapes(premoveQ.length ? [...shapes, ...premoveArrows()] : shapes);
@@ -485,8 +522,15 @@ function pathTo(k: string) {
 }
 
 /* ---------- Moves ---------- */
+// a read-only window into the state, so a test (or a bug report) can ask what the app thinks
+(window as any).__jan20 = () => ({
+  mode, turn: pos.turn, solver: premoveColor(), queue: premoveQ.map(q => q.from + q.to),
+  canPremove: premoveAllowed(), fen: makeFen(pos.toSetup()).split(' ')[0],
+  preview: premoveQ.length ? makeFen(premovePreview().toSetup()).split(' ')[0] : null,
+});
 function onMove(o: string, d: string) {
   if (opening(mode) && !cur) return;
+  if (premoveQ.length || (premoveAllowed() && pos.turn !== premoveColor())) return queuePremove(o, d);
   if (mode === 'endgames' && eBusy) return void show();
   if (mode === 'learn' && S.lmode === 'arena' && aBusy) return void show();
   if (locked) return;

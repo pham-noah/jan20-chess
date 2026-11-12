@@ -132,8 +132,10 @@ LESSON CHAPTERS, AND A PREMOVE THAT LOOKS LIKE CHESS.COM'S (v23)
 - **Premove now matches chess.com.** Any square the piece could reach on an empty board is a legal premove, only your
   own pieces, only while the opponent is to move. Several can be **queued**: chessground validates each drag, the app
   takes the move and clears its own slot, so the next drag starts a new link in the chain. The chain is drawn as arrows
-  with the next piece ghosted on the square it will land on (and gone from its own square); each link fires as the turn
-  comes back and the whole queue is dropped — with the error sound — the moment one of them is no longer legal.
+  with the next piece **standing on the square it will land on** (so it can be picked up again for the next link — the
+  same piece can be premoved twice, e.g. a pawn a2-a3-a4); each link fires as the turn comes back and the whole queue is
+  dropped — with the error sound — the moment one of them is no longer legal. chessground's own drag ghost is disabled,
+  because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)
 - **Lessons** is a new tab between Tactics and Endgames: 33 lessons — 22 tactical ideas and 11 endgames — each with a
