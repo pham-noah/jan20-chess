@@ -427,7 +427,9 @@ function show(shapes: any[] = [], can = true) {
     } },
     movable: queued
       ? { color: premoveColor(), free: true, dests: undefined }      // the chain continues from the previewed board
-      : { color: can ? pos.turn : pm ? premoveColor() : undefined, dests: can ? chessgroundDests(pos) : new Map() },
+      // free must be turned back OFF: chessground keeps a key it is not told about, so after the first
+      // premove every drag stayed free and illegal moves reached the engine.
+      : { color: can ? pos.turn : pm ? premoveColor() : undefined, free: false, dests: can ? chessgroundDests(pos) : new Map() },
   });
   lastShapes = shapes;
   cg.setAutoShapes(premoveQ.length ? [...shapes, ...premoveArrows()] : shapes);
@@ -523,15 +525,17 @@ function pathTo(k: string) {
 (window as any).__jan20 = () => ({
   mode, turn: pos.turn, solver: premoveColor(), queue: premoveQ.map(q => q.from + q.to),
   canPremove: premoveAllowed(), fen: makeFen(pos.toSetup()).split(' ')[0],
+  free: (cg.state.movable as any).free === true, inCheck: pos.isCheck(),
   preview: premoveQ.length ? makeFen(premovePreview().toSetup()).split(' ')[0] : null,
 });
 function onMove(o: string, d: string) {
   if (opening(mode) && !cur) return;
   if (premoveQ.length || (premoveAllowed() && pos.turn !== premoveColor())) return queuePremove(o, d);
-  if (mode === 'endgames' && eBusy) return void show();
+  if (eBusy && (mode === 'endgames' || (mode === 'lessons' && lCtx?.lesson.drill))) return void show();
   if (mode === 'learn' && S.lmode === 'arena' && aBusy) return void show();
   if (locked) return;
   const m = toMove(o, d);
+  if (!pos.isLegal(m)) { sfx('bad'); msg('That move is not legal.'); return void show(); }
   if (m.promotion) return askPromo(m);
   commit(m);
 }

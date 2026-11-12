@@ -55,6 +55,18 @@ const only = process.argv[2];
     }
     if (!bad) console.log('ok   premove destinations allow reach but never a king');
   }
+  {
+    // an impossible move must be refused by the drill itself — never handed to the engine, which is
+    // what made an illegal move look like "the engine had a problem"
+    const { DrillRun } = require('./.build/drill.cjs');
+    const def = { id: 't', name: 't', group: 'g', fen: '8/8/8/3k4/8/8/8/Q3K3 w - - 0 1', goal: 'win', blurb: '' };
+    const eng = { search: async () => { throw new Error('the engine was asked about an illegal move'); } };
+    const run = new DrillRun(def, eng, 100);
+    const step = await run.userMove({ from: 4, to: 60 });          // e1-e8: not a king move
+    const ok = step.kind === 'bad' && /not legal/.test(step.text);
+    console.log(ok ? 'ok   an illegal drill move is refused without the engine' : 'FAIL illegal drill move reached the engine');
+    if (!ok) bad++;
+  }
   if (!only || only === 'puzzles') {
     for (const p of [...starter, ...traps, ...lichess]) {
       // some lines end on the opponent's reply, some on ours: playing every stored move without a

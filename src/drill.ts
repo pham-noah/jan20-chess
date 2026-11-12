@@ -31,6 +31,8 @@ export class DrillRun {
     return (this.ended = { ok, text, grade });
   }
   async userMove(m: { from: number; to: number; promotion?: any }): Promise<DrillStep> {
+    // An impossible move never reaches the engine: asking it about one is what made it look broken.
+    if (!this.pos.isLegal(m)) return { kind: 'bad', text: 'That move is not legal.' };
     if (!this.best) await this.prepare();
     const fen = fenOf(this.pos), u = toEngine(this.pos, m);
     const j = await judge(this.eng, fen, u, this.best!, this.ms);

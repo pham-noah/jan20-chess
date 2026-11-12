@@ -137,7 +137,9 @@ LESSON CHAPTERS, AND A PREMOVE THAT LOOKS LIKE CHESS.COM'S (v23)
   link impossible, **that link alone is dropped** (with the error sound) and the chain carries on from whatever is still
   playable, rather than the whole queue collapsing. A drag that could never be a move — onto a king, onto your own
   piece, or somewhere that piece does not go — never enters the queue in the first place, so the board never shows an
-  impossible capture. chessground's own drag ghost is disabled,
+  impossible capture. `free` is switched back off when the queue empties: chessground keeps a setting it is not told
+  about, and a board left in free mode accepted illegal moves, which then went to the engine ("The engine had a
+  problem"). An illegal move is now refused on the board, and a drill refuses one itself before asking the engine. chessground's own drag ghost is disabled,
   because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)

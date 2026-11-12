@@ -41,6 +41,17 @@ def piece_squares(pg):
       const f = Math.round((r.x - bb.x) / (bb.width / 8)), rk = Math.round((r.y - bb.y) / (bb.height / 8));
       return 'abcdefgh'[f] + (8 - rk);
     })''')
+def ensure_puzzle(pg, tries=5):
+    """Land on a puzzle that still has its hint button: the tab can open graded, out of puzzles, or mid-grade."""
+    for _ in range(tries):
+        if pg.locator('[data-act=thint]').count(): return True
+        for a in ('tnext', 'tskip', 'treset'):
+            if pg.locator(f'[data-act={a}]').count():
+                pg.evaluate(f"() => document.querySelector('[data-act={a}]')?.click()")
+                pg.wait_for_timeout(1400); break
+        else:
+            pg.wait_for_timeout(800)
+    return pg.locator('[data-act=thint]').count() > 0
 def arrow_uci(pg):
     ln = pg.locator('#board svg.cg-shapes line, #board .cg-shapes line').first
     x1, y1, x2, y2 = [float(ln.get_attribute(k)) for k in ('x1', 'y1', 'x2', 'y2')]
@@ -94,8 +105,9 @@ with sync_playwright() as p:
     # --- Tactics: solve stored puzzle, wrong move
     pg.evaluate("() => document.querySelectorAll('dialog[open]').forEach(d => d.close('cancel'))")   # a dialog would swallow the tab click
     pg.click('[data-m=tactics]'); pg.wait_for_timeout(1500)
-    try: pg.wait_for_selector('[data-act=thint], [data-act=tnext]', timeout=15000)
-    except Exception: print('   diagnose: no tactic buttons', pg.eval_on_selector_all('#act [data-act]', 'e => e.map(x => x.dataset.act)'))
+    # the tab can open on an already-graded puzzle: step to a fresh one before testing the hint
+    if not ensure_puzzle(pg):
+        print('   diagnose: tactics not ready', pg.eval_on_selector_all('#act [data-act]', 'e => e.map(x => x.dataset.act)'), '|', msg(pg)[:40])
     pid = None
     # figure out which puzzle is showing by matching the fen via hint arrow -> instead solve with generic loop using stored data:
     # find puzzle by trying to match first expected move after setup using the board position is complex; so use 'Show solution' once, then solve a second one via hint arrows.
@@ -131,7 +143,8 @@ with sync_playwright() as p:
                 wrong_tested = 'counted as a miss' in pg.inner_text('#msg') or 'counted as a miss' in pg.inner_text('#note')
                 check('tactics: a wrong move is rejected (graded as a miss)', wrong_tested, pg.inner_text('#msg')[:40] + pg.inner_text('#note')[:40])
         for step in range(6):
-            pg.click('[data-act=thint]'); pg.wait_for_timeout(250)
+            if not ensure_puzzle(pg): break                  # graded / out of puzzles: step on first
+            pg.evaluate("() => document.querySelector('[data-act=thint]')?.click()"); pg.wait_for_timeout(250)
             u = arrow_uci(pg); drag(pg, u); pg.wait_for_timeout(300)
             if pg.locator('[data-act=tnext]').count(): break
             try:      # a three-move puzzle needs two answers: try again rather than fail the run
@@ -140,7 +153,8 @@ with sync_playwright() as p:
                 pg.wait_for_timeout(600)
             if pg.locator('[data-act=tnext]').count(): break
         if pg.locator('[data-act=tnext]').count() and ('Solved' in msg(pg)): solved += 1
-        pg.click('[data-act=tnext]'); pg.wait_for_timeout(1000)
+        if pg.locator('[data-act=tnext]').count():
+            pg.evaluate("() => document.querySelector('[data-act=tnext]')?.click()"); pg.wait_for_timeout(1000)
     check('tactics: puzzles solved by following hints (hint-solved)', solved >= 3, solved)
     check('tactics: rating tiles shown', pg.locator('.tile').count() == 3 and 'rating' in pg.inner_text('#act').lower(), pg.inner_text('#act')[:60])
     pg.wait_for_function("document.querySelector('#msg').textContent.includes('Find the best')", timeout=8000)
@@ -203,6 +217,15 @@ with sync_playwright() as p:
     pg.wait_for_timeout(2400)
     check('premove: the queue is resolved when the turn comes back', pg.locator('#board .cg-shapes line').count() <= 1,
           pg.locator('#board .cg-shapes line').count())
+    # the premove state leaves chessground in "free" mode; if that is never turned off every drag is
+    # accepted and an illegal move reaches the engine ("The engine had a problem")
+    st_ = pg.evaluate('() => window.__jan20()')
+    check('premove: normal move rules come back afterwards', st_['free'] is False, st_)
+    before = pg.evaluate("() => window.__jan20().fen")
+    drag(pg, 'a2a6'); pg.wait_for_timeout(300)          # impossible for a pawn
+    after = pg.evaluate("() => window.__jan20()")
+    check('an impossible move is simply not made', after['fen'] == before and not after['queue'],
+          f"{before} -> {after['fen']}")
 
     # --- Backup export and merge import
     # (the Endgames tab deals a fresh position on every re-render, which would overwrite the message)
