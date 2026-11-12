@@ -68,11 +68,18 @@ with sync_playwright() as p:
     check('lessons: the tab lists ideas with instructions', pg.locator('.lesson').count() >= 20, str(pg.locator('.lesson').count()))
     check('lessons: each one says what to look for', pg.locator('.lesson .llook').count() >= 20, str(pg.locator('.lesson .llook').count()))
     check('lessons: endgames are taught here too', pg.locator('.lesson:has-text("Lucena")').count() == 1)
-    pg.click('.lesson:has-text("Fork")'); pg.wait_for_timeout(1500)
-    check('lessons: a tactic lesson opens that theme', 'Fork' in pg.inner_text('#path'), pg.inner_text('#path')[:60])
-    pg.click('[data-m=lessons]'); pg.wait_for_timeout(600)
-    pg.click('.lesson:has-text("Lucena")'); pg.wait_for_timeout(2200)
-    check('lessons: an endgame lesson starts its drill', 'Lucena' in pg.inner_text('#path'), pg.inner_text('#path')[:40])
+    pg.click('[data-u=fork]'); pg.wait_for_timeout(1600)
+    check('lessons: a lesson is a chapter in this tab, not a jump to Tactics',
+          pg.get_attribute('[data-m=lessons]', 'aria-current') == 'page' and 'of 5' in pg.inner_text('#path'),
+          pg.inner_text('#path')[:44])
+    check('lessons: the chapter shows the idea and what to look for', 'fork most often' in pg.inner_text('#note'), pg.inner_text('#note')[:44])
+    check('lessons: the chapter has a way back', pg.locator('[data-act=lback]').count() == 1)
+    pg.click('[data-act=lback]'); pg.wait_for_timeout(700)
+    check('lessons: back returns to the list', pg.locator('.lesson').count() >= 20, str(pg.locator('.lesson').count()))
+    pg.click('.lesson:has-text("Lucena")'); pg.wait_for_timeout(2400)
+    check('lessons: an endgame lesson runs its drill inside the chapter',
+          'Lucena' in pg.inner_text('#path') and pg.get_attribute('[data-m=lessons]', 'aria-current') == 'page',
+          pg.inner_text('#path')[:40])
     # Endgames deals a position instead of asking
     pg.click('[data-m=learn]'); pg.wait_for_timeout(500)
     pg.click('[data-m=endgames]'); pg.wait_for_timeout(2600)

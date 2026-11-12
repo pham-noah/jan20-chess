@@ -156,7 +156,7 @@ const buzz = () => {
   }).catch(() => navigator.vibrate?.(60));
 };
 const rel = (d: Date) => { const m = Math.round((+d - Date.now()) / 60000); return m < 60 ? `in ${Math.max(m, 1)} min` : m < 2880 ? `in ${Math.round(m / 60)} h` : `in ${Math.round(m / 1440)} days`; };
-const orient = () => (mode === 'tactics' && tColor ? tColor : mode === 'endgames' && eColor ? eColor : (cur?.color === 'black') !== flipped ? 'black' : 'white');
+const orient = () => (mode === 'tactics' && tColor ? tColor : mode === 'lessons' && tColor ? tColor : mode === 'endgames' && eColor ? eColor : mode === 'lessons' && eColor ? eColor : (cur?.color === 'black') !== flipped ? 'black' : 'white');
 const mine = () => (cur!.color === 'white' ? 'w' : 'b');
 const noteOf = (k?: string, u?: string) => (k && u ? cur?.notes?.[k + '|' + u] : undefined) || '';
 /** Move annotations, the way a scoresheet carries them. `trap` is our own. */
@@ -223,6 +223,28 @@ const markMove = (san: string, ok: boolean, uci?: string) => {
   layer.appendChild(dest);
   clearTimeout(tileTimer); tileTimer = setTimeout(clearMark, ok ? 1100 : 2400);
 };
+/** chess.com draws the premove where it lands: the piece sits on the destination, ghosted, while its
+ *  origin stays highlighted. chessground only tints the two squares, so the ghost is drawn here. */
+function renderPremoveGhost() {
+  const layer = $('#endmark'); if (!layer) return;
+  layer.querySelectorAll('.premove-ghost').forEach(el => el.remove());
+  // whatever was hidden last time shows again
+  document.querySelectorAll<HTMLElement>('#board piece[data-premove-hidden]').forEach(el => { el.style.visibility = ''; delete el.dataset.premoveHidden; });
+  const pre = (cg.state.premovable as any).current as [string, string] | undefined;
+  if (!pre) return;
+  const [from, to] = pre;
+  const el = [...document.querySelectorAll('#board piece')].find((p: any) => p.cgKey === from) as HTMLElement | undefined;
+  const bg = el ? getComputedStyle(el).backgroundImage : '';
+  if (!bg || bg === 'none') return;
+  // chess.com moves the piece: it is no longer on its square, it waits on the destination
+  el!.style.visibility = 'hidden'; el!.dataset.premoveHidden = '1';
+  const sq = parseSquare(to); if (sq === undefined) return;
+  const black = orient() === 'black', f = sq & 7, r = sq >> 3;
+  const d = document.createElement('div');
+  d.className = 'premove-ghost';
+  d.style.cssText = `left:${(black ? 7 - f : f) * 12.5}%;top:${(black ? r : 7 - r) * 12.5}%;background-image:${bg}`;
+  layer.appendChild(d);
+}
 /** Marks that belong to the position rather than to a move attempt: the ending, and the
     annotation of the move you are looking at. Drawn from their own layer so the transient
     move-feedback badge cannot wipe them. */
@@ -316,7 +338,7 @@ function applySettings() {
    board), and `consumePremove` plays it the moment your turn comes back — or drops it if the
    opponent's move made it illegal. */
 function premoveColor(): Color | undefined {
-  if (mode === 'tactics') return tColor;
+  if (mode === 'tactics' || mode === 'lessons') return tColor ?? eColor;
   if (mode === 'endgames') return eColor;
   if (mode === 'learn') return cur?.color;
   return undefined;                       // Build, Review: no opponent to pre-move against
@@ -325,6 +347,7 @@ function premoveAllowed(): boolean {
   const me = premoveColor();
   if (!me || pos.turn === me || locked || promo) return false;
   if (mode === 'endgames') return !!eRun && !eEnded;
+  if (mode === 'lessons') return (lCtx?.lesson.drill ? !!eRun && !eEnded : !!tRun && !tGraded);
   if (mode === 'tactics') return !!tRun && !tGraded;
   return S.lmode === 'arena' ? !!aRun && !aRun.ended : !!cur;
 }
@@ -337,7 +360,7 @@ function takePremove(): any | undefined {
 }
 function consumePremove(): boolean {
   const m = takePremove(); if (!m) return false;
-  if (!pos.isLegal(m)) return false;      // the opponent's move blocked it: drop it silently
+  if (!pos.isLegal(m)) { sfx('bad'); return false; }   // the reply blocked it: say so, then drop it
   commit(m);
   return true;
 }
@@ -350,11 +373,12 @@ function show(shapes: any[] = [], can = true) {
     fen: makeFen(pos.toSetup()), orientation: orient(), turnColor: pos.turn,
     check: pos.isCheck() ? pos.turn : false,
     lastMove: last ? lastPair(last) : undefined,
-    premovable: { enabled: pm },
+    premovable: { enabled: pm, events: { set: () => renderPremoveGhost(), unset: () => renderPremoveGhost() } },
     movable: { color: can ? pos.turn : pm ? premoveColor() : undefined, dests: can ? chessgroundDests(pos) : new Map() },
   });
   cg.setAutoShapes(shapes);
   renderBoardMarks();
+  renderPremoveGhost();
 }
 
 function pathText(us: string[]) {
@@ -457,6 +481,7 @@ function askPromo(m: any) {
 }
 function commit(m: any) {
   if (mode === 'tactics') return tacticsAnswer(m);
+  if (mode === 'lessons') return void (lCtx?.lesson.drill ? endgameAnswer(m) : tacticsAnswer(m));
   if (mode === 'endgames') return void endgameAnswer(m);
   if (mode === 'learn' && S.lmode === 'arena') return void arenaAnswer(m);
   const u = makeUci(m), s = makeSan(pos, m), k = key(pos);
@@ -1356,12 +1381,15 @@ let pmapCache: Map<string, Puzzle> | undefined;
 const pmap = () => (pmapCache ??= new Map(allPuzzles().map(p => [p.id, p])));
 const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
 
+let setSize: number | undefined;          // a lesson asks for a short set without touching the setting
+/** The lesson you are inside, if any: its chapter stays in the Lessons tab. */
+let lCtx: { lesson: Lesson } | undefined;
 function puzzleQueue(extra = 0) {
   const all = allPuzzles(); const ok = (p: Puzzle) => S.ptheme === 'all' || p.themes.includes(S.ptheme);
   const due = shuffle(all.filter(p => pcards[p.id] && isDue(pcards[p.id]) && ok(p)).map(p => p.id));
   const unseen = all.filter(p => !pcards[p.id] && ok(p)).map(p => [Math.abs(p.rating - pstats.rating) + Math.random() * 120, p] as const).sort((a, b) => a[0] - b[0]).map(x => x[1]);
   const inWin = S.window ? unseen.filter(p => Math.abs(p.rating - pstats.rating) <= S.window) : unseen;
-  const n = S.newPuzzles + extra;
+  const n = (setSize ?? S.newPuzzles) + extra;
   return [...due, ...(inWin.length >= n ? inWin : unseen).slice(0, n).map(p => p.id)];
 }
 function themeSelect() {
@@ -1446,7 +1474,7 @@ function tacticsAnswer(m: any) {
     if (S.explain) {
       const fen = fenOf(run.pos), want = [run.p.moves[run.i]].filter(Boolean);
       void explain(engine, fen, u, want, Math.min(500, S.engineMs))
-        .then(t => { if (tok0 === session && mode === 'tactics') showNote(`${base}\n\n${t}`); })
+        .then(t => { if (tok0 === session && (mode === 'tactics' || mode === 'lessons')) showNote(`${base}\n\n${t}`); })
         .catch(() => { /* engine unavailable */ });
     }
     return;
@@ -1542,7 +1570,14 @@ function finishPuzzle() {
 }
 function tacticsAdvance(skip = false) {
   const id = tQueue.shift();
-  if (id && tFailed && !skip && !tRequeued.has(id)) { tRequeued.add(id); tQueue.push(id); tTotal++; }
+  if (lCtx?.lesson.theme) {                        // a lesson counts as you go, not at the end
+    const h = (pstats.hist ??= {});
+    const e = (h[lCtx.lesson.theme] ??= { ok: 0, n: 0 });
+    e.n++; if (!tFailed) e.ok++;
+    save();
+  }
+  // inside a lesson the set is exactly what it says: five puzzles, no second chances
+  if (id && tFailed && !skip && !tRequeued.has(id) && !lCtx) { tRequeued.add(id); tQueue.push(id); tTotal++; }
   tacticsNext();
 }
 function showSolution() {
@@ -1600,7 +1635,38 @@ const LESSONS: Lesson[] = [
   { id: 'l-philidor', group: 'Endgames', drill: 'philidor', name: 'Philidor position', idea: 'The classic rook ending draw: rook on the third rank until the king arrives.', look: 'Keep checking from behind once the king comes forward.' },
   { id: 'l-wrong', group: 'Endgames', drill: 'wrong-bishop', name: 'Wrong bishop draw', idea: 'Bishop and rook pawn with the wrong-coloured bishop is a draw — hold it.', look: 'Corner square colour against the bishop colour.' },
 ];
+/** Open one lesson as a chapter inside this tab: idea, what to look for, then five of its puzzles. */
+function lessonOpen(l: Lesson) {
+  lCtx = { lesson: l };
+  mode = 'lessons'; session++; line = []; last = undefined; pos = Chess.default();
+  clearInterval(ttTimer); dActive = false; tRun = undefined; eRun = undefined; tColor = undefined; eColor = undefined;
+  locked = false; eEnded = false; $('#bar').hidden = true;
+  document.querySelectorAll('[data-m]').forEach((b: any) => { b.classList.toggle('on', b.dataset.m === 'lessons'); b.setAttribute('aria-current', b.dataset.m === 'lessons' ? 'page' : 'false'); });
+  document.body.dataset.mode = 'lessons';
+  lessonChrome(true);
+  if (l.drill) {
+    const d = allDrills().find(x => x.id === l.drill);
+    if (d) { void startDrill(d); return; }
+  }
+  setSize = 5;
+  S.ptheme = l.theme!;
+  tacticsInit();
+}
+/** The chapter's own chrome: the idea above the board, and a way back to the list. */
+function lessonChrome(force = false) {
+  if (mode !== 'lessons' || !lCtx) return;
+  const act = $('#act'); if (!act) return;
+  if (!force && act.querySelector('[data-act=lback]')) return;
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<button data-act="lback" class="primary">‹ Lessons</button><span class="dim lessonname">${esc(lCtx.lesson.name)}</span>`;
+  act.prepend(row);
+  const note = $('#note');
+  const text = `${lCtx.lesson.idea}\n${lCtx.lesson.look}`;
+  if (note.textContent !== text) { note.textContent = text; note.hidden = false; }
+}
 function lessonsInit() {
+  lCtx = undefined; setSize = undefined;
   mode = 'lessons'; session++; line = []; last = undefined; pos = Chess.default(); show([], false);
   $('#bar').hidden = true; showNote(''); msg('Pick a lesson. Each one explains the idea, then practises it.');
   const solved = pstats.hist ?? {};
@@ -1873,6 +1939,8 @@ function enter(m0: Mode) {
   updateDue();
 }
 
+// any panel render inside a lesson must keep its chapter chrome
+new MutationObserver(() => lessonChrome()).observe($('#act'), { childList: true });
 document.addEventListener('pointerover', e => previewFrom(e.target));
 document.addEventListener('focusin', e => previewFrom(e.target));
 document.addEventListener('click', e => {
@@ -2019,11 +2087,8 @@ document.addEventListener('click', e => {
   else if (a === 'tmore') tacticsInit(10);
   else if (a === 'tset') { S.newPuzzles = Math.max(1, Math.min(100, +u)); save(); tacticsInit(); }
   else if (a === 'tth') { S.ptheme = u; save(); tacticsInit(); }
-  else if (a === 'lesson') {
-    const l = LESSONS.find(x => x.id === u);
-    if (l?.theme) { S.ptheme = l.theme; save(); enter('tactics'); toast(`${l.name}: ${l.idea}`, { ms: 5000 }); }
-    else if (l?.drill) { const d = allDrills().find(x => x.id === l.drill); if (d) { enter('endgames'); void startDrill(d); } }
-  }
+  else if (a === 'lesson') { const l = LESSONS.find(x => x.id === u); if (l) lessonOpen(l); }
+  else if (a === 'lback') { lCtx = undefined; setSize = undefined; lessonsInit(); }
   else if (a === 'erandom') void startDrill(randomDrill());
   else if (a === 'edrill') void startDrill(allDrills().find(d => d.id === u)!);
   else if (a === 'enext') startDrill(nextDrill());

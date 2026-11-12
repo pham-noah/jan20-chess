@@ -123,6 +123,18 @@ WALK STAYS ON THE LINE YOU CHOSE (v10)
   walk back to line 1. It now stays on the current line while that line still matches, and only re-homes when you
   genuinely deviate into another one.
 
+LESSON CHAPTERS, AND A PREMOVE THAT LOOKS LIKE CHESS.COM'S (v23)
+- **A lesson is now a chapter inside the Lessons tab**, not a jump into Tactics. Opening one shows its idea and its
+  "what to look for" line above the board, runs exactly five of its puzzles in place (no requeue, no second chances, the
+  theme picker and set size are hidden because the lesson owns both), keeps the tab lit, and offers "‹ Lessons" to go
+  back to the index. Endgame lessons run their drill the same way, inside the tab. Progress is banked per puzzle so the
+  index shows "n/m solved" even if you leave halfway.
+- **Premove now matches chess.com.** Any square the piece could reach on an empty board is a legal premove (already
+  true), one premove at a time (a second replaces the first), only your own pieces, only while the opponent is to move.
+  What was missing was the look: the piece is now drawn **ghosted on the square it will land on**, and its own square is
+  left empty, instead of staying put and only tinting two squares. A premove the reply has made impossible is dropped
+  with the error sound instead of vanishing silently.
+
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)
 - **Lessons** is a new tab between Tactics and Endgames: 33 lessons — 22 tactical ideas and 11 endgames — each with a
   one-line definition, a "what to look for" line, and a door into the thing that practises it. A tactical lesson sets the

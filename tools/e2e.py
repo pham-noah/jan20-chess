@@ -160,6 +160,28 @@ with sync_playwright() as p:
     pg.click('#set [data-act=closedlg]'); pg.reload(); pg.wait_for_timeout(900)
     check('settings: board theme persisted', pg.evaluate("document.documentElement.dataset.theme") == 'classic')
 
+    # --- Premove: allowed while the opponent thinks, drawn where it will land, played when legal
+    pg.click('[data-m=learn]'); pg.wait_for_timeout(600)
+    if pg.locator('[data-act=lmode][data-u=walk]').count(): pg.click('[data-act=lmode][data-u=walk]'); pg.wait_for_timeout(400)
+    pg.click('header [data-act=settings]'); pg.wait_for_timeout(300)
+    try: pg.select_option('#s-delay', '1100')
+    except Exception: pass
+    pg.click('#set [data-act=closedlg]'); pg.wait_for_timeout(300)
+    if pg.locator('[data-act=restart]').count(): pg.click('[data-act=restart]'); pg.wait_for_timeout(800)
+    pg.wait_for_function("document.querySelector('#msg').textContent.startsWith('Play')", timeout=10000)
+    pg.click('[data-act=hint]'); pg.wait_for_timeout(250)
+    drag(pg, arrow_uci(pg)); pg.wait_for_timeout(120)          # answer, so the opponent is to move
+    dragged = 'Opponent' in pg.inner_text('#msg')
+    drag(pg, 'a2a3'); pg.wait_for_timeout(120)                  # premove: any square the pawn could reach
+    ghost = pg.locator('#endmark .premove-ghost').count()
+    hidden = pg.evaluate("() => document.querySelectorAll('#board piece[data-premove-hidden]').length")
+    check('premove: the premoved piece is shown on the square it will move to', dragged and ghost == 1, f'window={dragged} ghost={ghost}')
+    check('premove: it is not left standing on its own square', hidden == 1, hidden)
+    pg.screenshot(path='/tmp/shots/e2e-premove.png')
+    pg.wait_for_timeout(2400)
+    check('premove: it is resolved when the turn comes back (played, or dropped with a cue)',
+          pg.locator('#endmark .premove-ghost').count() == 0, 'ghost still up')
+
     # --- Backup export and merge import
     # (the Endgames tab deals a fresh position on every re-render, which would overwrite the message)
     pg.click('[data-m=learn]'); pg.wait_for_timeout(600)
