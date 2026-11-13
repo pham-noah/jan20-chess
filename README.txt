@@ -181,7 +181,11 @@ KNIGHT ARROWS (v27)
   destination). Arrows you draw yourself (right-drag) behave the same way: a knight's hop is taken out of chessground's
   own shape list and drawn as an L, drawing it again removes it, and flipping the board mirrors it. One renderer draws
   every arrow with chessground's own measurements (its unit space, its 10/64 stroke, its marker shape), so a hop looks
-  like the arrows beside it and the live preview while dragging already bends. chessground's own
+  like the arrows beside it and the live preview while dragging already bends. Drawing behaves as chessground's did:
+  right-drag green, `shift` red, `alt` blue, both yellow (redrawing a shape in another colour recolours it), a press on
+  one square marks it with a circle, `ctrl`+drag erases what it crosses, the destination snaps to a legal move, a
+  long press draws on a touchscreen (a tap still moves), and only a click on an empty square — or Escape — clears the
+  annotations. chessground's own
   drag ghost is disabled, because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)

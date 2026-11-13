@@ -323,16 +323,29 @@ function ensureMarkers(svg: SVGSVGElement) {
   }
   svg.appendChild(defs);
 }
-/** One arrow: a straight line, or an L for a knight, in chessground's own measurements. */
+/** One arrow: a straight line, or an L for a knight, in chessground's own measurements.
+ *  A shape with no destination is a mark on a square, drawn as chessground draws it. */
 function arrowEl(s: any, preview = false): SVGElement | null {
-  const a = parseSquare(s.orig), b = parseSquare(s.dest);
-  if (a === undefined || b === undefined || a === b) return null;
-  const brushName = BRUSHES[s.brush] ? s.brush : 'hint';
+  const brushName = BRUSHES[s.brush] ? s.brush : 'green';
   const br = BRUSHES[brushName];
-  const [x1, y1] = arrowXY(a), [x2, y2] = arrowXY(b);
+  const a = parseSquare(s.orig);
+  if (a === undefined) return null;
+  const b = s.dest ? parseSquare(s.dest) : undefined;
+  const [x1, y1] = arrowXY(a);
   const width = ((br.lineWidth || 10) * (preview ? 0.85 : 1)) / ARROW_UNITS;
   const op = (br.opacity ?? 1) * (preview ? 0.9 : 1);
-  const margin = 10 / ARROW_UNITS;                        // chessground shortens the end by this
+  if (b === undefined || b === a) {                        // a square mark, not an arrow
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', String(x1)); c.setAttribute('cy', String(y1));
+    c.setAttribute('r', '0.4');
+    c.setAttribute('stroke', br.color);
+    c.setAttribute('stroke-width', String((br.lineWidth || 10) / ARROW_UNITS / 2));
+    c.setAttribute('fill', 'none');
+    c.setAttribute('opacity', String(op));
+    return c;
+  }
+  const [x2, y2] = arrowXY(b);
+  const margin = 10 / ARROW_UNITS;                         // chessground shortens the end by this
   const el = document.createElementNS('http://www.w3.org/2000/svg', isKnightHop(a, b) ? 'path' : 'line');
   el.setAttribute('stroke', br.color);
   el.setAttribute('stroke-width', String(width));
@@ -350,24 +363,34 @@ function arrowEl(s: any, preview = false): SVGElement | null {
   }
   return el;
 }
+type Mark = { orig: string; dest?: string; brush: string };
 let autoShapes: any[] = [];                               // arrows the app asked for
-let userShapes: any[] = [];                               // arrows the player drew
-let drawFrom: number | undefined, drawTo: number | undefined;   // the one being drawn
+let userShapes: Mark[] = [];                              // what the player drew
+let drawFrom: number | undefined, drawTo: number | undefined, drawBrush = 'green', erasing = false;
 function paintArrows() {
   const svg = arrowSvg(); if (!svg) return;
   ensureMarkers(svg);
-  svg.querySelectorAll('line, path:not(defs path)').forEach(el => { if (!el.closest('defs')) el.remove(); });
-  const list = [...autoShapes, ...userShapes];
-  for (const s of list) { const el = arrowEl(s); if (el) svg.appendChild(el); }
-  if (drawFrom !== undefined && drawTo !== undefined && drawFrom !== drawTo) {
-    const el = arrowEl({ orig: makeSquare(drawFrom), dest: makeSquare(drawTo), brush: drawBrush }, true);
+  svg.querySelectorAll('line, path, circle').forEach(el => { if (!el.closest('defs')) el.remove(); });
+  for (const s of [...autoShapes, ...userShapes]) { const el = arrowEl(s); if (el) svg.appendChild(el); }
+  if (drawFrom !== undefined && drawTo !== undefined) {
+    const el = arrowEl({ orig: makeSquare(drawFrom), dest: drawFrom === drawTo ? undefined : makeSquare(drawTo),
+                         brush: drawBrush }, true);
     if (el) svg.appendChild(el);
   }
 }
 const setArrows = (shapes: any[]) => { autoShapes = shapes.filter(s => s?.orig && s?.dest); paintArrows(); };
+function clearUserShapes() { if (!userShapes.length) return; userShapes = []; paintArrows(); }
 
-/* Drawing with the mouse: right-drag or shift-drag, exactly where chessground used to. */
-let drawBrush = 'hint';
+/* Drawing with the mouse, a finger, or the keyboard — where chessground used to do it.
+   Right-drag (or shift-drag) draws; the modifier keys pick the brush the way chessground did;
+   a press on one square and no drag marks that square; ctrl erases what you drag over; on a
+   touchscreen a long press starts drawing and a tap still moves. */
+const DRAW_BRUSHES = ['green', 'red', 'blue', 'yellow'];
+const eventBrush = (e: PointerEvent | MouseEvent): string => {
+  const modA = (e.shiftKey || e.ctrlKey) && (e as any).button === 2;
+  const modB = e.altKey || e.metaKey;
+  return DRAW_BRUSHES[(modA ? 1 : 0) + (modB ? 2 : 0)];
+};
 function squareAt(e: { clientX: number; clientY: number }): number | undefined {
   const el = document.querySelector('#board cg-board'); if (!el) return undefined;
   const r = el.getBoundingClientRect();
@@ -376,38 +399,105 @@ function squareAt(e: { clientX: number; clientY: number }): number | undefined {
   const black = orient() === 'black';
   return (black ? y : 7 - y) * 8 + (black ? 7 - x : x);
 }
-const isDrawStart = (e: PointerEvent) => e.button === 2 || (e.button === 0 && e.shiftKey);
-document.addEventListener('pointerdown', (e) => {
-  const t = e.target as HTMLElement | null;
-  if (!t?.closest?.('#board') || !isDrawStart(e)) return;
-  const sq = squareAt(e); if (sq === undefined) return;
-  e.preventDefault();
-  drawFrom = sq; drawTo = sq; paintArrows();
-}, true);
-document.addEventListener('pointermove', (e) => {
-  if (drawFrom === undefined) return;
-  const sq = squareAt(e);
-  if (sq !== undefined && sq !== drawTo) { drawTo = sq; paintArrows(); }
-});
-document.addEventListener('pointerup', (e) => {
-  if (drawFrom === undefined) return;
-  const from = drawFrom, to = drawTo ?? drawFrom;
-  drawFrom = undefined; drawTo = undefined;
-  if (from !== to) {
-    const i = userShapes.findIndex(s => s.orig === makeSquare(from) && s.dest === makeSquare(to));
-    if (i >= 0) userShapes.splice(i, 1);                  // drawn again: it takes the arrow away
-    else userShapes.push({ orig: makeSquare(from), dest: makeSquare(to), brush: drawBrush });
+/** While drawing, the destination snaps to a legal move of the piece drawn from (chessground did). */
+/** Is `to` a destination the piece on `from` can actually reach right now? */
+function isLegalStep(from: number, to: number): boolean {
+  try { const m: any = { from, to }; return pos.isLegal(m); } catch { return false; }
+}
+function snappedTo(e: { clientX: number; clientY: number }, from: number): number | undefined {
+  const raw = squareAt(e); if (raw === undefined) return undefined;
+  if (from === raw) return raw;
+  let legal: number[] = [];
+  try {
+    const pc = pos.board.get(from);
+    if (pc && pc.color === pos.turn) legal = [...pos.dests(from)].filter(sq => sq !== from);
+  } catch { legal = []; }
+  if (!legal.length || legal.includes(raw)) return raw;
+  const el = document.querySelector('#board cg-board'); if (!el) return raw;
+  const r = el.getBoundingClientRect(), cell = r.width / 8;
+  const px = (e.clientX - r.left) / cell, py = (e.clientY - r.top) / cell;
+  const centre = (sq: number) => {
+    const f = sq & 7, rk = sq >> 3;
+    return orient() === 'black' ? [7 - f + 0.5, rk + 0.5] : [f + 0.5, 7 - rk + 0.5];
+  };
+  let best: number | undefined, bestD = 1.15;              // a little over a square of tolerance
+  for (const sq of legal) {
+    const [cx, cy] = centre(sq), d = Math.hypot(cx - px, cy - py);
+    if (d < bestD) { bestD = d; best = sq; }
+  }
+  return best ?? raw;
+}
+function startDraw(from: number, brush: string, erase = false) {
+  drawFrom = from; drawTo = from; drawBrush = brush; erasing = erase;
+  paintArrows();
+}
+function endDraw() {
+  const from = drawFrom, to = drawTo ?? drawFrom, brush = drawBrush, erase = erasing;
+  drawFrom = undefined; drawTo = undefined; erasing = false;
+  if (from === undefined) return;
+  if (erase) {                                             // ctrl-drag wipes what it passes over
+    const hit = new Set([makeSquare(from), to !== undefined ? makeSquare(to) : '']);
+    userShapes = userShapes.filter(s => !hit.has(s.orig) && !hit.has(s.dest ?? ''));
+    paintArrows(); return;
+  }
+  // the same shape drawn again goes away; drawn in another colour it takes that colour, as chessground did
+  if (from === to) {
+    const sq = makeSquare(from), i = userShapes.findIndex(s => s.orig === sq && !s.dest);
+    if (i >= 0 && userShapes[i].brush === brush) userShapes.splice(i, 1);
+    else if (i >= 0) userShapes[i].brush = brush;
+    else userShapes.push({ orig: sq, brush });
+  } else {
+    const orig = makeSquare(from), dest = makeSquare(to);
+    const i = userShapes.findIndex(s => s.orig === orig && s.dest === dest);
+    if (i >= 0 && userShapes[i].brush === brush) userShapes.splice(i, 1);
+    else if (i >= 0) userShapes[i].brush = brush;
+    else userShapes.push({ orig, dest, brush });
   }
   paintArrows();
-  void e;
-}, true);
-document.addEventListener('click', (e) => {              // a plain click wipes the annotations
+}
+document.addEventListener('pointerdown', (e) => {
   const t = e.target as HTMLElement | null;
-  if (!t?.closest?.('#board') || userShapes.length || autoShapes.length === 0) { if (!t?.closest?.('#board')) return; }
-  if ((e as MouseEvent).shiftKey) return;
-  if (userShapes.length) { userShapes = []; paintArrows(); }
+  if (!t?.closest?.('#board')) return;
+  const sq = squareAt(e); if (sq === undefined) return;
+  const touch = e.pointerType !== 'mouse';
+  if (!touch && (e.button === 2 || (e.button === 0 && e.shiftKey))) {
+    e.preventDefault();
+    startDraw(sq, eventBrush(e), e.ctrlKey);              // ctrl + right-drag erases what it crosses
+    return;
+  }
+  if (touch) {                                            // keep a tap for the board, draw on a long press
+    const x = e.clientX, y = e.clientY;
+    (window as any).__longPress = setTimeout(() => { (window as any).__drawing = true; startDraw(sq, eventBrush(e)); }, 380);
+    (window as any).__pressAt = [x, y];
+  }
 }, true);
+document.addEventListener('pointermove', (e) => {
+  const at = (window as any).__pressAt as number[] | undefined;
+  if (at && Math.hypot(e.clientX - at[0], e.clientY - at[1]) > 12) { clearTimeout((window as any).__longPress); (window as any).__pressAt = undefined; }
+  if (drawFrom === undefined) return;
+  const sq = snappedTo(e, drawFrom);
+  if (sq !== undefined && sq !== drawTo) { drawTo = sq; paintArrows(); }
+});
+const finish = (e: PointerEvent) => {
+  clearTimeout((window as any).__longPress); (window as any).__pressAt = undefined;
+  if (drawFrom === undefined) return;
+  e.preventDefault();
+  endDraw();
+  (window as any).__justDrew = true; setTimeout(() => { (window as any).__justDrew = false; }, 0);
+};
+document.addEventListener('pointerup', finish, true);
+document.addEventListener('pointercancel', finish, true);
 document.addEventListener('contextmenu', (e) => { if ((e.target as HTMLElement)?.closest?.('#board')) e.preventDefault(); });
+/* A plain click clears the annotations — but only on an empty square, so choosing a piece to
+   move no longer wipes what you just drew. */
+document.addEventListener('click', (e) => {
+  if ((window as any).__justDrew) return;
+  const t = e.target as HTMLElement | null;
+  if (!t?.closest?.('#board') || (e as MouseEvent).shiftKey) return;
+  const sq = squareAt(e as MouseEvent);
+  if (sq === undefined || pos.board.get(sq)) return;      // a piece lives there: not a clearing click
+  clearUserShapes();
+}, true);
 
 const cg: any = Chessground($('#board'), {
   animation: { duration: 200 },
@@ -2548,7 +2638,11 @@ document.addEventListener('keydown', e => {
   if (typing) return;
   if (e.key === '?') return void $('#keys').showModal();
   if (!cur && opening(mode)) return;
-  if (e.key === 'Escape') { if (noteEditId) { noteEditId = undefined; renderBuild(); return; } cg.cancelPremove(); return; }
+  if (e.key === 'Escape') {
+    if (noteEditId) { noteEditId = undefined; renderBuild(); return; }
+    if (userShapes.length) { clearUserShapes(); return; }
+    cg.cancelPremove(); return;
+  }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     e.preventDefault();
     const dir = e.key === 'ArrowRight' ? 1 : -1;
