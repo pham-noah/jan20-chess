@@ -179,7 +179,9 @@ KNIGHT ARROWS (v27)
   the same pass, so saved moves, gap arrows, hints, premoves, motif arrows and the lesson walkthroughs all hop properly;
   straight moves still use chessground. Geometry lives in `src/arrows.ts` and is unit-tested (one bend, head on the
   destination). Arrows you draw yourself (right-drag) behave the same way: a knight's hop is taken out of chessground's
-  own shape list and drawn as an L, drawing it again removes it, and flipping the board mirrors it. chessground's own
+  own shape list and drawn as an L, drawing it again removes it, and flipping the board mirrors it. One renderer draws
+  every arrow with chessground's own measurements (its unit space, its 10/64 stroke, its marker shape), so a hop looks
+  like the arrows beside it and the live preview while dragging already bends. chessground's own
   drag ghost is disabled, because it lingered at 30% opacity after a premove drag and looked like a second piece.
 
 A LESSONS TAB, AND ENDGAMES THAT DEAL YOU A POSITION (v22)

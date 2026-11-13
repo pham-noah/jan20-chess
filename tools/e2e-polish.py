@@ -71,7 +71,8 @@ with sync_playwright() as p:
     for _ in range(6):
         try:
             pg.click('[data-act=tsolution]'); pg.wait_for_timeout(700)
-            strokes = pg.eval_on_selector_all('#board .cg-shapes line', 'e => e.map(x => x.getAttribute("stroke"))')
+            strokes = pg.eval_on_selector_all('#parrows > line, #parrows > path',
+                                              'e => e.map(x => x.getAttribute("stroke"))')
             if '#7c5cff' in strokes: fork = True; break
         except Exception: pass
         if pg.locator('[data-act=tnext]').count(): pg.click('[data-act=tnext]'); pg.wait_for_timeout(900)

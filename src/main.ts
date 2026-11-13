@@ -292,74 +292,128 @@ const BRUSHES: any = {
   gap: { key: 'x', color: '#c0392b', opacity: 0.8, lineWidth: 9 },
   fork: { key: 'f', color: '#7c5cff', opacity: 0.9, lineWidth: 10 },
 };
-/** A knight's move drawn as the jump it is: an L with a rounded corner and a head, instead of a
- *  diagonal line that says the piece slid across the board. Chessground only draws straight arrows,
- *  so the knight's go in this overlay. */
-const knightArrow = (a: number, b: number) => {
-  const black = orient() === 'black';
-  const xy = (sq: number) => {
-    const f = sq & 7, r = sq >> 3;
-    return black ? [7 - f + 0.5, r + 0.5] as const : [f + 0.5, 7 - r + 0.5] as const;
-  };
-  const [x1, y1] = xy(a), [x2, y2] = xy(b);
-  return knightPath(x1, y1, x2, y2);
-};
-const hopOf = (s: any): [number, number] | undefined => {
+/* ---------- Arrows ----------
+   One renderer for every arrow, straight or knight's. It uses chessground's own geometry (its unit
+   space, its stroke widths and its marker shape) so a hop looks exactly like the arrows around it,
+   and so the live preview while you drag can bend too — chessground would only draw a straight one. */
+const ARROW_UNITS = 64;                                   // board px per unit at chessground's scale
+const arrowSvg = () => document.getElementById('parrows') as unknown as SVGSVGElement | null;
+/** chessground's coordinate space: -3.5..3.5 for the square centres inside a -4..4 viewBox. */
+function arrowXY(sq: number): [number, number] {
+  const f = sq & 7, r = sq >> 3;
+  return orient() === 'black' ? [3.5 - f, r - 3.5] : [f - 3.5, 3.5 - r];
+}
+function ensureMarkers(svg: SVGSVGElement) {
+  if (svg.querySelector('defs')) return;
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  for (const [name, b] of Object.entries<any>(BRUSHES)) {
+    const m = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    m.setAttribute('id', `ak-${name}`);
+    m.setAttribute('orient', 'auto');
+    m.setAttribute('overflow', 'visible');
+    m.setAttribute('markerWidth', '4');
+    m.setAttribute('markerHeight', '4');
+    m.setAttribute('refX', '2.05');
+    m.setAttribute('refY', '2');
+    const head = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    head.setAttribute('d', 'M0,0 V4 L3,2 Z');
+    head.setAttribute('fill', b.color);
+    m.appendChild(head);
+    defs.appendChild(m);
+  }
+  svg.appendChild(defs);
+}
+/** One arrow: a straight line, or an L for a knight, in chessground's own measurements. */
+function arrowEl(s: any, preview = false): SVGElement | null {
   const a = parseSquare(s.orig), b = parseSquare(s.dest);
-  return a !== undefined && b !== undefined && isKnightHop(a, b) ? [a, b] : undefined;
-};
-let autoHops: any[] = [];              // knight arrows the app asked for
-let userHops: any[] = [];              // knight arrows the player drew with the mouse
-/** Paint every knight arrow — ours and the player's — into the overlay. */
+  if (a === undefined || b === undefined || a === b) return null;
+  const brushName = BRUSHES[s.brush] ? s.brush : 'hint';
+  const br = BRUSHES[brushName];
+  const [x1, y1] = arrowXY(a), [x2, y2] = arrowXY(b);
+  const width = ((br.lineWidth || 10) * (preview ? 0.85 : 1)) / ARROW_UNITS;
+  const op = (br.opacity ?? 1) * (preview ? 0.9 : 1);
+  const margin = 10 / ARROW_UNITS;                        // chessground shortens the end by this
+  const el = document.createElementNS('http://www.w3.org/2000/svg', isKnightHop(a, b) ? 'path' : 'line');
+  el.setAttribute('stroke', br.color);
+  el.setAttribute('stroke-width', String(width));
+  el.setAttribute('stroke-linecap', 'round');
+  el.setAttribute('fill', 'none');
+  el.setAttribute('opacity', String(op));
+  el.setAttribute('marker-end', `url(#ak-${brushName})`);
+  if (el.tagName === 'line') {
+    const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
+    el.setAttribute('x1', String(x1)); el.setAttribute('y1', String(y1));
+    el.setAttribute('x2', String(x2 - (dx / L) * margin)); el.setAttribute('y2', String(y2 - (dy / L) * margin));
+  } else {
+    const { d } = knightPath(x1, y1, x2, y2, { corner: 0.3, head: margin, half: 0, pull: 0 });
+    el.setAttribute('d', d);
+  }
+  return el;
+}
+let autoShapes: any[] = [];                               // arrows the app asked for
+let userShapes: any[] = [];                               // arrows the player drew
+let drawFrom: number | undefined, drawTo: number | undefined;   // the one being drawn
 function paintArrows() {
-  const svg = $('#parrows'); if (!svg) return;
-  const all = [
-    ...autoHops,
-    ...userHops.map(s => ({ ...s, hop: hopOf(s)! })).filter(s => s.hop),
-  ];
-  svg.innerHTML = all.map(s => {
-    const br = BRUSHES[s.brush] ?? BRUSHES.hint;
-    const { d, head } = knightArrow(s.hop![0], s.hop![1]);
-    return `<path d="${d}" stroke="${br.color}" stroke-width="${(br.lineWidth / 100) * 1.15}" fill="none"
-      stroke-linecap="round" opacity="${br.opacity}"/><polygon points="${head}" fill="${br.color}" opacity="${br.opacity}"/>`;
-  }).join('');
+  const svg = arrowSvg(); if (!svg) return;
+  ensureMarkers(svg);
+  svg.querySelectorAll('line, path:not(defs path)').forEach(el => { if (!el.closest('defs')) el.remove(); });
+  const list = [...autoShapes, ...userShapes];
+  for (const s of list) { const el = arrowEl(s); if (el) svg.appendChild(el); }
+  if (drawFrom !== undefined && drawTo !== undefined && drawFrom !== drawTo) {
+    const el = arrowEl({ orig: makeSquare(drawFrom), dest: makeSquare(drawTo), brush: drawBrush }, true);
+    if (el) svg.appendChild(el);
+  }
 }
-function setArrows(shapes: any[]) {
-  const hops = shapes.map(s => [s, hopOf(s)] as const);
-  cg.setAutoShapes(hops.filter(([, h]) => !h).map(([s]) => s));
-  autoHops = hops.filter(([, h]) => h).map(([s, h]) => ({ orig: s.orig, dest: s.dest, brush: s.brush, hop: h! }));
-  paintArrows();
+const setArrows = (shapes: any[]) => { autoShapes = shapes.filter(s => s?.orig && s?.dest); paintArrows(); };
+
+/* Drawing with the mouse: right-drag or shift-drag, exactly where chessground used to. */
+let drawBrush = 'hint';
+function squareAt(e: { clientX: number; clientY: number }): number | undefined {
+  const el = document.querySelector('#board cg-board'); if (!el) return undefined;
+  const r = el.getBoundingClientRect();
+  const x = Math.floor(((e.clientX - r.left) / r.width) * 8), y = Math.floor(((e.clientY - r.top) / r.height) * 8);
+  if (x < 0 || x > 7 || y < 0 || y > 7) return undefined;
+  const black = orient() === 'black';
+  return (black ? y : 7 - y) * 8 + (black ? 7 - x : x);
 }
-/** A knight arrow drawn by hand goes into the overlay too: chessground keeps its own shapes in its
- *  own list and would draw the hop as a straight line. */
-function syncUserShapes() {
-  const list: any[] = (cg.state.drawable?.shapes ?? []).slice();
-  const hops = list.filter(s => hopOf(s));
-  if (hops.length) {
-    for (const h of hops) {
-      const i = userHops.findIndex(u => u.orig === h.orig && u.dest === h.dest);
-      if (i >= 0) userHops.splice(i, 1);                     // drawn again: it takes the arrow away
-      else userHops.push({ orig: h.orig, dest: h.dest, brush: h.brush ?? 'hint' });
-    }
-    cg.setShapes(list.filter(s => !hopOf(s)));               // chessground keeps the straight ones
-  } else if (!list.length) {
-    userHops = [];                                           // a click on the board clears annotations
+const isDrawStart = (e: PointerEvent) => e.button === 2 || (e.button === 0 && e.shiftKey);
+document.addEventListener('pointerdown', (e) => {
+  const t = e.target as HTMLElement | null;
+  if (!t?.closest?.('#board') || !isDrawStart(e)) return;
+  const sq = squareAt(e); if (sq === undefined) return;
+  e.preventDefault();
+  drawFrom = sq; drawTo = sq; paintArrows();
+}, true);
+document.addEventListener('pointermove', (e) => {
+  if (drawFrom === undefined) return;
+  const sq = squareAt(e);
+  if (sq !== undefined && sq !== drawTo) { drawTo = sq; paintArrows(); }
+});
+document.addEventListener('pointerup', (e) => {
+  if (drawFrom === undefined) return;
+  const from = drawFrom, to = drawTo ?? drawFrom;
+  drawFrom = undefined; drawTo = undefined;
+  if (from !== to) {
+    const i = userShapes.findIndex(s => s.orig === makeSquare(from) && s.dest === makeSquare(to));
+    if (i >= 0) userShapes.splice(i, 1);                  // drawn again: it takes the arrow away
+    else userShapes.push({ orig: makeSquare(from), dest: makeSquare(to), brush: drawBrush });
   }
   paintArrows();
-}
-document.addEventListener('mouseup', (e) => {
+  void e;
+}, true);
+document.addEventListener('click', (e) => {              // a plain click wipes the annotations
   const t = e.target as HTMLElement | null;
-  if (!t?.closest?.('#board')) return;
-  const right = (e as MouseEvent).button === 2, shifted = (e as MouseEvent).shiftKey;
-  if (!right && !shifted) { if (!(cg.state.drawable?.shapes ?? []).length) userHops = []; }  // erase-all click
-  setTimeout(() => { syncUserShapes(); if (!right && !shifted) paintArrows(); }, 0);
+  if (!t?.closest?.('#board') || userShapes.length || autoShapes.length === 0) { if (!t?.closest?.('#board')) return; }
+  if ((e as MouseEvent).shiftKey) return;
+  if (userShapes.length) { userShapes = []; paintArrows(); }
 }, true);
 document.addEventListener('contextmenu', (e) => { if ((e.target as HTMLElement)?.closest?.('#board')) e.preventDefault(); });
+
 const cg: any = Chessground($('#board'), {
   animation: { duration: 200 },
   premovable: { enabled: false, showDests: true, castle: true },
   draggable: { distance: 4, showGhost: false },
-  drawable: { brushes: BRUSHES } as any,
+  drawable: { enabled: false } as any,          // our own layer draws every arrow, including knight hops
   movable: { free: false, events: { after: (o: string, d: string) => onMove(o, d) } },
 });
 

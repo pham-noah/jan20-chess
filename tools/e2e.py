@@ -52,31 +52,36 @@ def ensure_puzzle(pg, tries=5):
         else:
             pg.wait_for_timeout(800)
     return pg.locator('[data-act=thint]').count() > 0
+# every arrow lives in one overlay now: straight ones are <line>, a knight's is a bent <path>
+ARROW_JS = "() => ({ lines: document.querySelectorAll('#parrows > line').length,"\
+           " hops: document.querySelectorAll('#parrows > path').length })"
 def arrows(pg):
-    """How many arrows are on the board: chessground draws the straight ones, #parrows the knight's."""
-    return pg.evaluate("() => document.querySelectorAll('#board .cg-shapes line').length"
-                       " + document.querySelectorAll('#parrows path').length")
+    d = pg.evaluate(ARROW_JS)
+    return d['lines'] + d['hops']
 def arrow_uci(pg):
     _, ori = board(pg)
     def sq(x, y):
         if ori == 'white': f, r = round(x + 3.5), round(3.5 - y)
         else: f, r = round(3.5 - x), round(y + 3.5)
         return 'abcdefgh'[f] + str(r + 1)
-    hop = pg.evaluate("""() => {                        // a knight's arrow is an L in its own layer
-        const p = document.querySelector('#parrows path'), h = document.querySelector('#parrows polygon');
-        if (!p || !h) return null;
-        const m = p.getAttribute('d').match(/^M([-\d.]+) ([-\d.]+)/);
-        const tip = h.getAttribute('points').trim().split(/\s+/)[0].split(',');
-        return m ? [+m[1], +m[2], +tip[0], +tip[1]] : null;
+    a = pg.evaluate("""() => {
+        const el = document.querySelector('#parrows > path') || document.querySelector('#parrows > line');
+        if (!el) return null;
+        if (el.tagName === 'line')
+            return { kind: 'line', p: [el.getAttribute('x1'), el.getAttribute('y1'),
+                                       el.getAttribute('x2'), el.getAttribute('y2')] };
+        const d = el.getAttribute('d') || '';
+        const start = d.match(/^M([-\d.]+) ([-\d.]+)/);
+        const legs = [...d.matchAll(/L([-\d.]+) ([-\d.]+)/g)];
+        if (!start || !legs.length) return null;
+        const last = legs[legs.length - 1];
+        return { kind: 'path', p: [+start[1], +start[2], +last[1], +last[2]] };
     }""")
-    if hop:                                             # #parrows uses 0..8 with y running down
-        x1, y1, x2, y2 = hop
-        p = lambda x, y: ('abcdefgh'[round(x - .5) if ori == 'white' else round(7.5 - x)]
-                          + str(8 - round(y - .5) if ori == 'white' else round(y - .5) + 1))
-        return p(x1, y1) + p(x2, y2)
-    ln = pg.locator('#board .cg-shapes line').first
-    x1, y1, x2, y2 = [float(ln.get_attribute(k)) for k in ('x1', 'y1', 'x2', 'y2')]
-    dx, dy = x2 - x1, y2 - y1; L = (dx * dx + dy * dy) ** .5 or 1; x2 += dx / L * .3; y2 += dy / L * .3
+    if not a:
+        return ''
+    x1, y1, x2, y2 = [float(v) for v in a['p']]
+    if a['kind'] == 'line':
+        dx, dy = x2 - x1, y2 - y1; L = (dx * dx + dy * dy) ** .5 or 1; x2 += dx / L * .3; y2 += dy / L * .3
     return sq(x1, y1) + sq(x2, y2)
 def msg(pg): return pg.inner_text('#msg').strip()
 def wait_not(pg, text, ms=15000):

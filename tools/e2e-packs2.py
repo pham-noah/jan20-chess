@@ -199,31 +199,45 @@ with sync_playwright() as p:
     pg.evaluate("() => document.querySelector('[data-m=build]').click()"); pg.wait_for_timeout(700)
     pg.evaluate("() => document.querySelectorAll('#act .chips [data-act=go]')[0]?.click()"); pg.wait_for_timeout(600)
     pg.evaluate("() => document.querySelectorAll('#act .chips [data-act=go]')[0]?.click()"); pg.wait_for_timeout(700)
-    hop = pg.evaluate("""() => {
-        const p = document.querySelector('#parrows path');
-        return p ? { d: p.getAttribute('d'), heads: document.querySelectorAll('#parrows polygon').length } : null;
-    }""")
-    check('arrows: a knight\'s saved move is drawn as a bent arrow',
-          bool(hop) and 'Q' in hop['d'] and hop['heads'] >= 1, str(hop)[:60])
-    straight = pg.locator('#board .cg-shapes line').count()
-    check('arrows: straight moves keep the ordinary arrow', straight >= 0, straight)
+    hop = pg.evaluate(ARROW_JS)
+    bent = pg.evaluate("() => document.querySelector('#parrows > path')?.getAttribute('d') || ''")
+    check('arrows: a knight\'s saved move is drawn as a bent arrow', hop['hops'] >= 1 and 'Q' in bent, bent[:40])
+    check('arrows: the board still draws its other arrows', hop['lines'] + hop['hops'] >= 1, hop)
 
     # an arrow the player draws by hand: right-drag from a knight must bend as well
     def hand_draw(a, d):
         x1, y1 = sq_xy(pg, a); x2, y2 = sq_xy(pg, d)
         pg.mouse.move(x1, y1); pg.mouse.down(button='right')
         pg.mouse.move((x1 + x2) / 2, (y1 + y2) / 2, steps=5)
-        pg.mouse.move(x2, y2, steps=5); pg.mouse.up(button='right'); pg.wait_for_timeout(450)
-    before = pg.locator('#board .cg-shapes line').count()
-    hops_before = pg.locator('#parrows path').count()
+        pg.mouse.move(x2, y2, steps=5)
+        pg.wait_for_timeout(200)
+    # the preview while the button is still down must already be an L
     hand_draw('b1', 'c3')
-    check('arrows: a hand-drawn knight arrow is an L too', pg.locator('#parrows path').count() == hops_before + 1,
-          f"knight arrows {pg.locator('#parrows path').count()}")
-    check('arrows: it is not also drawn as a straight line',
-          pg.locator('#board .cg-shapes line').count() == before, pg.locator('#board .cg-shapes line').count())
-    hand_draw('b1', 'c3')
-    check('arrows: drawing it again takes it away', pg.locator('#parrows path').count() == hops_before,
-          f"knight arrows {pg.locator('#parrows path').count()}")
+    preview = pg.evaluate("() => document.querySelectorAll('#parrows > path').length")
+    pg.mouse.up(button='right'); pg.wait_for_timeout(400)
+    hops_before = hop['hops']
+    check('arrows: the preview while dragging a knight already bends',
+          preview == hops_before + 1, f"{preview} paths while drawing")
+    check('arrows: a hand-drawn knight arrow is an L too',
+          pg.evaluate("() => document.querySelectorAll('#parrows > path').length") == hops_before + 1,
+          pg.evaluate("() => document.querySelectorAll('#parrows > path').length"))
+    # draw a straight one and a knight one with the same brush: they must be measured alike
+    hand_draw('a2', 'a4'); pg.mouse.up(button='right'); pg.wait_for_timeout(300)
+    same = pg.evaluate("""() => {
+        const l = [...document.querySelectorAll('#parrows > line')].pop();
+        const p = [...document.querySelectorAll('#parrows > path')].pop();
+        if (!l || !p) return null;
+        return { lw: l.getAttribute('stroke-width'), pw: p.getAttribute('stroke-width'),
+                 lm: l.getAttribute('marker-end'), pm: p.getAttribute('marker-end'),
+                 lo: l.getAttribute('opacity'), po: p.getAttribute('opacity') };
+    }""")
+    check('arrows: a knight arrow is drawn with the same weight, opacity and head as a straight one',
+          bool(same) and same['lw'] == same['pw'] and same['lo'] == same['po']
+          and same['lm'].split('#')[1] == same['pm'].split('#')[1], str(same))
+    hand_draw('b1', 'c3'); pg.mouse.up(button='right'); pg.wait_for_timeout(400)
+    check('arrows: drawing it again takes it away',
+          pg.evaluate("() => document.querySelectorAll('#parrows > path').length") == hops_before,
+          pg.evaluate("() => document.querySelectorAll('#parrows > path').length"))
 
     # --- the lines and tree block is built only when it is on screen
     if pg.locator('#act details').count():
