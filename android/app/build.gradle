@@ -7,8 +7,8 @@ android {
         applicationId "app.jan20.trainer"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
-        versionName "1.8.0"
+        versionCode 12
+        versionName "1.8.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +16,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        // android/keystore.properties is not committed: the release key lives beside the project, in
+        // Jan20-keys/. Without it a release build is simply unsigned, which is what CI gets.
+        release {
+            def keyPropsFile = rootProject.file("keystore.properties")
+            if (keyPropsFile.exists()) {
+                def keyProps = new Properties()
+                keyProps.load(new FileInputStream(keyPropsFile))
+                storeFile rootProject.file(keyProps["storeFile"])
+                storePassword keyProps["storePassword"]
+                keyAlias keyProps["keyAlias"]
+                keyPassword keyProps["keyPassword"]
+            }
+        }
+    }
     buildTypes {
         release {
+            if (rootProject.file("keystore.properties").exists()) { signingConfig signingConfigs.release }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

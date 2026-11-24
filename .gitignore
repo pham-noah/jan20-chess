@@ -6,4 +6,5 @@ android/app/build
 android/build
 android/.gradle
 android/local.properties
+android/keystore.properties
 tools/.build
