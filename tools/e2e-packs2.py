@@ -26,7 +26,7 @@ with sync_playwright() as p:
     check('stafford: against 3.Nc3 Black has ...Nc6', 'Nc6' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
     pg.click('[data-act=mprev]'); play(pg, ['f1c4'])
     check('stafford: against 3.Bc4 Black has ...Nxe4', 'Nxe4' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
-    pg.screenshot(path='/tmp/shots/stafford-3bc4.png')
+    shot(pg, 'stafford-3bc4.png')
     # stepping through the moves of one line, chess-viewer style
     pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(400)
     pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)      # the numbered list view
@@ -137,7 +137,7 @@ with sync_playwright() as p:
             "moves": {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -": {"e2e4": "e4"}}, "cards": {}, "notes": {},
             "bad": {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -|e2e4": 180}}],
             "tactics": {"cards": {}, "stats": {}, "imported": []}, "endgames": {"cards": {}, "custom": []}}
-    seed_path = 'C:/Users/Noah/AppData/Local/hermes/cache/scratch/weak-seed.json'
+    seed_path = os.path.join(tempfile.gettempdir(), 'jan20-weak-seed.json')
     open(seed_path, 'w', encoding='utf-8').write(_json.dumps(seed))
     pg.click('header [data-act=settings]'); pg.wait_for_timeout(300)
     pg.click('[data-act=import-merge]'); pg.wait_for_timeout(300)
@@ -265,4 +265,4 @@ with sync_playwright() as p:
         set_block(False)
     print('console/page errors:', errs or 'none'); b.close()
 
-print(sum(1 for r in results if r[1]), '/', len(results))
+finish()

@@ -1,0 +1,79 @@
+name: CI
+
+# Every push to main and every PR: typecheck, build, logic tests, then the five
+# browser suites against the built app. Release installers are still built by
+# "Build Jan20 apps" on a v* tag.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Typecheck, build, logic tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --legacy-peer-deps
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Logic tests (puzzles, drills, lessons, premoves, arrows)
+        run: npm run test:logic
+      - name: Explanation tests (hanging piece, wording)
+        run: npm run test:explain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 3
+
+  browser:
+    name: Browser suites
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install --upgrade pip playwright
+          python -m playwright install --with-deps chromium
+      - name: Run the suites against the built app
+        run: |
+          set -e
+          # the suites hardcode localhost:8099, so serve the exact dist the checks job built
+          python -m http.server 8099 --directory dist &
+          SERVER=$!
+          trap 'kill $SERVER 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            python -c "import urllib.request as u,sys; u.urlopen('http://localhost:8099/index.html',timeout=2).read(64)" && break
+            sleep 1
+          done
+          python -c "import urllib.request as u; u.urlopen('http://localhost:8099/index.html',timeout=5).read(64)"
+          for f in e2e e2e-packs e2e-packs2 e2e-modes e2e-polish; do
+            echo "::group::$f"
+            python tools/$f.py
+            echo "::endgroup::"
+          done
+      - name: Keep the screenshots when something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/jan20-shots
+          if-no-files-found: ignore
+          retention-days: 7

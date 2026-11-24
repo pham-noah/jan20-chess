@@ -1,5 +1,5 @@
 """End-to-end checks in headless Chromium. Usage: python3 tools/e2e.py [base_url]"""
-import sys, json, re, os, tempfile
+import sys, json, re, os, tempfile, time
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8099/'
 STARTER = json.load(open(os.path.join(os.path.dirname(__file__), '..', 'src/tactics/starter.json')))
@@ -10,6 +10,29 @@ def goto_app(pg):
 
 def check(name, cond, extra=''):
     results.append((name, bool(cond), extra)); print(('PASS ' if cond else 'FAIL ') + name + (' | ' + str(extra) if extra and not cond else ''))
+# Screenshots are for a human to look at, never asserted on: write them where any OS allows, and never
+# let a missing directory turn a passing suite red (a fresh CI runner has no /tmp/shots).
+SHOTS = os.path.join(tempfile.gettempdir(), 'jan20-shots')
+def shot(pg, name):
+    os.makedirs(SHOTS, exist_ok=True); path = os.path.join(SHOTS, name)
+    try: pg.screenshot(path=path)
+    except Exception as e: print('screenshot skipped:', path, e)
+    return path
+def finish():
+    """Print the tally and fail the process on any FAIL, so CI (and a shell `&&` chain) can trust it."""
+    bad = [r for r in results if not r[1]]
+    print(f'{len(results) - len(bad)}/{len(results)} checks passed')
+    if bad:
+        print('FAILED:\n  ' + '\n  '.join(b[0] for b in bad)); sys.exit(1)
+def until(pg, fn, timeout=5000, step=100):
+    """Poll a condition until it holds, instead of sleeping a fixed time: a slow box or a CI runner
+    breaks fixed sleeps, and the check then fails for a reason that has nothing to do with the app."""
+    end = time.time() + timeout / 1000
+    while True:
+        if fn(): return True
+        if time.time() > end: return False
+        pg.wait_for_timeout(step)
+
 
 def board(pg):
     bb = pg.locator('#board cg-board').bounding_box(); ori = 'black' if pg.locator('#board.orientation-black').count() else 'white'
@@ -203,7 +226,7 @@ with sync_playwright() as p:
     m1 = run_drill('kpk-h4', 20); check('drill: hold drill completes with success', 'held' in m1.lower() or 'drawn' in m1.lower(), m1)
     pg.click('[data-act=elist]'); pg.wait_for_timeout(400)
     m2 = run_drill('kpk-w3', 20); check('drill: win drill completes with success', m2.startswith('Converted') or m2.startswith('Checkmate'), m2)
-    pg.screenshot(path='/tmp/shots/e2e-drill-done.png')
+    shot(pg, 'e2e-drill-done.png')
     pg.click('[data-act=elist]'); pg.wait_for_timeout(300)
     if not pg.locator('[data-u=kpk-w3]').is_visible() and pg.locator('[data-act=elist]').count():
         pg.click('[data-act=elist]'); pg.wait_for_timeout(500)
@@ -224,18 +247,21 @@ with sync_playwright() as p:
     if pg.locator('[data-act=restart]').count(): pg.click('[data-act=restart]'); pg.wait_for_timeout(800)
     pg.wait_for_function("document.querySelector('#msg').textContent.startsWith('Play')", timeout=10000)
     pg.click('[data-act=hint]'); pg.wait_for_timeout(250)
-    drag(pg, arrow_uci(pg)); pg.wait_for_timeout(120)          # answer, so the opponent is to move
+    drag(pg, arrow_uci(pg)); until(pg, lambda: 'Opponent' in pg.inner_text('#msg'))   # answer, opponent to move
     dragged = 'Opponent' in pg.inner_text('#msg')
-    drag(pg, 'a2a3'); pg.wait_for_timeout(160)                 # premove: any square the pawn could reach
+    qlen = lambda: pg.evaluate("() => (window.__jan20().queue || []).length")
+    drag(pg, 'a2a3')                                            # premove: any square the pawn could reach
+    until(pg, lambda: qlen() >= 1 and 'a3' in piece_squares(pg))
     sq1 = piece_squares(pg)
     check('premove: the piece is shown on the square it will move to', dragged and 'a3' in sq1, f'window={dragged} a3={"a3" in sq1}')
     check('premove: it is not left standing on its own square', 'a2' not in sq1, sq1)
-    drag(pg, 'a3a4'); pg.wait_for_timeout(200)                 # the SAME pawn again, chained
+    drag(pg, 'a3a4')                                            # the SAME pawn again, chained
+    until(pg, lambda: qlen() >= 2 and 'a4' in piece_squares(pg))
     sq2 = piece_squares(pg)
     n_arrows = arrows(pg)
     check('premove: the same piece can be premoved again', 'a4' in sq2 and 'a3' not in sq2, sq2)
     check('premove: queued premoves are drawn together', n_arrows >= 2, n_arrows)
-    pg.screenshot(path='/tmp/shots/e2e-premove.png')
+    shot(pg, 'e2e-premove.png')
     pg.wait_for_timeout(2400)
     check('premove: the queue is resolved when the turn comes back', arrows(pg) <= 1, arrows(pg))
     # the premove state leaves chessground in "free" mode; if that is never turned off every drag is
@@ -287,5 +313,4 @@ with sync_playwright() as p:
     check('phone: tab bar fixed at bottom', pg3.evaluate("(()=>{const r=document.querySelector('#tabs').getBoundingClientRect();return Math.abs(r.bottom-window.innerHeight)<2})()"))
     ctx3.close(); b.close()
 print('\nconsole/page errors:', errs if errs else 'none')
-bad = [r for r in results if not r[1]]
-print(f'\n{len(results) - len(bad)}/{len(results)} checks passed')
+finish()

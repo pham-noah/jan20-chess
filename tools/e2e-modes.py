@@ -88,7 +88,7 @@ with sync_playwright() as p:
     txt = msg(pg); ended = ended or txt.startswith(('You won', 'You lost', 'Equal'))
     check('arena: the game ends with a verdict from the engine', ended, txt)
     check('arena: rating line and book summary shown', 'rating' in pg.inner_text('#path').lower(), pg.inner_text('#path'))
-    pg.screenshot(path='/tmp/shots/arena-end.png')
+    shot(pg, 'arena-end.png')
     print('   arena result:', txt, '|', pg.inner_text('#path'), '|', pg.inner_text('#note')[:120].replace('\n', ' '))
 
     # Lessons: a catalogue that explains, and opens the thing that practises it
@@ -147,4 +147,4 @@ with sync_playwright() as p:
           pg.eval_on_selector_all('#setprev piece', 'e => e.length'))
     pg.click('#set [data-act=closedlg]'); pg.wait_for_timeout(200)
     print('console/page errors:', errs or 'none'); b.close()
-print(sum(1 for r in results if r[1]), '/', len(results))
+finish()
