@@ -203,7 +203,7 @@ function sfx(kind: 'move' | 'ok' | 'bad' | 'done') {
 }
 const flash = (k: 'ok' | 'bad') => { const b = $('#board'); b.classList.remove('flash-ok', 'flash-bad'); void b.offsetWidth; b.classList.add('flash-' + k); };
 /** The move you just played, marked on its squares: green tick for a book move, red cross for a wrong one.
- *  Replaces the board shake. `uci` gives the from/to squares; without it nothing is drawn. */
+ *  `uci` gives the from/to squares; without it nothing is drawn. */
 let tileTimer: any;
 const clearMark = () => { const l = $('#mmarks'); if (l) l.textContent = ''; };
 const markMove = (san: string, ok: boolean, uci?: string) => {
@@ -232,8 +232,8 @@ const markMove = (san: string, ok: boolean, uci?: string) => {
 /** chess.com draws the premove where it lands: the piece sits on the destination, ghosted, while its
  *  origin stays highlighted. chessground only tints the two squares, so the ghost is drawn here. */
 function renderPremoveGhost() {
-  // The queue is drawn on the board itself now (the piece really stands on its destination, so the
-  // next link can be picked up again), so this only clears anything an older render left behind.
+  // The queue is drawn on the board itself (the piece really stands on its destination, so the next
+  // link can be picked up again), so this only clears what an older render left behind.
   $('#endmark')?.querySelectorAll('.premove-ghost').forEach(el => el.remove());
   document.querySelectorAll<HTMLElement>('#board piece[data-premove-hidden]').forEach(el => { el.style.visibility = ''; delete el.dataset.premoveHidden; });
 }
@@ -382,10 +382,10 @@ function paintArrows() {
 const setArrows = (shapes: any[]) => { autoShapes = shapes.filter(s => s?.orig && s?.dest); paintArrows(); };
 function clearUserShapes() { if (!userShapes.length) return; userShapes = []; paintArrows(); }
 
-/* Drawing with the mouse, a finger, or the keyboard — where chessground used to do it.
-   Right-drag (or shift-drag) draws; the modifier keys pick the brush the way chessground did;
-   a press on one square and no drag marks that square; ctrl erases what you drag over; on a
-   touchscreen a long press starts drawing and a tap still moves. */
+/* Drawing with the mouse, a finger, or the keyboard. Right-drag (or shift-drag) draws; the modifier
+   keys pick the brush the way chessground's own drawable does; a press on one square and no drag marks
+   that square; ctrl erases what you drag over; on a touchscreen a long press starts drawing and a tap
+   still moves. */
 const DRAW_BRUSHES = ['green', 'red', 'blue', 'yellow'];
 const eventBrush = (e: PointerEvent | MouseEvent): string => {
   const modA = (e.shiftKey || e.ctrlKey) && (e as any).button === 2;
@@ -400,7 +400,7 @@ function squareAt(e: { clientX: number; clientY: number }): number | undefined {
   const black = orient() === 'black';
   return (black ? y : 7 - y) * 8 + (black ? 7 - x : x);
 }
-/** While drawing, the destination snaps to a legal move of the piece drawn from (chessground did). */
+/** While drawing, the destination snaps to a legal move of the piece drawn from. */
 /** Is `to` a destination the piece on `from` can actually reach right now? */
 function isLegalStep(from: number, to: number): boolean {
   try { const m: any = { from, to }; return pos.isLegal(m); } catch { return false; }
@@ -441,7 +441,7 @@ function endDraw() {
     userShapes = userShapes.filter(s => !hit.has(s.orig) && !hit.has(s.dest ?? ''));
     paintArrows(); return;
   }
-  // the same shape drawn again goes away; drawn in another colour it takes that colour, as chessground did
+  // the same shape drawn again goes away; drawn in another colour it takes that colour
   if (from === to) {
     const sq = makeSquare(from), i = userShapes.findIndex(s => s.orig === sq && !s.dest);
     if (i >= 0 && userShapes[i].brush === brush) userShapes.splice(i, 1);
@@ -490,7 +490,7 @@ document.addEventListener('pointerup', finish, true);
 document.addEventListener('pointercancel', finish, true);
 document.addEventListener('contextmenu', (e) => { if ((e.target as HTMLElement)?.closest?.('#board')) e.preventDefault(); });
 /* A plain click clears the annotations — but only on an empty square, so choosing a piece to
-   move no longer wipes what you just drew. */
+   move does not wipe what you just drew. */
 document.addEventListener('click', (e) => {
   if ((window as any).__justDrew) return;
   const t = e.target as HTMLElement | null;
@@ -690,8 +690,8 @@ function show(shapes: any[] = [], can = true) {
       ? { color: undefined, free: false, dests: new Map() }          // a past position is for looking at
       : queued
       ? { color: premoveColor(), free: true, dests: undefined }      // the chain continues from the previewed board
-      // free must be turned back OFF: chessground keeps a key it is not told about, so after the first
-      // premove every drag stayed free and illegal moves reached the engine.
+      // free must be passed back explicitly: chessground keeps a key it is not told about, so leaving
+      // it out here would make every later drag free and let illegal moves reach the engine.
       : { color: can ? pos.turn : pm ? premoveColor() : undefined, free: false, dests: can ? chessgroundDests(pos) : new Map() },
   });
   lastShapes = shapes;
@@ -1115,7 +1115,7 @@ function deleteMany(idxs: number[]) {
   save(); renderBuild();
   undoable(`Removed ${removed} line${removed === 1 ? '' : 's'}.`, snap);
 }
-/** Drop every position that can no longer be reached from the start (deleting a move used to leave them behind). */
+/** Drop every position that can no longer be reached from the start: deleting a move orphans its continuation. */
 function pruneUnreachable(): number {
   if (!cur) return 0;
   const seen = new Set([START]); const q = [START];
@@ -1260,8 +1260,9 @@ function walkLines(rep: Rep | undefined = cur): string[][] {
   if (rep) walkCache = { key: ck, lines: out };
   return out;
 }
-/** Which numbered line does this played prefix belong to? Stays on the current line while it still matches,
- *  and only re-homes when the player deviates. Without that check every line starting 1.e4 snapped back to line 1. */
+/** Which numbered line does this played prefix belong to? Stay on the current line while it still
+ *  matches and only re-home when the player deviates: the first line that fits would pull every
+ *  1.e4 line back to line 1. */
 function lineOf(prefix: string[]) {
   const here = wLines[wIdx];
   if (here && prefix.every((u, i) => here[i] === u)) return wIdx;
@@ -2761,10 +2762,11 @@ $('#sanform').addEventListener('submit', e => {
 });
 async function init() {
   console.log('Jan20 build', __BUILD__);
-  // A service worker belongs to the installed web app only. Inside the Tauri webview it would cache the whole
-  // frontend and keep serving an old build while the exe underneath is current — that is exactly what happened.
+  // A service worker belongs to the installed web app only. Inside the Tauri webview it would cache the
+  // whole frontend and keep serving an old build while the exe underneath is current.
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+    // A first install reloads too if the listener is unconditional, which throws away the welcome tour.
+    if (navigator.serviceWorker.controller) navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
     navigator.serviceWorker.register(new URL('sw.js', document.baseURI)).catch(() => {});
   } else if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});

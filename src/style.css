@@ -7,19 +7,19 @@
   --sans:"Inter Variable",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --bg:#0e161c;--glow:rgba(227,182,83,.075);--panel:#16212a;--raise:#1e2c37;--line:#2a3945;--line2:#374956;
   --ink:#eaf0ec;--dim:#8da1a0;--accent:#e3b653;--accent2:#f0c96a;--accent-ink:#1a1408;
-  --ok:#8fcfa8;--bad:#ee9486;--shadow:0 10px 30px rgba(0,0,0,.35);--dot:15,30,24;--tabbg:rgba(14,22,28,.9);
+  --ok:#8fcfa8;--bad:#ee9486;--shadow:0 10px 30px rgba(0,0,0,.35);--dot:15,30,24;--tabbg:rgba(14,22,28,.98);
   --sq-l:#dfe6d6;--sq-d:#5c7d73;color-scheme:dark;
 }
 html[data-appearance=light]{
   --bg:#f3efe6;--glow:rgba(196,138,28,.12);--panel:#fffdf8;--raise:#f5f0e4;--line:#ddd5c3;--line2:#cbc1aa;
   --ink:#1c2a33;--dim:#617176;--accent:#c8901f;--accent2:#d9a336;--accent-ink:#fff;
-  --ok:#2c7a54;--bad:#b3463a;--shadow:0 10px 28px rgba(60,45,10,.13);--dot:30,50,40;--tabbg:rgba(243,239,230,.92);color-scheme:light;
+  --ok:#2c7a54;--bad:#b3463a;--shadow:0 10px 28px rgba(60,45,10,.13);--dot:30,50,40;--tabbg:rgba(243,239,230,.98);color-scheme:light;
 }
 @media(prefers-color-scheme:light){
   html[data-appearance=auto]{
     --bg:#f3efe6;--glow:rgba(196,138,28,.12);--panel:#fffdf8;--raise:#f5f0e4;--line:#ddd5c3;--line2:#cbc1aa;
     --ink:#1c2a33;--dim:#617176;--accent:#c8901f;--accent2:#d9a336;--accent-ink:#fff;
-    --ok:#2c7a54;--bad:#b3463a;--shadow:0 10px 28px rgba(60,45,10,.13);--dot:30,50,40;--tabbg:rgba(243,239,230,.92);color-scheme:light;
+    --ok:#2c7a54;--bad:#b3463a;--shadow:0 10px 28px rgba(60,45,10,.13);--dot:30,50,40;--tabbg:rgba(243,239,230,.98);color-scheme:light;
   }
 }
 [data-theme=classic]{--sq-l:#f0d9b5;--sq-d:#b58863}
@@ -337,7 +337,7 @@ dialog .row{justify-content:flex-end}
 /* ---------- App feel ---------- */
 body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 textarea,input,#msg,#note,#path,.pack p,dialog p,dialog li,dialog dd{-webkit-user-select:text;user-select:text}
-/* Review: the task and its controls come before the note text, which used to outrank them */
+/* Review: the task and its controls come before the note text */
 body[data-mode=review] #panel{display:flex;flex-direction:column}
 body[data-mode=review] #msg{order:1}
 body[data-mode=review] #path{order:2}

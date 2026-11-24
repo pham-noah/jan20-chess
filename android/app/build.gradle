@@ -7,8 +7,8 @@ android {
         applicationId "app.jan20.trainer"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 12
-        versionName "1.8.1"
+        versionCode 13
+        versionName "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -17,8 +17,7 @@ android {
         }
     }
     signingConfigs {
-        // android/keystore.properties is not committed: the release key lives beside the project, in
-        // Jan20-keys/. Without it a release build is simply unsigned, which is what CI gets.
+        // android/keystore.properties is not committed. Without it a release build is unsigned.
         release {
             def keyPropsFile = rootProject.file("keystore.properties")
             if (keyPropsFile.exists()) {

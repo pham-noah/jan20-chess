@@ -7,7 +7,7 @@
  */
 import { registerPlugin } from '@capacitor/core';
 
-const REPO = 'pham-noah/jan20';
+const REPO = 'pham-noah/jan20-chess';
 
 export interface Release {
   version: string;

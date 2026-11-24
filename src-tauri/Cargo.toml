@@ -1,6 +1,6 @@
 [package]
 name = "jan20"
-version = "1.8.1"
+version = "0.1.0"
 description = "Jan20 chess opening trainer"
 edition = "2021"
 
