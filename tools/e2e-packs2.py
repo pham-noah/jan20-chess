@@ -28,7 +28,8 @@ with sync_playwright() as p:
     check('stafford: against 3.Bc4 Black has ...Nxe4', 'Nxe4' in pg.inner_text('#act'), pg.inner_text('#act')[:60])
     shot(pg, 'stafford-3bc4.png')
     # stepping through the moves of one line, chess-viewer style
-    pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(400)
+    if not pg.evaluate("() => document.querySelector('#act details').open"):   # wide screens start open, phones start folded
+        pg.click('summary:has-text("Lines and tree")'); pg.wait_for_timeout(400)
     pg.click('[data-act=viewlines]'); pg.wait_for_timeout(400)      # the numbered list view
     pg.click('[data-act=goline][data-u="0"]'); pg.wait_for_timeout(500)
     mv = lambda t: t.split('\u00b7')[-1].strip()

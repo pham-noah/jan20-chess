@@ -235,6 +235,32 @@ SAY IT ONCE, AND ON THE FIRST SCREEN (v28)
   "Start over" is Restart, and the Italian pack's blurb sells the forcing lines it ships (Fried Liver, 5.d4) instead of
   the quiet 5.d3 Pianissimo that was rejected.
 
+ROOM TO WORK, AND NOTHING DEAD (v29)
+- **The Editor's line tree is open on a wide screen.** It was collapsed by default, so the panel card stopped at y 660 in
+  a 900 px window and the rest of the column was empty cream. It still builds its body only while open, and it still
+  folds to a single `<details>` on a phone. The old markup had no `open` attribute at all — `listOpen` decided whether the
+  body was built, never whether the block was open.
+- **The Review badge and the Review strip now say the same thing.** The tab showed 15 (the whole queue) beside "0 due":
+  the badge means cards waiting today and carries that in its tooltip, and the strip's first number is "to do", so
+  15 = 0 to do + 15 new reads straight across.
+- **A starter-line card is the button.** Eight packs of 3-4 line blurbs each carried an identical full-width "Add to my
+  repertoires": 2,103 px of scrolling for 8 packs, now 1,127 px with no buttons in the list (arrow keys and Enter work on
+  a card too). The blurbs name the lines they ship instead of listing every variation and adding "Plus engine-suggested
+  sidelines" to all eight — Italian reads "Fried Liver, 5.d4 against 3...Bc5, 4.d4 against the Hungarian".
+- **Settings is a two-up grid of equal targets.** The rows wrapped one or two buttons per row, right-aligned and alone,
+  with an ungrouped "Keyboard shortcuts" floating above the version and a second "Done" under a dialog that already has a
+  sticky ✕. Labels are short enough to fit ("Backup in (merge)", "This rep as PGN") and wrap rather than truncate; the
+  count says "1 repertoire", not "1 repertoires".
+- **Tactics' strip drops the em dash**: "0 today" alone until the week has data.
+- **"Play a move to save it." is gone** from the Editor's heading, along with "Start" and "Flip board" as words: the strip
+  already counts saved moves here, the tree draws the position, and ⏮ / ⇅ carry a title for anyone who needs it.
+- **1-6 switch tabs, / searches the line list.** Both are in the shortcuts sheet.
+- **A finished queue is a state, not a blank.** Review used to say "All caught up" above card controls that had nothing to
+  act on; it now names the next card ("Next card in 3 h") and takes the buttons away.
+- **The last small phone targets are 36 px** — the puzzle-size chips 5 / 10 / 20 were 30.
+- **Walk waits when it helped you.** A line completed cleanly still rolls on by itself; one finished after Hint or Solve
+  stays put so it can be re-walked, instead of advancing out from under the notes.
+
 NO EXPORT ON THE WEB EITHER (v20)
 - The web build can write a **real file on disk**: Settings → "Link a file…" (once), pick `jan20-repertoire.json`, and
   from then on every change is written into it — same as the desktop app. This needs the File System Access API, i.e.

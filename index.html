@@ -70,7 +70,7 @@
 </dialog>
 <dialog id="keys" aria-labelledby="k-t">
   <h2 id="k-t">Keyboard shortcuts</h2>
-  <dl class="keys"><dt>H</dt><dd>Show a hint (Learn, Review, Tactics, Endgames)</dd><dt>← / →</dt><dd>Step through the moves of the line (Editor, and Learn → Walk to look back)</dd><dt>Backspace</dt><dd>Take back the last move (Editor)</dd><dt>Enter / Space</dt><dd>Next card or puzzle</dd><dt>?</dt><dd>This list</dd><dt>In the tree</dt><dd>Click a move to jump to it, ✕ cuts it and everything only it reached, ↑ makes that branch the first, drag one branch onto another to reorder them, ▾ folds</dd><dt>Esc</dt><dd>Close a dialog</dd></dl>
+  <dl class="keys"><dt>1 – 6</dt><dd>Editor, Learn, Review, Tactics, Lessons, Endgames</dd><dt>/</dt><dd>Search the line list</dd><dt>H</dt><dd>Show a hint (Learn, Review, Tactics, Endgames)</dd><dt>← / →</dt><dd>Step through the moves of the line (Editor, and Learn → Walk to look back)</dd><dt>Backspace</dt><dd>Take back the last move (Editor)</dd><dt>Enter / Space</dt><dd>Next card or puzzle</dd><dt>?</dt><dd>This list</dd><dt>In the tree</dt><dd>Click a move to jump to it, ✕ cuts it and everything only it reached, ↑ makes that branch the first, drag one branch onto another to reorder them, ▾ folds</dd><dt>Esc</dt><dd>Close a dialog</dd></dl>
   <p class="dim">Settings → "Type moves with the keyboard" plays moves by typing, like Nf3.</p>
   <div class="row"><button class="primary" data-act="closedlg">Close</button></div>
 </dialog>
@@ -110,18 +110,17 @@
   <h3>Puzzles</h3>
   <p class="dim" id="s-pinfo"></p>
   <div class="row3"><label class="field">Rating from<input type="number" id="s-imin" inputmode="numeric"></label><label class="field">to<input type="number" id="s-imax" inputmode="numeric"></label><label class="field">Max count<input type="number" id="s-icnt" inputmode="numeric"></label></div>
-  <div class="row"><button data-act="import-csv">Import Lichess puzzle CSV</button><button data-act="clear-puz" class="danger">Clear imported</button></div>
+  <div class="row"><button data-act="import-csv">Lichess CSV in</button><button data-act="clear-puz" class="danger">Clear imported</button></div>
   <h3>Data</h3>
-  <div class="row"><button data-act="exportall">Export backup</button><button data-act="import-merge">Import backup (merge)</button><button data-act="import-replace" class="danger">Import backup (replace all)</button></div>
-  <div class="row"><button data-act="exportpgn">Export this repertoire (PGN)</button><button data-act="import-pgn">Import PGN file</button><button data-act="openlib">Starter lines</button></div>
+  <div class="row"><button data-act="exportall">Backup out</button><button data-act="import-merge">Backup in (merge)</button></div>
+  <div class="row"><button data-act="import-replace" class="danger">Backup in (replace)</button><button data-act="openlib">Starter lines</button></div>
+  <div class="row"><button data-act="exportpgn">This rep as PGN</button><button data-act="import-pgn">PGN in</button></div>
   <h3>Live file</h3>
   <p class="dim" id="s-file"></p>
   <div class="row"><button data-act="linkfile" id="s-link">Link a file…</button><button data-act="resume" id="s-resume" class="primary" hidden>Start writing again</button><button data-act="savefile">Write now</button><button data-act="unlinkfile" id="s-unlink" class="danger" hidden>Stop writing to it</button></div>
-  <div class="row"><button data-act="keys">Keyboard shortcuts</button><button data-act="install" id="s-install" hidden>Install app</button></div>
   <p class="dim" id="s-info"></p>
+  <div class="row"><button data-act="upd">Check for updates</button><button data-act="keys">Keyboard shortcuts</button><button data-act="install" id="s-install" hidden>Install app</button><span class="dim" id="s-upd" role="status" aria-live="polite"></span></div>
   <p class="dim" id="s-build"></p>
-  <div class="row"><button data-act="upd">Check for updates</button><span class="dim" id="s-upd" role="status" aria-live="polite"></span></div>
-  <div class="row"><button class="primary" data-act="closedlg">Done</button></div>
 </dialog>
 <input type="file" id="file" accept=".json,.pgn" hidden>
 <script type="module" src="/src/main.ts"></script>

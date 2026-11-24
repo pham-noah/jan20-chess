@@ -754,11 +754,12 @@ function renderStrip() {
   } else if (mode === 'review' && cur) {
     const h = cur.hist ?? {}, days = Object.keys(h).sort().slice(-7);
     const week = days.reduce((a, d) => a + h[d], 0);
-    bits.push([String(dueCount(cur.cards)), 'due'], [String(queueFresh()), 'new'], [String(Object.keys(cur.cards).length), 'seen'], [String(week), 'week']);
+    bits.push([String(dueCount(cur.cards)), 'to do'], [String(queueFresh()), 'new'], [String(Object.keys(cur.cards).length), 'seen'], [String(week), 'week']);
   } else if (mode === 'tactics') {
     const w = weekAccuracy(), td = (pstats.hist ?? {})[today()];
-    // rating and streak are the tiles above: only the day and the week belong down here
-    bits.push([String(td ? td.ok : 0), 'today'], [w.n ? `${w.pct}%` : '—', '7 days']);
+    // rating and streak are the tiles above: only the day and the week belong down here, and the week waits for data
+    bits.push([String(td ? td.ok : 0), 'today']);
+    if (w.n) bits.push([`${w.pct}%`, '7 days']);
   } else if (mode === 'endgames') {
     const defs = allDrills();
     bits.push([String(defs.filter(d => ecards[d.id]).length), 'practised'], [String(defs.filter(d => !ecards[d.id]).length), 'to learn'], [String(defs.filter(d => ecards[d.id] && isDue(ecards[d.id])).length), 'due']);
@@ -767,8 +768,8 @@ function renderStrip() {
   el.innerHTML = bits.map(([v, l]) => `<span><b>${esc(v)}</b>${esc(l)}</span>`).join('');
 }
 const updateDue = () => {
-  $('#due').textContent = cur ? queueKeys().length || '' : '';
-  $('#tdue').textContent = dueCount(pcards) || ''; $('#edue').textContent = dueCount(ecards) || '';
+  $('#due').textContent = cur ? queueKeys().length || '' : ''; $('#due').title = cur ? `${queueKeys().length} cards waiting today` : '';
+  $('#tdue').title = `${dueCount(pcards)} puzzles due`; $('#tdue').textContent = dueCount(pcards) || ''; $('#edue').title = `${dueCount(ecards)} endgames due`; $('#edue').textContent = dueCount(ecards) || '';
   renderStrip();
 };
 
@@ -1151,16 +1152,17 @@ function deleteLine(i: number, quiet = false): boolean {
   return true;
 }
 
-let listOpen = false;          // the "Lines and tree" block is collapsed by default: never build its body unseen
+const oneCol = () => !matchMedia('(min-width:820px)').matches;    // one column: a phone, or a narrow window
+let listOpen = !oneCol();      // a wide screen has the room to show the tree; its body is only built when open
 function renderBuild() {
   const wasOpen = [...document.querySelectorAll('#act details')].map(d => (d as HTMLDetailsElement).open);
-  listOpen = wasOpen[0] === true;
+  listOpen = wasOpen.length ? wasOpen[0] === true : listOpen;   // no details yet: keep the width-based default
   pos = Chess.default(); last = undefined; lastKey = undefined; lastSan = '';
   for (const u of line) { const m = parseUci(u)!; lastKey = key(pos); lastSan = makeSan(pos, m); pos.play(m); last = u; }
   show(); showNote('');
   const keys = Object.keys(cur!.moves);
   const mv = cur!.moves[key(pos)] || {};
-  msg(pos.isCheckmate() ? 'Checkmate.' : pos.isStalemate() ? 'Stalemate.' : pos.turn === cur!.color ? 'Play a move to save it.' : 'Prepare a reply.');
+  msg(pos.isCheckmate() ? 'Checkmate.' : pos.isStalemate() ? 'Stalemate.' : pos.turn === cur!.color ? '' : 'Prepare a reply.');
   $('#path').innerHTML = pathHtml(line);
   const here = key(pos), isMine = pos.turn === cur!.color;
   // the saved moves at this position are drawn on the board, not just written under it
@@ -1191,8 +1193,8 @@ function renderBuild() {
   const over = pos.isCheckmate() || pos.isStalemate();
   $('#act').innerHTML = `<div class="chips">${chips || (over ? '' : '<span class="chip slot" title="Play a move to save it here" aria-label="No moves saved here yet">＋</span>')}</div>
     ${editor}
-    <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">Undo</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">Redo</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
-    <details><summary>Lines and tree</summary>${lineList}</details>
+    <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">Undo</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">Redo</button><button data-act="reset" aria-label="Start position" title="Start position">⏮</button><button data-act="flip" aria-label="Flip board" title="Flip board">⇅</button></div>
+    <details${listOpen ? ' open' : ''}><summary>Lines and tree</summary>${lineList}</details>
     <details><summary>Paste or copy a line</summary>
       <textarea id="paste" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 — pasted from anywhere, variations and comments ignored"></textarea>
       <div class="row mini"><button data-act="paste" class="primary">Add from here</button><button data-act="copyline">Copy this line</button></div>
@@ -1223,7 +1225,6 @@ const LMODES: [LMode, string][] = [['walk', 'Walk'], ['drill', 'Drill'], ['time'
 const lmodeBar = () => `<div class="seg" role="tablist">${LMODES.map(([m, l]) => `<button data-act="lmode" data-u="${m}" class="${S.lmode === m ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 const bestOf = (k: 'drill' | 'time') => cur?.best?.[k] ?? 0;
 /** The single-column layout (phone, narrow tablet), where a 33-line list would push the task off the screen. */
-const oneCol = () => !matchMedia('(min-width:820px)').matches;
 let wListOpen = !oneCol();
 const setBest = (k: 'drill' | 'time', v: number) => { cur!.best ??= {}; if (v > (cur!.best[k] ?? 0)) { cur!.best[k] = v; save(); return true; } return false; };
 const ownKeys = () => Object.keys(cur!.moves).filter(k => k.split(' ')[1] === mine() && Object.keys(cur!.moves[k]).length);
@@ -1493,7 +1494,7 @@ function startWalkLine(i: number) {
   wBack = 0;
   wIdx = ((i % wLines.length) + wLines.length) % wLines.length;
   cur!.walk = wIdx; save();
-  session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); locked = false;
+  session++; line = []; last = undefined; lastKey = undefined; pos = Chess.default(); locked = false; hinted = false;
   walkPanel();
   { const nm = lineName(wLines[wIdx] ?? []); if (nm) showNote(`${nm}`); }
   if (wNotes) showNote(lineNotes(wLines[wIdx] ?? []) || 'No notes in this line yet.');
@@ -1506,9 +1507,10 @@ function walkDone() {
   locked = true; sfx('ok'); flash('ok'); show([], false);
   const notes = lineNotes(l ?? []);
   if (notes) showNote(notes);
-  msg(last ? `Line ${wIdx + 1} of ${wLines.length} done. All lines walked.` : `Line ${wIdx + 1} of ${wLines.length} done. Next line…`, 'ok');
+  msg(last ? `Line ${wIdx + 1} of ${wLines.length} done. All lines walked.` : `Line ${wIdx + 1} of ${wLines.length} done.`, 'ok');
   const tok = session;
-  setTimeout(() => { if (tok === session && S.lmode === 'walk' && mode === 'learn') startWalkLine(last ? 0 : wIdx + 1); }, last ? 1600 : 1100);
+  // roll on by itself only when the line came back clean: after a hint or a solve, stay put so it can be re-walked
+  if (!hinted) setTimeout(() => { if (tok === session && S.lmode === 'walk' && mode === 'learn') startWalkLine(last ? 0 : wIdx + 1); }, last ? 1600 : 1100);
 }
 
 function learnInit() {
@@ -1711,7 +1713,10 @@ function reviewNext() {
     : '';
   if (!queue.length) {
     pos = Chess.default(); line = []; last = undefined; lastKey = undefined; show([], false); showNote(''); $('#path').textContent = '';
-    msg(total ? `Session done. ${total} cards reviewed.` : 'All caught up. Nothing is due.', 'ok'); return;
+    const next = Object.values(cur?.cards ?? {}).map(c => +new Date(c.due)).filter(t => t > Date.now()).sort((a, b) => a - b)[0];
+    // nothing to ask: name the next card, and take the card controls away instead of leaving them dead
+    $('#act').innerHTML = next || total ? `<p class="dim">${total ? `Session done · ${total} cards.` : ''}${next ? ` Next card ${rel(new Date(next))}.` : ''}</p>` : '';
+    msg(total ? 'All caught up.' : 'Nothing due.', total ? 'ok' : ''); return;
   }
   const k = queue[0], e = parent.get(k); pos = fromKey(k); line = pathTo(k); last = e?.uci; lastKey = e?.from;
   $('#path').innerHTML = pathHtml(line); showNote(noteOf(lastKey, last)); show();
@@ -2237,7 +2242,7 @@ async function openLib() {
     const t: Rep = { id: '', name: '', color: p.color, moves: {}, cards: {}, notes: {} }; importInto(t, p.pgn);
     const own = Object.keys(t.moves).filter(k => k.split(' ')[1] === (p.color === 'white' ? 'w' : 'b')).length;
     const have = reps.some(r => r.src === p.id);
-    return `<div class="pack"><div class="packhead"><b>${esc(p.name)}</b><span class="pill">${p.color}</span></div><p class="dim">${esc(p.blurb)}</p><p class="stats">${own} positions to learn · ${Object.keys(t.notes!).length} notes · ${(() => { const n = walkLines(t).length; return have ? `${n} in the bundled pack` : `${n} lines`; })()}</p><div class="row"><button data-act="addpack" data-u="${p.id}" class="${have ? '' : 'primary'}">${have ? 'Add another copy' : 'Add to my repertoires'}</button>${have ? `<button data-act="updpack" data-u="${p.id}" class="primary">Update my copy</button>` : ''}</div></div>`;
+    return `<div class="pack" data-act="addpack" data-u="${p.id}" role="button" tabindex="0" aria-label="Add ${esc(p.name)} to my repertoires"><div class="packhead"><b>${esc(p.name)}</b><span class="pill">${p.color}</span></div><p class="dim blurb" title="${esc(p.blurb)}">${esc(p.blurb)}</p><div class="packfoot"><p class="stats">${own} positions · ${Object.keys(t.notes!).length} notes · ${(() => { const n = walkLines(t).length; return have ? `${n} in the bundled pack` : `${n} lines`; })()}</p>${have ? `<span class="packacts"><button data-act="addpack" data-u="${p.id}">Another copy</button><button data-act="updpack" data-u="${p.id}" class="primary">Update mine</button></span>` : ''}</div></div>`;
   }).join('');
   $('#lib').showModal();
 }
@@ -2347,7 +2352,7 @@ function openSettings() {
   $('#s-ems').value = String(S.engineMs); $('#s-newp').value = S.newPuzzles; $('#s-win').value = String(S.window); $('#s-imin').value = S.importMin; $('#s-imax').value = S.importMax; $('#s-icnt').value = S.importCount;
   $('#s-pinfo').textContent = `${STARTER.length + TRAPS.length + LICHESS.length} built in (${TRAPS.length} repertoire traps, ${LICHESS.length} from the Lichess database) · ${imported.length} imported · rating ${Math.round(pstats.rating)}`;
   $('#s-build').textContent = `Version ${__APP_VERSION__} · Build ${__BUILD__}`;
-  $('#s-info').textContent = `${reps.length} repertoires · ${reps.reduce((a, r) => a + Object.keys(r.cards).length, 0)} cards scheduled. Data stays on this device.`;
+  $('#s-info').textContent = `${reps.length} ${reps.length === 1 ? 'repertoire' : 'repertoires'} · ${reps.reduce((a, r) => a + Object.keys(r.cards).length, 0)} cards scheduled. Data stays on this device.`;
   showFileState();
   renderPreview();
   $('#set').showModal();
@@ -2515,6 +2520,7 @@ document.addEventListener('click', e => {
   else if (a === 'wline') startWalkLine(+u);
   else if (a === 'wsolve') {
     if (S.lmode !== 'walk' || mode !== 'learn' || locked || !cur || pos.turn !== cur.color) return;
+    hinted = true;
     const us = Object.keys(cur.moves[key(pos)] || {});
     const want = wLines[wIdx]?.[line.length];
     const u = want && us.includes(want) ? want : us[0];
@@ -2678,6 +2684,12 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && !typing && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); return void doRedo(); }
   if (typing) return;
   if (e.key === '?') return void $('#keys').showModal();
+  if (e.key === '/') { const f = document.querySelector<HTMLInputElement>('#linefilter'); if (f) { e.preventDefault(); f.focus(); } return; }
+  if (/^[1-6]$/.test(e.key) && !(mode === 'review' && reviewGrade && !reviewGrade.done)) {
+    const want = (['build', 'learn', 'review', 'tactics', 'lessons', 'endgames'] as const)[+e.key - 1];
+    if (cur || want === 'tactics' || want === 'lessons' || want === 'endgames') { e.preventDefault(); enter(want); }
+    return;
+  }
   if (!cur && opening(mode)) return;
   if (e.key === 'Escape') {
     if (noteEditId) { noteEditId = undefined; renderBuild(); return; }
@@ -2695,6 +2707,13 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'h' && mode !== 'build') $('[data-act=hint]')?.click();
   else if (mode === 'review' && reviewGrade && !reviewGrade.done && ['1', '2', '3', '4'].includes(e.key)) { e.preventDefault(); applyReviewGrade(+e.key as Rating); }
   else if ((e.key === 'Enter' || e.key === ' ') && $('[data-act=next]')) { e.preventDefault(); reviewNext(); }
+});
+// the pack cards are click targets, so give them the keyboard too
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const card = (e.target as HTMLElement)?.closest?.('.pack[data-act]') as HTMLElement | null;
+  if (!card) return;
+  e.preventDefault(); card.click();
 });
 $('#rep').addEventListener('change', (e: any) => { cur = reps.find(r => r.id === e.target.value); save(); enter(mode); });
 $('#file').addEventListener('change', async (e: any) => {
