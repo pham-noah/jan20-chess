@@ -5,6 +5,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import mark from './mark.svg?raw';
 import type { Pack } from './library';
+import { checkForUpdate, installUpdate } from './update';
 import { Chess } from 'chessops/chess';
 import type { Color } from 'chessops/types';
 import { parseFen, makeFen } from 'chessops/fen';
@@ -2308,13 +2309,34 @@ function previewFrom(target: EventTarget | null) {
   last = null; show([], false);
 }
 
+let updBusy = false;
+/** asked for from Settings, never on launch: one network call per install is one more than a chess app needs */
+async function runUpdateCheck() {
+  const out = $('#s-upd'), btn = document.querySelector<HTMLButtonElement>('[data-act="upd"]');
+  if (updBusy) return; updBusy = true; (btn as any).disabled = true;
+  try {
+    out.textContent = 'Checking…';
+    const r = await checkForUpdate(__APP_VERSION__);
+    if (r.kind === 'failed') { out.textContent = 'GitHub could not be reached.'; return; }
+    if (r.kind === 'current') { out.textContent = `${__APP_VERSION__} is the newest version.`; return; }
+    // in a browser or the PWA there is no installer to open: say where it is instead of failing at the last step
+    if (!NATIVE) { out.textContent = `Version ${r.release.version} is ready at ${r.release.page}`; return; }
+    out.textContent = 'Downloading…';
+    const done = await installUpdate(r.release, f => { out.textContent = `Downloading… ${Math.round(f * 100)}%`; });
+    out.textContent =
+      done.kind === 'installing' ? `Version ${r.release.version} is ready: say yes to the Android prompt.`
+      : done.kind === 'needs-permission' ? 'Allow Jan20 to install unknown apps in the screen that just opened, then press again.'
+      : `The download did not finish. ${done.why}`;
+  } finally { updBusy = false; (btn as any).disabled = false; }
+}
+
 function openSettings() {
   $('#s-new').value = S.newCap; $('#s-ret').value = String(S.retention); $('#s-theme').value = S.theme; $('#s-delay').value = String(S.learnDelay);
   $('#s-san').checked = S.san; $('#s-install').hidden = !deferredInstall; $('#s-expl').checked = S.explain; $('#s-app').value = S.appearance; $('#s-pieces').value = S.pieces; $('#s-sound').checked = S.sound;
   $('#s-coords').checked = S.coords; $('#s-anim').checked = S.anim; $('#s-hap').checked = S.haptics;
   $('#s-ems').value = String(S.engineMs); $('#s-newp').value = S.newPuzzles; $('#s-win').value = String(S.window); $('#s-imin').value = S.importMin; $('#s-imax').value = S.importMax; $('#s-icnt').value = S.importCount;
   $('#s-pinfo').textContent = `${STARTER.length + TRAPS.length + LICHESS.length} built in (${TRAPS.length} repertoire traps, ${LICHESS.length} from the Lichess database) · ${imported.length} imported · rating ${Math.round(pstats.rating)}`;
-  $('#s-build').textContent = `Build ${__BUILD__}`;
+  $('#s-build').textContent = `Version ${__APP_VERSION__} · Build ${__BUILD__}`;
   $('#s-info').textContent = `${reps.length} repertoires · ${reps.reduce((a, r) => a + Object.keys(r.cards).length, 0)} cards scheduled. Data stays on this device.`;
   showFileState();
   renderPreview();
@@ -2373,6 +2395,7 @@ document.addEventListener('click', e => {
   const pickFile = (m: typeof fileMode) => { fileMode = m; $('#file').accept = m === 'pgn' ? '.pgn,.txt' : m === 'csv' ? '.csv,.txt' : '.json'; $('#file').click(); };
   if (a === 'new') openDlg('new');
   else if (a === 'settings') openSettings();
+  else if (a === 'upd') runUpdateCheck();
   else if (a === 'openlib') { document.querySelectorAll('dialog[open]').forEach((d: any) => d.close('cancel')); openLib(); }
   else if (a === 'addpack') loadPacks().then(P => addPack(P.find(p => p.id === u)!));
   else if (a === 'updpack') loadPacks().then(P => updatePack(P.find(p => p.id === u)!));

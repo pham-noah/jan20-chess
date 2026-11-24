@@ -11,7 +11,7 @@ const stamp = `${version}+${sha} (${localISO()})`;
 
 export default defineConfig({
   base: './',
-  define: { __BUILD__: JSON.stringify(stamp) },
+  define: { __BUILD__: JSON.stringify(stamp), __APP_VERSION__: JSON.stringify(version) },
   plugins: [VitePWA({
     registerType: 'autoUpdate',
     injectRegister: null,          // registered by hand in main.ts, and only over http(s)
