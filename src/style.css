@@ -200,7 +200,6 @@ body[data-mode=lessons] #act label.field{display:none}
 .lesson:hover{border-color:var(--accent)}
 .lesson .lname{font-weight:700;font-size:.95rem}
 .lesson .lidea{grid-column:1;font-size:.84rem;color:var(--fg);opacity:.9;line-height:1.35}
-.lesson .llook{grid-column:1;font-size:.78rem;color:var(--dim);line-height:1.35;margin-top:2px}
 .lesson .lstat{grid-column:2;grid-row:1;font-size:.72rem;color:var(--dim);white-space:nowrap}
 .kbdhint{font-size:.78rem;margin:2px 0 8px;line-height:1.4}
 .setprev{display:flex;justify-content:center;margin:6px 0 12px}
@@ -284,6 +283,16 @@ fieldset{border:0;padding:0;margin:0 0 14px;display:flex;gap:18px}
 fieldset input{width:auto}
 #dlib{margin-bottom:12px;width:100%}
 dialog .row{justify-content:flex-end}
+/* A dialog's title stays put while the body scrolls, with Close always in reach. */
+.dlghead{position:sticky;top:-22px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel);margin:-22px 0 10px;padding:22px 0 8px}
+.dlghead h2{margin:0}
+.dlghead .icon{width:38px;height:38px;font-size:1.1rem}
+/* The line list under the walkthrough folds away on a phone, so the task stays on the first screen. */
+.alllines>summary{cursor:pointer;margin:10px 0 6px;font:650 .8rem/1.2 var(--sans);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;list-style:none}
+.alllines>summary::-webkit-details-marker{display:none}
+.alllines>summary::before{content:'▸ ';display:inline-block;transition:transform .15s}
+.alllines[open]>summary::before{transform:rotate(90deg)}
+.alllines[open]>summary{margin-bottom:10px}
 
 /* ---------- Desktop ---------- */
 @media(min-width:820px){
@@ -344,7 +353,7 @@ body[data-mode=review] #strip{order:9}
 .tour{list-style:none;margin:14px 0;padding:0;display:grid;gap:10px}
 .tour li{background:var(--raise);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .tour b{display:block;font:620 1rem var(--serif);margin-bottom:2px}
-.keys{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0 0 12px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;align-items:start;margin:0 0 12px}
 .keys dt{font:650 .85rem var(--sans);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:2px 9px;justify-self:start}
 .keys dd{margin:0;color:var(--dim)}
 @media(min-width:820px){#toast{left:auto;right:22px;bottom:22px;transform:none;max-width:min(38vw,420px)}}

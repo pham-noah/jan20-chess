@@ -7,7 +7,7 @@ export type Pack = { id: string; name: string; color: 'white' | 'black'; blurb: 
 
 export const PACKS: Pack[] = [
   { id: 'italian', name: 'Italian Game', color: 'white', pgn: pgnOf('italian'),
-    blurb: 'Giuoco Pianissimo plans against ...Bc5, plus Two Knights (4.d3 and 4.Ng5) and Hungarian set-ups. Plus engine-suggested sidelines.' },
+    blurb: 'Forcing lines only: the Fried Liver after 3...Nf6, 5.d4 against 3...Bc5, 4.d4 against the Hungarian.' },
   { id: 'evans', name: 'Evans Gambit', color: 'white', pgn: pgnOf('evans'),
     blurb: 'Accepted lines (Normal Position, Morphy, Goering, Ulvestad, Lasker, Tartakower, Mieses, Compromised) and the Declined 4...Bb6. Plus engine-suggested sidelines.' },
   { id: 'halloween', name: 'Halloween Gambit', color: 'white', pgn: pgnOf('halloween'),

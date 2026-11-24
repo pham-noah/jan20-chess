@@ -61,9 +61,10 @@
   <h2 id="w-t">Welcome to Jan20</h2>
   <p class="dim">Openings, tactics and endgames. Everything stays on this device.</p>
   <ul class="tour">
-    <li id="w-modes"><b>Editor, Learn, Review</b> Add lines, walk them, then review them on a spaced-repetition schedule. Drill, Time and Arena modes are in Learn.</li>
-    <li><b>Tactics</b> Rated puzzles that adapt to you. Import the full Lichess set later in Settings.</li>
-    <li><b>Endgames</b> Practise against Stockfish. Mistakes are taken back so you can try again.</li>
+    <li id="w-modes"><b>Editor, Learn, Review</b> Write lines, walk them, then get them back on a schedule.</li>
+    <li><b>Tactics</b> Rated puzzles that adjust to you.</li>
+    <li><b>Lessons</b> 33 ideas, three steps each: a plain example, a harder one, a real game.</li>
+    <li><b>Endgames</b> Against Stockfish, and a mistake is taken back.</li>
   </ul>
   <div class="row"><button data-act="closedlg">Maybe later</button><button data-act="openlib" class="primary" autofocus>Add starter lines</button></div>
 </dialog>
@@ -81,7 +82,7 @@
   <div class="row"><button type="button" data-act="closedlg">Close</button></div>
 </dialog>
 <dialog id="set">
-  <h2>Settings</h2>
+  <div class="dlghead"><h2>Settings</h2><button type="button" class="icon" data-act="closedlg" aria-label="Close settings" title="Close (Esc)">✕</button></div>
   <div class="setprev" id="setprev" aria-hidden="true"></div>
   <label class="field">Appearance
     <select id="s-app"><option value="auto">Match my device</option><option value="dark">Dark</option><option value="light">Light</option></select></label>

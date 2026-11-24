@@ -212,6 +212,29 @@ TACTICS: 1,245 PUZZLES FROM LICHESS, AND ARROWS THAT MATCH THE CATEGORY (v21)
 - `test:logic` now replays **all 1,452** puzzles (167 starter + 40 repertoire traps + 1,245 Lichess) and requires every
   stored move to be legal; it also tolerates lines that end on the opponent's reply.
 
+SAY IT ONCE, AND ON THE FIRST SCREEN (v28)
+- **The footer strip carries only what the panel above it does not.** Tactics printed RATING/STREAK/SOLVED as tiles and
+  again as "1200 rating · — 7-day (0) · 0 streak"; the strip is now "0 today · — 7 days". Review's "Card 1 of 15" sat
+  beside "0 due today" — a fresh card is new, not due — so it reads "0 due · 15 new · 0 seen · 0 week". Endgames says
+  "16 to learn" while a drill is on the board instead of "0 due".
+- **Tactics' own buttons are on the first screen.** Hint / Solution / Skip came after the puzzle-size pickers and a theme
+  dropdown, at y 817-861 on a 390x844 phone — under the tab bar at 763. Under the tiles they measure 676-720.
+- **Hovering a lesson draws its position.** The index was 33 cards of prose beside a board that never moved. Each card
+  carries its first step's FEN in `data-prev`, the mechanism Endgames already used; leaving the list restores the start
+  position. With the board doing that work, the second grey line on every card is gone and so is the panel's
+  "Each one explains the idea" line: the count and the group label say what the list is.
+- **Learn's line list folds away on a phone.** Expanded under the mode buttons it made a 2,980 px page on an 844 px
+  screen. It is a `<details>`, open on a desktop and closed in one column, so the page is 936 px and the move controls
+  sit at y 658-702; it filters once there are more than 8 lines.
+- **Settings closes from the title bar**, which sticks while the body scrolls, instead of a "Done" button below a dialog
+  that opens scrolled to Appearance.
+- **Editor counts once**: positions / yours / saved here / ends below in the strip, and the ↶ ↷ glyphs are labelled Undo
+  and Redo.
+- **Small print, less of it**: the shortcuts sheet's key caps hug their text instead of stretching to the height of each
+  description, the welcome tour names the 33 lessons without telling you to hover, "Show solution" is Solution and
+  "Start over" is Restart, and the Italian pack's blurb sells the forcing lines it ships (Fried Liver, 5.d4) instead of
+  the quiet 5.d3 Pianissimo that was rejected.
+
 NO EXPORT ON THE WEB EITHER (v20)
 - The web build can write a **real file on disk**: Settings → "Link a file…" (once), pick `jan20-repertoire.json`, and
   from then on every change is written into it — same as the desktop app. This needs the File System Access API, i.e.

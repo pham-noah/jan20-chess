@@ -94,7 +94,9 @@ with sync_playwright() as p:
     # Lessons: a catalogue that explains, and opens the thing that practises it
     pg.click('[data-m=lessons]'); pg.wait_for_timeout(800)
     check('lessons: the tab lists ideas with instructions', pg.locator('.lesson').count() >= 20, str(pg.locator('.lesson').count()))
-    check('lessons: each one says what to look for', pg.locator('.lesson .llook').count() >= 20, str(pg.locator('.lesson .llook').count()))
+    check('lessons: each card names its idea in one line', pg.locator('.lesson .lidea').count() >= 20, str(pg.locator('.lesson .lidea').count()))
+    check('lessons: the card carries the position it opens on, for the hover preview',
+          pg.locator('.lesson[data-prev]').count() >= 20, str(pg.locator('.lesson[data-prev]').count()))
     check('lessons: endgames are taught here too', pg.locator('.lesson:has-text("Lucena")').count() == 1)
     pg.click('[data-u=fork]'); pg.wait_for_timeout(900)
     check('lessons: a lesson opens as a chapter in this tab, not a jump to Tactics',

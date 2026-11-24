@@ -737,26 +737,31 @@ const queueKeys = () => {
   const fresh = shuffle(all.filter(k => !cur!.cards[k])).slice(0, S.newCap);
   return shuffle([...due, ...fresh]);
 };
+const queueFresh = () => queueKeys().filter(k => !cur?.cards[k]).length;   // never-seen cards in today's queue
 const dueCount = (store: Record<string, any>) => Object.keys(store).filter(k => isDue(store[k])).length;
 /** Three facts about where you are, pinned to the foot of the panel so a short mode is not a blank column. */
 function renderStrip() {
   const el = $('#strip') as HTMLElement | null; if (!el) return;
   const bits: [string, string][] = [];
   if (mode === 'build' && cur) {
-    bits.push([String(Object.keys(cur.moves).length), 'positions'], [String(Object.keys(cur.moves).filter(k => k.split(' ')[1] === mine()).length), 'yours'], [String(walkLines().length), 'lines'], [String(cur.bad ? Object.keys(cur.bad).length : 0), 'flagged']);
+    const here = key(pos), flagged = cur.bad ? Object.keys(cur.bad).length : 0;
+    bits.push([String(Object.keys(cur.moves).length), 'positions'], [String(Object.keys(cur.moves).filter(k => k.split(' ')[1] === mine()).length), 'yours'],
+      [String(Object.keys(cur.moves[here] ?? {}).length), 'saved here'], [String(leavesUnder(here)), 'ends below']);
+    if (flagged) bits.push([String(flagged), 'flagged']);
   } else if (mode === 'learn' && cur) {
     const ls = wLines.length ? wLines : walkLines();
     bits.push([String(ls.filter(seenLine).length), 'discovered'], [String(ls.length), 'lines'], [String(bestOf('drill')), 'best streak']);
   } else if (mode === 'review' && cur) {
     const h = cur.hist ?? {}, days = Object.keys(h).sort().slice(-7);
     const week = days.reduce((a, d) => a + h[d], 0);
-    bits.push([String(dueCount(cur.cards)), 'due today'], [String(Object.keys(cur.cards).length), 'seen before'], [String(week), 'reviews this week']);
+    bits.push([String(dueCount(cur.cards)), 'due'], [String(queueFresh()), 'new'], [String(Object.keys(cur.cards).length), 'seen'], [String(week), 'week']);
   } else if (mode === 'tactics') {
-    const w = weekAccuracy();
-    bits.push([String(Math.round(pstats.rating)), 'rating'], [w.n ? `${w.pct}%` : '—', `7-day (${w.n})`], [String(pstats.streak), 'streak']);
+    const w = weekAccuracy(), td = (pstats.hist ?? {})[today()];
+    // rating and streak are the tiles above: only the day and the week belong down here
+    bits.push([String(td ? td.ok : 0), 'today'], [w.n ? `${w.pct}%` : '—', '7 days']);
   } else if (mode === 'endgames') {
     const defs = allDrills();
-    bits.push([String(defs.filter(d => ecards[d.id]).length), 'practised'], [String(defs.length), 'drills'], [String(defs.filter(d => ecards[d.id] && isDue(ecards[d.id])).length), 'due']);
+    bits.push([String(defs.filter(d => ecards[d.id]).length), 'practised'], [String(defs.filter(d => !ecards[d.id]).length), 'to learn'], [String(defs.filter(d => ecards[d.id] && isDue(ecards[d.id])).length), 'due']);
   }
   el.hidden = !bits.length;
   el.innerHTML = bits.map(([v, l]) => `<span><b>${esc(v)}</b>${esc(l)}</span>`).join('');
@@ -1173,8 +1178,6 @@ function renderBuild() {
   renderBoardMarks();
   const lines = listOpen ? walkLines() : [];
   const lhtml = !listOpen || treeView ? [] : lines.map((l, i) => lineHtml(l, lines[i - 1]));
-  const through = lines.filter(l => line.every((u, i) => l[i] === u)).length;
-  const below = leavesUnder(here);
   const others = reps.filter(r => r.id !== cur!.id);
   const bad = weakSpots();
   const plain = !listOpen || treeView ? [] : lhtml.map(h => h.replace(/<[^>]*>/g, ''));
@@ -1188,8 +1191,7 @@ function renderBuild() {
   const over = pos.isCheckmate() || pos.isStalemate();
   $('#act').innerHTML = `<div class="chips">${chips || (over ? '' : '<span class="chip slot" title="Play a move to save it here" aria-label="No moves saved here yet">＋</span>')}</div>
     ${editor}
-    <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
-    <p class="stats">here: ${Object.keys(mv).length} saved move${Object.keys(mv).length === 1 ? '' : 's'} · ${through} line${through === 1 ? '' : 's'} through · ${below} ends below</p>
+    <div class="row"><button data-act="mprev" aria-label="Previous move" title="Previous move (←)">‹ Move</button><button data-act="mnext" aria-label="Next move" title="Next move (→)">Move ›</button><button data-act="undo2" aria-label="Undo" title="Undo (Ctrl+Z)">Undo</button><button data-act="redo2" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">Redo</button><button data-act="reset">Start</button><button data-act="flip">Flip board</button></div>
     <details><summary>Lines and tree</summary>${lineList}</details>
     <details><summary>Paste or copy a line</summary>
       <textarea id="paste" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 — pasted from anywhere, variations and comments ignored"></textarea>
@@ -1220,6 +1222,9 @@ function importPgn(text: string) {
 const LMODES: [LMode, string][] = [['walk', 'Walk'], ['drill', 'Drill'], ['time', 'Time'], ['arena', 'Arena']];
 const lmodeBar = () => `<div class="seg" role="tablist">${LMODES.map(([m, l]) => `<button data-act="lmode" data-u="${m}" class="${S.lmode === m ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 const bestOf = (k: 'drill' | 'time') => cur?.best?.[k] ?? 0;
+/** The single-column layout (phone, narrow tablet), where a 33-line list would push the task off the screen. */
+const oneCol = () => !matchMedia('(min-width:820px)').matches;
+let wListOpen = !oneCol();
 const setBest = (k: 'drill' | 'time', v: number) => { cur!.best ??= {}; if (v > (cur!.best[k] ?? 0)) { cur!.best[k] = v; save(); return true; } return false; };
 const ownKeys = () => Object.keys(cur!.moves).filter(k => k.split(' ')[1] === mine() && Object.keys(cur!.moves[k]).length);
 const fast = () => S.lmode === 'drill' || S.lmode === 'time';
@@ -1475,11 +1480,13 @@ function walkPanel() {
     return `<button class="item ${i === wIdx ? 'on' : ''} ${ok ? 'done' : ''}" data-act="wline" data-u="${i}" data-line="${esc(plain)}"><span>${i + 1}.${ok ? ' <b class="tick">✓</b>' : ''}</span><span class="walk">${wHtml![i]}</span></button>`;
   }).join('');
   $('#act').innerHTML = `${lmodeBar()}
-    <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="wnotes" class="${wNotes ? 'on' : ''}" title="Show every note in this line">Notes</button><span class="grow"></span><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" aria-label="Next line">Next line ›</button><button data-act="restart">Start over</button></div>
-    
-    <h3>All lines (${wLines.length})</h3>
+    <div class="row"><button data-act="wback" aria-label="Previous move" title="Previous move (←)">‹</button><button data-act="wfwd" aria-label="Next move" title="Next move (→)">›</button><button data-act="hint">Hint</button><button data-act="wsolve">Solve</button><button data-act="wnotes" class="${wNotes ? 'on' : ''}" title="Show every note in this line">Notes</button><span class="grow"></span><button data-act="lprev" aria-label="Previous line">‹ Line</button><button data-act="wnext" aria-label="Next line">Next line ›</button><button data-act="restart">Restart</button></div>
+    <details class="alllines"${wListOpen ? ' open' : ''}><summary>All lines (${wLines.length})</summary>
     ${wLines.length > 8 ? '<input id="linefilter" placeholder="Filter lines — a move, like Bb5" aria-label="Filter lines by move"><span class="hintline" id="linecount"></span>' : ''}
-    <div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div>`;
+    <div class="list">${rows || '<p class="dim">No moves yet. Add lines in the Editor.</p>'}</div></details>`;
+  // closed by default on a phone so the mode bar and the move controls stay on the first screen
+  const wd = $('#act details.alllines') as HTMLDetailsElement | null;
+  if (wd) { wListOpen = wd.open; wd.addEventListener('toggle', () => { wListOpen = wd.open; }); }
 }
 function startWalkLine(i: number) {
   if (!wLines.length) return;
@@ -1830,7 +1837,7 @@ function tacticsNext() {
   const done = tTotal - tQueue.length;
   $('#path').textContent = `Puzzle ${done + 1} of ${tTotal} · rated ${p.rating} (you ${Math.round(pstats.rating)}) · ${S.ptheme === 'all' ? 'all themes' : humanTheme(S.ptheme)}`;
   msg('Get ready…');
-  $('#act').innerHTML = `${tTiles()}${tSetRow()}${themeSelect()}<div class="row"><button data-act="thint">Hint</button><button data-act="tsolution">Show solution</button><button data-act="tskip">Skip</button></div>`;
+  $('#act').innerHTML = `${tTiles()}<div class="row"><button data-act="thint">Hint</button><button data-act="tsolution">Solution</button><button data-act="tskip">Skip</button></div>${tSetRow()}${themeSelect()}`;
   setTimeout(() => {
     if (tok !== session || !tRun) return;
     const u = tRun.setupMove(); pos = tRun.pos; if (u) last = u;
@@ -2080,7 +2087,7 @@ function lessonChrome(force = false) {
 function lessonsInit() {
   lessonTok++; lCtx = undefined; setSize = undefined;
   mode = 'lessons'; session++; line = []; last = undefined; pos = Chess.default(); show([], false);
-  $('#bar').hidden = true; showNote(''); msg('Pick a lesson. Each one explains the idea, then practises it.');
+  $('#bar').hidden = true; showNote(''); msg('');
   const solved = pstats.hist ?? {};
   const groups = [...new Set(LESSONS.map(l => l.group))];
   const done = (l: Lesson) => {
@@ -2089,12 +2096,15 @@ function lessonsInit() {
   };
   $('#path').textContent = `${LESSONS.length} lessons · ${LESSONS.filter(l => l.theme).length} tactical ideas · ${LESSONS.filter(l => l.drill).length} endgames`;
   $('#act').innerHTML = groups.map(g => `<h3>${esc(g)}</h3><div class="lessons">` +
-    LESSONS.filter(l => l.group === g).map(l => `<button class="lesson" data-act="lesson" data-u="${l.id}">
+    LESSONS.filter(l => l.group === g).map(l => {
+      // hovering a lesson puts its first position on the board: 33 cards of prose should not be read blind
+      const pf = l.steps.length ? lessonFen(l.steps[0]) : undefined;
+      return `<button class="lesson" data-act="lesson" data-u="${l.id}"${pf ? ` data-prev="${esc(pf)}"` : ''}>
       <span class="lname">${esc(l.name)}</span>
       <span class="lidea">${esc(l.idea)}</span>
-      <span class="llook">${esc(l.look)}</span>
       ${done(l) ? `<span class="lstat">${esc(done(l))}</span>` : ''}
-    </button>`).join('') + '</div>').join('');
+    </button>`;
+    }).join('') + '</div>').join('');
 }
 /** A drill to practise now: one that is due, else one never tried, else any. */
 function randomDrill(): DrillDef {
@@ -2378,6 +2388,14 @@ function enter(m0: Mode) {
 new MutationObserver(() => lessonChrome()).observe($('#act'), { childList: true });
 document.addEventListener('pointerover', e => previewFrom(e.target));
 document.addEventListener('focusin', e => previewFrom(e.target));
+/** Leaving the lessons index puts the start position back, so the board is not stuck on the last card hovered. */
+document.addEventListener('pointerout', e => {
+  if (mode !== 'lessons' || lCtx || !previewFen) return;
+  const from = (e.target as HTMLElement | null)?.closest?.('[data-prev]');
+  const to = (e.relatedTarget as HTMLElement | null)?.closest?.('[data-prev]');
+  if (!from || to) return;
+  previewFen = null; line = []; last = undefined; pos = Chess.default(); show([], false);
+});
 document.addEventListener('click', e => {
   const t = e.target as HTMLElement;
   const tab = t.closest('[data-m]') as HTMLElement | null;
@@ -2583,7 +2601,7 @@ document.addEventListener('dragstart', e => {
 });
 document.addEventListener('toggle', (e) => {
   const d = e.target as HTMLDetailsElement;
-  if (!d?.matches?.('details') || !d.closest('#act')) return;
+  if (mode !== 'build' || !d?.matches?.('details') || !d.closest('#act')) return;   // the editor's own line tree, never Learn's line list
   if (d === document.querySelector('#act details') && d.open !== listOpen) { listOpen = d.open; renderBuild(); }
 }, true);
 document.addEventListener('dragend', () => { dragSeg = undefined; document.querySelectorAll('.tseg.dragging,.tseg.over').forEach(x => x.classList.remove('dragging', 'over')); });
