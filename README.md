@@ -26,8 +26,8 @@ Arena     play a game from your own line; the opponent follows your book, then p
 
 | Platform | How |
 |---|---|
-| Windows | `Jan20_0.1.0_x64-setup.exe` or the `.msi` from [Releases](../../releases) |
-| Android | `Jan20-0.1.0-android.apk` from Releases — arm64, Android 8+ |
+| Windows | `Jan20_0.1.0_x64-setup.exe` or the `.msi` from [Releases](../../releases) — Windows 10+ x64 |
+| Android | `Jan20_0.1.0.apk` from Releases — Android 7.0+ (minSdk 24) |
 | Web / PWA | open the hosted build and use the browser's install button |
 
 The update check in Settings → *Check for updates* reads the newest GitHub release and, on Android,
