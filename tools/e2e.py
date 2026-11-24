@@ -189,8 +189,13 @@ with sync_playwright() as p:
                 check('tactics: a wrong move is rejected (graded as a miss)', wrong_tested, pg.inner_text('#msg')[:40] + pg.inner_text('#note')[:40])
         for step in range(6):
             if not ensure_puzzle(pg): break                  # graded / out of puzzles: step on first
-            pg.evaluate("() => document.querySelector('[data-act=thint]')?.click()"); pg.wait_for_timeout(250)
-            u = arrow_uci(pg); drag(pg, u); pg.wait_for_timeout(300)
+            before = (arrows(pg), arrow_uci(pg))
+            pg.evaluate("() => document.querySelector('[data-act=thint]')?.click()")
+            # the hint is the engine's answer: on a slow runner the arrow is not drawn yet at 250 ms,
+            # and dragging nothing looks like the app refusing the move
+            if not until(pg, lambda: (arrows(pg), arrow_uci(pg)) != before, timeout=9000): break
+            u = arrow_uci(pg); drag(pg, u)
+            until(pg, lambda: pg.locator('[data-act=tnext]').count() > 0, timeout=5000)
             if pg.locator('[data-act=tnext]').count(): break
             try:      # a three-move puzzle needs two answers: try again rather than fail the run
                 pg.wait_for_function("document.querySelector('#msg').textContent.includes('Find the next') || document.querySelector('[data-act=tnext]')", timeout=6000)
@@ -200,7 +205,7 @@ with sync_playwright() as p:
         if pg.locator('[data-act=tnext]').count(): solved += 1        # following the hints finished it
         if pg.locator('[data-act=tnext]').count():
             pg.evaluate("() => document.querySelector('[data-act=tnext]')?.click()"); pg.wait_for_timeout(1000)
-    check('tactics: puzzles solved by following hints (hint-solved)', solved >= 3, solved)
+    check('tactics: puzzles solved by following hints (hint-solved)', solved >= 3, f"{solved} | {pg.inner_text('#msg')[:40]}")
     check('tactics: rating tiles shown', pg.locator('.tile').count() == 3 and 'rating' in pg.inner_text('#act').lower(), pg.inner_text('#act')[:60])
     ensure_puzzle(pg)                      # the loop can leave a graded puzzle on screen
     # a deliberately wrong move: pick any legal-looking drag from a piece of the side to move is hard; use Show solution path
